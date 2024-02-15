@@ -58,6 +58,8 @@ name = "dslab-kubernetriks"
 version = "0.1.0"
 dependencies = [
  "dslab-core",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

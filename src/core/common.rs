@@ -1,6 +1,16 @@
+use serde::Deserialize;
 
-#[derive(Default, Debug)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct Resources {
-    cpu: u32, // in millicores
-    memory: u64, // in bytes
+    pub cpu: u32, // in millicores
+    pub ram: u64, // in bytes
+}
+
+impl Default for Resources {
+    fn default() -> Self {
+        Self {
+            cpu: 0,
+            ram: 0,
+        }
+    }
 }

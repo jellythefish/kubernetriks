@@ -5,3 +5,6 @@ edition = "2021"
 
 [dependencies]
 dslab-core = { git = "https://github.com/osukhoroslov/dslab", rev = "4ea3b3a" }
+
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0.113" }

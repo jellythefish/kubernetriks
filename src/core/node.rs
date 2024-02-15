@@ -1,26 +1,40 @@
+//! Type definition for Node primitive of k8s cluster
+
+use serde::Deserialize;
+
 use std::collections::HashMap;
 
 use crate::core::common::Resources;
 
-#[derive(Default, Debug)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct Node {
-    allocatable: Resources,
+    id: u64,
     capacity: Resources,
-    state: NodeState,
+
+    #[serde(default)]
+    allocatable: Resources,
+
+    #[serde(default)]
     attributes: HashMap<String, String>,
+
+    #[serde(default)]
+    state: NodeState,
 }
 
 impl Node {
-    pub fn new() -> Self {
-        Node::default()
+    pub fn new(id: u64, capacity: Resources, attributes: HashMap<String, String>) -> Self {
+        Self {
+            id,
+            capacity,
+            allocatable: Default::default(),
+            attributes,
+            state: NodeState::Undefined,
+        }
     }
 }
 
-#[derive(Debug)]
-enum NodeState {
+#[derive(Default, Debug, Deserialize, PartialEq)]
+pub enum NodeState {
+    #[default]
     Undefined,
-}
-
-impl Default for NodeState {
-    fn default() -> Self { NodeState::Undefined }
 }

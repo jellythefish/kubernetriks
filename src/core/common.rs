@@ -8,9 +8,6 @@ pub struct Resources {
 
 impl Default for Resources {
     fn default() -> Self {
-        Self {
-            cpu: 0,
-            ram: 0,
-        }
+        Self { cpu: 0, ram: 0 }
     }
 }

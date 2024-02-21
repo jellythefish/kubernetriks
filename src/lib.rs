@@ -1,3 +1,3 @@
 pub mod core;
-pub mod trace;
 pub mod simulator;
+pub mod trace;

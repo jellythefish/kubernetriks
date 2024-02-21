@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use dslab_kubernetriks::trace::generic::{Trace, TraceEvent, TraceEventType};
-use dslab_kubernetriks::core::pod::Pod;
-use dslab_kubernetriks::core::node::Node;
 use dslab_kubernetriks::core::common::Resources;
+use dslab_kubernetriks::core::node::Node;
+use dslab_kubernetriks::core::pod::Pod;
+use dslab_kubernetriks::trace::generic::{Trace, TraceEvent, TraceEventType};
 
 #[test]
 fn test_deserialize_empty_trace_from_json() {
@@ -14,8 +14,8 @@ fn test_deserialize_empty_trace_from_json() {
     "#;
 
     let deserialized: Trace = serde_json::from_str(&trace_json).unwrap();
-    
-    let trace = Trace {events: vec![]};
+
+    let trace = Trace { events: vec![] };
     assert_eq!(trace, deserialized);
 }
 
@@ -85,7 +85,7 @@ fn test_deserialize_trace_from_json() {
 
     let trace = Trace {
         events: vec![
-            TraceEvent { 
+            TraceEvent {
                 timestamp: 0,
                 event_type: TraceEventType::CreatePod {
                     pod: Pod::new(
@@ -99,14 +99,12 @@ fn test_deserialize_trace_from_json() {
                             ram: 17179869184,
                         },
                         21000,
-                    )
-                }
+                    ),
+                },
             },
             TraceEvent {
                 timestamp: 432,
-                event_type: TraceEventType::RemovePod {
-                    pod_id: 42
-                }
+                event_type: TraceEventType::RemovePod { pod_id: 42 },
             },
             TraceEvent {
                 timestamp: 1345,
@@ -115,22 +113,20 @@ fn test_deserialize_trace_from_json() {
                         21,
                         Resources {
                             cpu: 16000,
-                            ram: 17179869184
+                            ram: 17179869184,
                         },
                         HashMap::from([
                             ("storage_type".to_string(), "ssd".to_string()),
                             ("proc_type".to_string(), "intel".to_string()),
-                        ])
-                    )
-                }
+                        ]),
+                    ),
+                },
             },
             TraceEvent {
                 timestamp: 4323,
-                event_type: TraceEventType::RemoveNode {
-                    node_id: 21
-                }
-            }
-        ]
+                event_type: TraceEventType::RemoveNode { node_id: 21 },
+            },
+        ],
     };
 
     assert_eq!(trace, deserialized);

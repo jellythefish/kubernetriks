@@ -2,14 +2,14 @@
 
 use serde::Deserialize;
 
-use crate::core::pod::Pod;
 use crate::core::node::Node;
+use crate::core::pod::Pod;
 
 /// Trace consists of timestamp-ordered events representing pod/node creation/removal.
-/// These events differ from events which are emitted by simulator's components. 
+/// These events differ from events which are emitted by simulator's components.
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Trace {
-    pub events: Vec<TraceEvent>
+    pub events: Vec<TraceEvent>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

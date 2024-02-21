@@ -1,6 +1,6 @@
 mod core;
-mod trace;
 mod simulator;
+mod trace;
 
 use crate::simulator::{run_simulator, SimulatorConfig};
 
@@ -21,7 +21,8 @@ fn main() {
             .canonicalize()
             .expect(&format!("no such config file {:?}", args.config_path))
     );
-    let config_yaml = std::fs::read_to_string(&args.config_path).expect("could not read config file");
+    let config_yaml =
+        std::fs::read_to_string(&args.config_path).expect("could not read config file");
     let config: SimulatorConfig = serde_yaml::from_str(&config_yaml).unwrap();
 
     run_simulator(config);

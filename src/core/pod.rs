@@ -16,7 +16,12 @@ pub struct Pod {
 }
 
 impl Pod {
-    pub fn new(id: u64, resources_request: Resources, resources_limit: Resources, running_duration: u64) -> Self {
+    pub fn new(
+        id: u64,
+        resources_request: Resources,
+        resources_limit: Resources,
+        running_duration: u64,
+    ) -> Self {
         Pod {
             id,
             resources_request,

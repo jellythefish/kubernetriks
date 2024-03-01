@@ -8,12 +8,10 @@ use dslab_kubernetriks::trace::generic::{Trace, TraceEvent, TraceEventType};
 #[test]
 fn test_deserialize_empty_trace_from_json() {
     let trace_json = r#"
-    {
-        "events": []
-    }
+    events: []
     "#;
 
-    let deserialized: Trace = serde_json::from_str(&trace_json).unwrap();
+    let deserialized: Trace = serde_yaml::from_str(&trace_json).unwrap();
 
     let trace = Trace { events: vec![] };
     assert_eq!(trace, deserialized);
@@ -21,67 +19,44 @@ fn test_deserialize_empty_trace_from_json() {
 
 #[test]
 fn test_deserialize_trace_from_json() {
-    let trace_json = r#"
-    {
-        "events": [
-            {
-                "timestamp": 0,
-                "event_type": {
-                    "CreatePod": {
-                        "pod": {
-                            "id": 42,
-                            "resources_request": {
-                                "cpu": 4000,
-                                "ram": 8589934592
-                            },
-                            "resources_limit": {
-                                "cpu": 8000,
-                                "ram": 17179869184
-                            },
-                            "running_duration": 21000
-                        }
-                    }
-                }
-            },
-            {
-                "timestamp": 432,
-                "event_type": {
-                    "RemovePod": {
-                        "pod_id": 42
-                    }
-                }
-            },
-            {
-                "timestamp": 1345,
-                "event_type": {
-                    "CreateNode": {
-                        "node": {
-                            "id": 21,
-                            "capacity": {
-                                "cpu": 16000,
-                                "ram": 17179869184
-                            },
-                            "attributes": {
-                                "storage_type": "ssd",
-                                "proc_type": "intel"
-                            }
-                        }
-                    }
-                }
-            },
-            {
-                "timestamp": 4323,
-                "event_type": {
-                    "RemoveNode": {
-                        "node_id": 21
-                    }
-                }
-            }
-        ]
-    }
+    // Enums serialize using YAML’s !tag syntax to identify the variant name.
+    // https://docs.rs/serde_yaml/latest/serde_yaml/#using-serde-derive
+    let trace_yaml = r#"
+    events:
+    - timestamp: 0
+      event_type:
+        !CreatePod
+          pod:
+            id: 42
+            resources_request:
+              cpu: 4000
+              ram: 8589934592
+            resources_limit:
+              cpu: 8000
+              ram: 17179869184
+            running_duration: 21000
+    - timestamp: 432
+      event_type:
+        !RemovePod
+          pod_id: 42
+    - timestamp: 1345
+      event_type:
+        !CreateNode
+          node:
+            id: 21
+            capacity:
+              cpu: 16000
+              ram: 17179869184
+            attributes:
+              storage_type: ssd
+              proc_type: intel
+    - timestamp: 4323
+      event_type:
+        !RemoveNode
+          node_id: 21
     "#;
 
-    let deserialized: Trace = serde_json::from_str(&trace_json).unwrap();
+    let deserialized: Trace = serde_yaml::from_str(&trace_yaml).unwrap();
 
     let trace = Trace {
         events: vec![

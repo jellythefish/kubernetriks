@@ -1,12 +1,12 @@
 //! Type definition for Node primitive of k8s cluster
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
 
 use crate::core::common::Resources;
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Node {
     id: u64,
     capacity: Resources,
@@ -33,7 +33,7 @@ impl Node {
     }
 }
 
-#[derive(Default, Debug, Deserialize, PartialEq)]
+#[derive(Default, Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum NodeState {
     #[default]
     Undefined,

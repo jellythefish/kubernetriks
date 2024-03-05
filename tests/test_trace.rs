@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use dslab_kubernetriks::core::common::Resources;
 use dslab_kubernetriks::core::node::Node;
 use dslab_kubernetriks::core::pod::Pod;
-use dslab_kubernetriks::trace::generic::{Trace, TraceEvent, TraceEventType};
+use dslab_kubernetriks::trace::generic::{GenericTrace, TraceEvent, TraceEventType};
 
 #[test]
 fn test_deserialize_empty_trace_from_json() {
@@ -11,9 +11,9 @@ fn test_deserialize_empty_trace_from_json() {
     events: []
     "#;
 
-    let deserialized: Trace = serde_yaml::from_str(&trace_json).unwrap();
+    let deserialized: GenericTrace = serde_yaml::from_str(&trace_json).unwrap();
 
-    let trace = Trace { events: vec![] };
+    let trace = GenericTrace { events: vec![] };
     assert_eq!(trace, deserialized);
 }
 
@@ -56,9 +56,9 @@ fn test_deserialize_trace_from_json() {
           node_id: 21
     "#;
 
-    let deserialized: Trace = serde_yaml::from_str(&trace_yaml).unwrap();
+    let deserialized: GenericTrace = serde_yaml::from_str(&trace_yaml).unwrap();
 
-    let trace = Trace {
+    let trace = GenericTrace {
         events: vec![
             TraceEvent {
                 timestamp: 0,

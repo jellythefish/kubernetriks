@@ -7,6 +7,9 @@ edition = "2021"
 dslab-core = { git = "https://github.com/osukhoroslov/dslab", rev = "4ea3b3a" }
 
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0.113"
 serde_yaml = "0.9.32"
+serde_type_name = "0.2.0"
+
 clap = { version = "4.5.0", features = ["derive"] }
+env_logger = "0.11.2"
+log = "0.4.21"

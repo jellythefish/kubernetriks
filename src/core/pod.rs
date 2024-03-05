@@ -1,10 +1,10 @@
 //! Type definition for Pod primitive in k8s cluster
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::core::common::Resources;
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Pod {
     id: u64,
     resources_request: Resources,
@@ -32,14 +32,8 @@ impl Pod {
     }
 }
 
-#[derive(Default, Debug, Deserialize, PartialEq)]
+#[derive(Default, Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub enum PodState {
     #[default]
     Undefined,
 }
-
-// // Pod events
-
-// struct PodCreatedEvent {
-
-// }

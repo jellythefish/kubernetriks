@@ -1,0 +1,32 @@
+events:
+- timestamp: 55
+  event_type:
+    !CreatePod
+      pod:
+        id: 42
+        resources_request:
+          cpu: 4000
+          ram: 8589934592
+        resources_limit:
+          cpu: 8000
+          ram: 17179869184
+        running_duration: 21000
+- timestamp: 245243
+  event_type:
+    !RemovePod
+      pod_id: 42
+- timestamp: 0
+  event_type:
+    !CreateNode
+      node:
+        id: 21
+        capacity:
+          cpu: 16000
+          ram: 17179869184
+        attributes:
+          storage_type: ssd
+          proc_type: intel
+- timestamp: 123
+  event_type:
+    !RemoveNode
+      node_id: 21

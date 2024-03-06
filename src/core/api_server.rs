@@ -14,20 +14,16 @@ use crate::core::events::{
 pub struct KubeApiServer {
     // Identifier of api server as a simulation component.
     id: Id,
-    // Identifier of etcd component.
-    etcd: Id,
-    // Identifiers of cluster nodes.
-    nodes: HashSet<Id>,
-
+    // Identifier of persistent storage component.
+    persistent_storage: Id,
     ctx: SimulationContext,
 }
 
 impl KubeApiServer {
-    pub fn new(etcd_id: Id, ctx: SimulationContext) -> Self {
+    pub fn new(persistent_storage_id: Id, ctx: SimulationContext) -> Self {
         Self {
             id: ctx.id(),
-            etcd: etcd_id,
-            nodes: HashSet::new(),
+            persistent_storage: persistent_storage_id,
             ctx,
         }
     }

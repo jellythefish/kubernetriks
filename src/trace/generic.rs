@@ -7,8 +7,8 @@ use serde::Deserialize;
 use crate::core::events::{
     CreateNodeRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
 };
-use crate::core::node::Node;
-use crate::core::pod::Pod;
+use crate::core::node::{NodeId, NodeSpec};
+use crate::core::pod::{PodId, PodSpec};
 use crate::trace::interface::{SimulationEvent, Trace};
 
 /// GenericTrace consists of timestamp-ordered events representing pod/node creation/removal,
@@ -28,10 +28,10 @@ pub struct TraceEvent {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub enum TraceEventType {
-    CreatePod { pod: Pod },
-    RemovePod { pod_id: u64 },
-    CreateNode { node: Node },
-    RemoveNode { node_id: u64 },
+    CreatePod { pod: PodSpec },
+    RemovePod { pod_id: PodId },
+    CreateNode { node: NodeSpec },
+    RemoveNode { node_id: NodeId },
 }
 
 impl Trace for GenericTrace {
@@ -39,7 +39,7 @@ impl Trace for GenericTrace {
     fn convert_to_simulator_events(&mut self) -> Vec<(u64, SimulationEvent)> {
         let mut converted_events: Vec<(u64, SimulationEvent)> = vec![];
         converted_events.reserve(self.events.len());
-        
+
         let mut events: Vec<TraceEvent> = vec![];
         swap(&mut events, &mut self.events);
 

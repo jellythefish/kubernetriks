@@ -3,27 +3,27 @@
 
 use serde::Serialize;
 
-use crate::core::node::Node;
-use crate::core::pod::Pod;
+use crate::core::node::{NodeId, NodeSpec};
+use crate::core::pod::{PodId, PodSpec};
 
 #[derive(Serialize, Clone)]
 pub struct CreateNodeRequest {
-    pub node: Node,
+    pub node: NodeSpec,
 }
 
 #[derive(Serialize, Clone)]
 pub struct RemoveNodeRequest {
-    pub node_id: u64,
+    pub node_id: NodeId,
 }
 
 #[derive(Serialize, Clone)]
 pub struct CreatePodRequest {
-    pub pod: Pod,
+    pub pod: PodSpec,
 }
 
 #[derive(Serialize, Clone)]
 pub struct RemovePodRequest {
-    pub pod_id: u64,
+    pub pod_id: PodId,
 }
 
 // Potential macro to be in dslab_core

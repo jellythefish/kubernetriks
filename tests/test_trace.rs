@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use dslab_kubernetriks::core::common::Resources;
-use dslab_kubernetriks::core::node::Node;
-use dslab_kubernetriks::core::pod::Pod;
+use dslab_kubernetriks::core::node::NodeSpec;
+use dslab_kubernetriks::core::pod::PodSpec;
 use dslab_kubernetriks::trace::generic::{GenericTrace, TraceEvent, TraceEventType};
 
 #[test]
@@ -63,7 +63,7 @@ fn test_deserialize_trace_from_json() {
             TraceEvent {
                 timestamp: 0,
                 event_type: TraceEventType::CreatePod {
-                    pod: Pod::new(
+                    pod: PodSpec::new(
                         42,
                         Resources {
                             cpu: 4000,
@@ -84,7 +84,7 @@ fn test_deserialize_trace_from_json() {
             TraceEvent {
                 timestamp: 1345,
                 event_type: TraceEventType::CreateNode {
-                    node: Node::new(
+                    node: NodeSpec::new(
                         21,
                         Resources {
                             cpu: 16000,

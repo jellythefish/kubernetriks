@@ -9,6 +9,8 @@ use serde::Deserialize;
 use dslab_core::simulation::Simulation;
 
 use crate::core::api_server::KubeApiServer;
+use crate::core::persistent_storage::PersistentStorage;
+use crate::core::scheduler::KubeScheduler;
 use crate::trace::generic::GenericTrace;
 use crate::trace::interface::Trace;
 
@@ -26,19 +28,44 @@ pub fn run_simulator(config: SimulatorConfig, mut trace: GenericTrace) {
 
     let mut sim = Simulation::new(config.seed);
 
-    // client context for submitting trace events to kube_api_server
+    // Register simulator components
+
+    // Client context for submitting trace events to kube_api_server
     let client = sim.create_context("client");
-    let etcd_context = sim.create_context("etcd");
 
-    let kube_api_server_name = "kube_api_server";
+    let kube_api_server_component_name = "kube_api_server";
+    let persistent_storage_component_name = "persistent_storage";
+    let kube_scheduler_component_name = "kube_scheduler";
+
+    let kube_api_server_context = sim.create_context(kube_api_server_component_name);
+    let persistent_storage_context = sim.create_context(persistent_storage_component_name);
+    let kube_scheduler_context = sim.create_context(kube_scheduler_component_name);
+
     let kube_api_server = Rc::new(RefCell::new(KubeApiServer::new(
-        etcd_context.id(),
-        sim.create_context(kube_api_server_name),
+        persistent_storage_context.id(),
+        kube_api_server_context,
     )));
-    let kube_api_server_id = sim.add_handler(kube_api_server_name, kube_api_server.clone());
+    let kube_api_server_id =
+        sim.add_handler(kube_api_server_component_name, kube_api_server.clone());
 
-    // First, we fully read the trace and push all events from it to simulation queue at
-    // corresponding event timestamps.
+    let kube_scheduler = Rc::new(RefCell::new(KubeScheduler::new(
+        kube_api_server_id,
+        kube_scheduler_context,
+    )));
+    let kube_scheduler_id = sim.add_handler(kube_scheduler_component_name, kube_scheduler.clone());
+
+    let persistent_storage = Rc::new(RefCell::new(PersistentStorage::new(
+        kube_api_server_id,
+        kube_scheduler_id,
+        persistent_storage_context,
+    )));
+    sim.add_handler(
+        persistent_storage_component_name,
+        persistent_storage.clone(),
+    );
+
+    // First, we fully read the trace and push all events from it to simulation queue to kube_api_server
+    // at corresponding event timestamps.
 
     // Asserting we start with the current time = 0, then all delays in emit() calls are equal to
     // the timestamps of events in a trace.

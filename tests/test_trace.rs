@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use dslab_kubernetriks::core::common::Resources;
-use dslab_kubernetriks::core::node::NodeSpec;
+use dslab_kubernetriks::core::node_info::NodeSpec;
 use dslab_kubernetriks::core::pod::PodSpec;
 use dslab_kubernetriks::trace::generic::{GenericTrace, TraceEvent, TraceEventType};
 
@@ -26,7 +26,7 @@ fn test_deserialize_trace_from_json() {
     - timestamp: 0
       event_type:
         !CreatePod
-          pod:
+          pod_spec:
             id: 42
             resources_request:
               cpu: 4000
@@ -42,7 +42,7 @@ fn test_deserialize_trace_from_json() {
     - timestamp: 1345
       event_type:
         !CreateNode
-          node:
+          node_spec:
             id: 21
             capacity:
               cpu: 16000
@@ -50,7 +50,7 @@ fn test_deserialize_trace_from_json() {
             attributes:
               storage_type: ssd
               proc_type: intel
-    - timestamp: 4323
+    - timestamp: 4323.212
       event_type:
         !RemoveNode
           node_id: 21
@@ -61,9 +61,9 @@ fn test_deserialize_trace_from_json() {
     let trace = GenericTrace {
         events: vec![
             TraceEvent {
-                timestamp: 0,
+                timestamp: 0.0,
                 event_type: TraceEventType::CreatePod {
-                    pod: PodSpec::new(
+                    pod_spec: PodSpec::new(
                         42,
                         Resources {
                             cpu: 4000,
@@ -78,13 +78,13 @@ fn test_deserialize_trace_from_json() {
                 },
             },
             TraceEvent {
-                timestamp: 432,
+                timestamp: 432.0,
                 event_type: TraceEventType::RemovePod { pod_id: 42 },
             },
             TraceEvent {
-                timestamp: 1345,
+                timestamp: 1345.0,
                 event_type: TraceEventType::CreateNode {
-                    node: NodeSpec::new(
+                    node_spec: NodeSpec::new(
                         21,
                         Resources {
                             cpu: 16000,
@@ -98,7 +98,7 @@ fn test_deserialize_trace_from_json() {
                 },
             },
             TraceEvent {
-                timestamp: 4323,
+                timestamp: 4323.212,
                 event_type: TraceEventType::RemoveNode { node_id: 21 },
             },
         ],

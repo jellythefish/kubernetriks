@@ -3,12 +3,13 @@
 
 use serde::Serialize;
 
-use crate::core::node::{NodeId, NodeSpec};
+use crate::core::node_info::NodeInfo;
+use crate::core::node_info::{NodeId, NodeSpec};
 use crate::core::pod::{PodId, PodSpec};
 
 #[derive(Serialize, Clone)]
 pub struct CreateNodeRequest {
-    pub node: NodeSpec,
+    pub node_spec: NodeSpec,
 }
 
 #[derive(Serialize, Clone)]
@@ -18,12 +19,22 @@ pub struct RemoveNodeRequest {
 
 #[derive(Serialize, Clone)]
 pub struct CreatePodRequest {
-    pub pod: PodSpec,
+    pub pod_spec: PodSpec,
 }
 
 #[derive(Serialize, Clone)]
 pub struct RemovePodRequest {
     pub pod_id: PodId,
+}
+
+#[derive(Serialize, Clone)]
+pub struct AddNodeToClusterRequest {
+    pub node_id: NodeId,
+}
+
+#[derive(Serialize, Clone)]
+pub struct NodeAddedToCluster {
+    pub node_info: NodeInfo,
 }
 
 // Potential macro to be in dslab_core

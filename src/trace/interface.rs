@@ -13,5 +13,5 @@ pub trait Trace {
     // Any Trace should implement this method to convert arbitrary format of trace events to the
     // format of events which are emitted by simulator components defined in core::events.
     // First element in the tuple is timestamp, second - event.
-    fn convert_to_simulator_events(&mut self) -> Vec<(u64, SimulationEvent)>;
+    fn convert_to_simulator_events(&mut self) -> Vec<(f64, SimulationEvent)>;
 }

@@ -2,7 +2,7 @@ events:
 - timestamp: 55
   event_type:
     !CreatePod
-      pod:
+      pod_spec:
         id: 42
         resources_request:
           cpu: 4000
@@ -18,7 +18,7 @@ events:
 - timestamp: 0
   event_type:
     !CreateNode
-      node:
+      node_spec:
         id: 21
         capacity:
           cpu: 16000
@@ -26,7 +26,7 @@ events:
         attributes:
           storage_type: ssd
           proc_type: intel
-- timestamp: 123
+- timestamp: 123.212
   event_type:
     !RemoveNode
       node_id: 21

@@ -1,62 +1,74 @@
 //! Implementation of kube-api-server component
 
-use std::collections::HashSet;
+use std::rc::Rc;
 
 use log::debug;
 
-use dslab_core::{Event, EventHandler, Id, SimulationContext};
+use dslab_core::{Event, EventHandler, SimulationContext};
 
 use crate::cast_box;
+use crate::core::common::SimComponentId;
 use crate::core::events::{
-    CreateNodeRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
+    AddNodeToClusterRequest, CreateNodeRequest, CreatePodRequest, NodeAddedToCluster,
+    RemoveNodeRequest, RemovePodRequest,
 };
+use crate::core::node_info::NodeInfo;
+use crate::simulator::SimulatorConfig;
 
 pub struct KubeApiServer {
-    // Identifier of api server as a simulation component.
-    id: Id,
-    // Identifier of persistent storage component.
-    persistent_storage: Id,
+    persistent_storage: SimComponentId,
+    node_cluster: SimComponentId,
     ctx: SimulationContext,
+    config: Rc<SimulatorConfig>,
 }
 
 impl KubeApiServer {
-    pub fn new(persistent_storage_id: Id, ctx: SimulationContext) -> Self {
+    pub fn new(
+        node_cluster: SimComponentId,
+        persistent_storage_id: SimComponentId,
+        ctx: SimulationContext,
+        config: Rc<SimulatorConfig>,
+    ) -> Self {
         Self {
-            id: ctx.id(),
+            node_cluster,
             persistent_storage: persistent_storage_id,
             ctx,
+            config,
         }
     }
 }
 
 impl EventHandler for KubeApiServer {
     fn on(&mut self, event: Event) {
-        // Macro which is called when we are sure that event.data is arbitrary Box<dyn EventData>
+        // Macro which is called when we are sure that event.data is a Box from arbitrary
+        // Box<dyn EventData>
         cast_box!(match event.data {
-            CreateNodeRequest { node } => {
+            // Redirects to persistent storage
+            CreateNodeRequest { node_spec } => {
                 debug!(
-                    "kube-api-server received CreateNodeRequest at timestamp {}. Node - {:?}",
-                    event.time, node
-                )
+                    "[{}] Received CreateNodeRequest event with spec {:?}",
+                    event.time, node_spec
+                );
+                let node_id = node_spec.id;
+                let node_info = NodeInfo::new(node_spec);
+                self.ctx.emit(
+                    NodeAddedToCluster { node_info },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+
+                // we sent asynchronously add node request, not waiting for the answer
+                // sending info about it to persistent storage
+                // maybe better wait for it??
+                self.ctx.emit(
+                    AddNodeToClusterRequest { node_id },
+                    self.node_cluster,
+                    self.config.as_to_nc_network_delay,
+                );
             }
-            CreatePodRequest { pod } => {
-                debug!(
-                    "kube-api-server received CreatePodRequest at timestamp {}. Pod - {:?}",
-                    event.time, pod
-                )
-            }
-            RemoveNodeRequest { node_id } => {
-                debug!(
-                    "kube-api-server received RemoveNodeRequest at timestamp {}. Node id - {}",
-                    event.time, node_id
-                )
-            }
-            RemovePodRequest { pod_id } => {
-                debug!(
-                    "kube-api-server received RemovePodRequest at timestamp {}. Pod id - {}",
-                    event.time, pod_id
-                )
-            }
+            CreatePodRequest { pod_spec } => {}
+            RemoveNodeRequest { node_id } => {}
+            RemovePodRequest { pod_id } => {}
         })
     }
 }

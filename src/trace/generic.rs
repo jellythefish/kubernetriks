@@ -1,13 +1,14 @@
 //! Represents generic format for the trace that is simplified and convenient.
 
 use std::mem::swap;
+use std::time::Duration;
 
 use serde::Deserialize;
 
 use crate::core::events::{
     CreateNodeRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
 };
-use crate::core::node::{NodeId, NodeSpec};
+use crate::core::node_info::{NodeId, NodeSpec};
 use crate::core::pod::{PodId, PodSpec};
 use crate::trace::interface::{SimulationEvent, Trace};
 
@@ -22,22 +23,22 @@ pub struct GenericTrace {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct TraceEvent {
-    pub timestamp: u64, // in milliseconds
+    pub timestamp: f64, // in seconds with fractional part
     pub event_type: TraceEventType,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub enum TraceEventType {
-    CreatePod { pod: PodSpec },
+    CreatePod { pod_spec: PodSpec },
     RemovePod { pod_id: PodId },
-    CreateNode { node: NodeSpec },
+    CreateNode { node_spec: NodeSpec },
     RemoveNode { node_id: NodeId },
 }
 
 impl Trace for GenericTrace {
     // Called once to convert and move events, TODO: better for call once semantic?
-    fn convert_to_simulator_events(&mut self) -> Vec<(u64, SimulationEvent)> {
-        let mut converted_events: Vec<(u64, SimulationEvent)> = vec![];
+    fn convert_to_simulator_events(&mut self) -> Vec<(f64, SimulationEvent)> {
+        let mut converted_events: Vec<(f64, SimulationEvent)> = vec![];
         converted_events.reserve(self.events.len());
 
         let mut events: Vec<TraceEvent> = vec![];
@@ -45,15 +46,13 @@ impl Trace for GenericTrace {
 
         for event in events {
             match event.event_type {
-                TraceEventType::CreatePod { pod } => {
-                    converted_events.push((event.timestamp, Box::new(CreatePodRequest { pod })))
-                }
+                TraceEventType::CreatePod { pod_spec } => converted_events
+                    .push((event.timestamp, Box::new(CreatePodRequest { pod_spec }))),
                 TraceEventType::RemovePod { pod_id } => {
                     converted_events.push((event.timestamp, Box::new(RemovePodRequest { pod_id })))
                 }
-                TraceEventType::CreateNode { node } => {
-                    converted_events.push((event.timestamp, Box::new(CreateNodeRequest { node })))
-                }
+                TraceEventType::CreateNode { node_spec } => converted_events
+                    .push((event.timestamp, Box::new(CreateNodeRequest { node_spec }))),
                 TraceEventType::RemoveNode { node_id } => converted_events
                     .push((event.timestamp, Box::new(RemoveNodeRequest { node_id }))),
             }

@@ -1,4 +1,10 @@
+use dslab_core::Id;
+
 use serde::{Deserialize, Serialize};
+
+// Identifier of any component of kubernetes as a simulation component.
+// Generated from sim.create_context.
+pub type SimComponentId = Id;
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Resources {

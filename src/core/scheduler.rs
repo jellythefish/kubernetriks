@@ -1,23 +1,30 @@
 //! Implementation of kube-scheduler component which is responsible for scheduling pods for nodes.
 
-use dslab_core::{Event, EventHandler, Id, SimulationContext};
+use std::rc::Rc;
+
+use dslab_core::{Event, EventHandler, SimulationContext};
+
+use crate::core::common::SimComponentId;
+use crate::simulator::SimulatorConfig;
 
 pub struct KubeScheduler {
-    // Identifier of kube scheduler as a simulation component.
-    id: Id,
-    // Identifier of kube api server component.
-    api_server: Id,
+    api_server: SimComponentId,
     cache: u64, // ???
     ctx: SimulationContext,
+    config: Rc<SimulatorConfig>,
 }
 
 impl KubeScheduler {
-    pub fn new(api_server_id: Id, ctx: SimulationContext) -> Self {
+    pub fn new(
+        api_server: SimComponentId,
+        ctx: SimulationContext,
+        config: Rc<SimulatorConfig>,
+    ) -> Self {
         Self {
-            id: ctx.id(),
-            api_server: api_server_id,
+            api_server,
             cache: 0,
             ctx,
+            config,
         }
     }
 }

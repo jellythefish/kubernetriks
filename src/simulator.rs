@@ -1,7 +1,7 @@
 //! Represents entry point for simulator and its config.
 
 use log::info;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use std::{cell::RefCell, rc::Rc};
 
 use serde::Deserialize;

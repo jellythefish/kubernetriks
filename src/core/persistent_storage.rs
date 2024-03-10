@@ -5,24 +5,22 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use log::debug;
-
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
 use crate::core::common::SimComponentId;
-use crate::core::events::NodeAddedToCluster;
-use crate::core::node_info::{NodeId, NodeInfo};
-use crate::core::pod::{PodId, PodInfo};
+use crate::core::events::{CreateNodeRequest, CreateNodeResponse};
+use crate::core::node::Node;
+use crate::core::pod::Pod;
 use crate::simulator::SimulatorConfig;
 
 pub struct PersistentStorage {
     // Identifier of persistent storage as a simulation component.
     api_server: SimComponentId,
     scheduler: SimComponentId,
-    // Information about current nodes of a cluster.
-    nodes: HashMap<NodeId, NodeInfo>,
-    // Information about current pods of a cluster.
-    pods: HashMap<PodId, PodInfo>,
+    // State about current nodes of a cluster: <Node name, Node>
+    nodes: HashMap<String, Node>,
+    // State about current pods of a cluster: <Pod name, Pod>
+    pods: HashMap<String, Pod>,
 
     ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
@@ -49,13 +47,17 @@ impl PersistentStorage {
 impl EventHandler for PersistentStorage {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
-            NodeAddedToCluster { node_info } => {
-                debug!(
-                    "[{}] Received NodeAddedToCluster event with node_info {:?}",
-                    event.time, node_info
+            CreateNodeRequest { node } => {
+                let node_name = node.metadata.name.clone();
+                self.nodes.insert(node_name.clone(), node);
+                self.ctx.emit(
+                    CreateNodeResponse {
+                        created: true,
+                        node_name,
+                    },
+                    self.api_server,
+                    self.config.as_to_ps_network_delay,
                 );
-                let id = node_info.spec.id;
-                self.nodes.insert(id, node_info);
             }
         })
     }

@@ -9,7 +9,7 @@ use crate::simulator::SimulatorConfig;
 
 pub struct KubeScheduler {
     api_server: SimComponentId,
-    cache: u64, // ???
+    cache: u64, // ??? WIP
     ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
 }
@@ -30,5 +30,5 @@ impl KubeScheduler {
 }
 
 impl EventHandler for KubeScheduler {
-    fn on(&mut self, event: Event) {}
+    fn on(&mut self, _event: Event) {}
 }

@@ -1,6 +1,6 @@
 use dslab_kubernetriks::cast_box;
 
-use dslab_core::event::{Event, EventData};
+use dslab_core::event::Event;
 
 use serde::Serialize;
 
@@ -12,15 +12,14 @@ struct TestStruct {
 #[test]
 fn test_cast_box_macro() {
     let answer_to_the_life = 42;
-    let boxed_event: Box<dyn EventData> = Box::new(TestStruct {
-        field: answer_to_the_life,
-    });
     let event = Event {
         id: 42,
         time: 0.0,
         src: 0,
         dst: 1,
-        data: Box::new(boxed_event),
+        data: Box::new(Box::new(TestStruct {
+            field: answer_to_the_life,
+        })),
     };
     cast_box!(match event.data {
         TestStruct { field } => {
@@ -31,16 +30,19 @@ fn test_cast_box_macro() {
 
 #[test]
 fn test_cast_box_macro_not_box_inside_data() {
+    let answer_to_the_life = 42;
     let event = Event {
         id: 42,
         time: 0.0,
         src: 0,
         dst: 1,
-        data: Box::new(TestStruct { field: 0 }),
+        data: Box::new(TestStruct {
+            field: answer_to_the_life,
+        }),
     };
     cast_box!(match event.data {
-        TestStruct { .. } => {
-            unreachable!();
+        TestStruct { field } => {
+            assert_eq!(field, answer_to_the_life);
         }
     });
 }

@@ -1,18 +1,16 @@
 //! Implementation of kube-api-server component
 
+use std::collections::HashMap;
 use std::rc::Rc;
-
-use log::debug;
 
 use dslab_core::{Event, EventHandler, SimulationContext};
 
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AddNodeToClusterRequest, CreateNodeRequest, CreatePodRequest, NodeAddedToCluster,
-    RemoveNodeRequest, RemovePodRequest,
+    CreateNodeRequest, CreateNodeResponse, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
 };
-use crate::core::node_info::NodeInfo;
+use crate::core::node::Node;
 use crate::simulator::SimulatorConfig;
 
 pub struct KubeApiServer {
@@ -20,6 +18,8 @@ pub struct KubeApiServer {
     node_cluster: SimComponentId,
     ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
+
+    pending_node_creation_requests: HashMap<String, Node>,
 }
 
 impl KubeApiServer {
@@ -34,6 +34,7 @@ impl KubeApiServer {
             persistent_storage: persistent_storage_id,
             ctx,
             config,
+            pending_node_creation_requests: Default::default(),
         }
     }
 }
@@ -44,31 +45,40 @@ impl EventHandler for KubeApiServer {
         // Box<dyn EventData>
         cast_box!(match event.data {
             // Redirects to persistent storage
-            CreateNodeRequest { node_spec } => {
-                debug!(
-                    "[{}] Received CreateNodeRequest event with spec {:?}",
-                    event.time, node_spec
-                );
-                let node_id = node_spec.id;
-                let node_info = NodeInfo::new(node_spec);
+            CreateNodeRequest { node } => {
+                self.pending_node_creation_requests
+                    .insert(node.metadata.name.clone(), node.clone());
                 self.ctx.emit(
-                    NodeAddedToCluster { node_info },
+                    CreateNodeRequest { node },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
                 );
-
-                // we sent asynchronously add node request, not waiting for the answer
-                // sending info about it to persistent storage
-                // maybe better wait for it??
-                self.ctx.emit(
-                    AddNodeToClusterRequest { node_id },
-                    self.node_cluster,
-                    self.config.as_to_nc_network_delay,
-                );
             }
-            CreatePodRequest { pod_spec } => {}
-            RemoveNodeRequest { node_id } => {}
-            RemovePodRequest { pod_id } => {}
+            CreateNodeResponse { created, node_name } => {
+                if !created {
+                    panic!(
+                        "Something went wrong while creating node, component with id {:?} failed:",
+                        event.src
+                    );
+                }
+                if event.src == self.persistent_storage {
+                    // Now we are ready to send create request to node cluster, because Node is persisted.
+                    self.ctx.emit(
+                        CreateNodeRequest {
+                            node: self
+                                .pending_node_creation_requests
+                                .remove(&node_name)
+                                .unwrap(),
+                        },
+                        self.node_cluster,
+                        self.config.as_to_nc_network_delay,
+                    );
+                }
+                // skip response from cluster node, no reason to handle it
+            }
+            CreatePodRequest { .. } => {}
+            RemoveNodeRequest { .. } => {}
+            RemovePodRequest { .. } => {}
         })
     }
 }

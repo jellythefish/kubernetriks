@@ -1,15 +1,14 @@
 //! Represents generic format for the trace that is simplified and convenient.
 
 use std::mem::swap;
-use std::time::Duration;
 
 use serde::Deserialize;
 
 use crate::core::events::{
     CreateNodeRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
 };
-use crate::core::node_info::{NodeId, NodeSpec};
-use crate::core::pod::{PodId, PodSpec};
+use crate::core::node::Node;
+use crate::core::pod::Pod;
 use crate::trace::interface::{SimulationEvent, Trace};
 
 /// GenericTrace consists of timestamp-ordered events representing pod/node creation/removal,
@@ -29,10 +28,10 @@ pub struct TraceEvent {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub enum TraceEventType {
-    CreatePod { pod_spec: PodSpec },
-    RemovePod { pod_id: PodId },
-    CreateNode { node_spec: NodeSpec },
-    RemoveNode { node_id: NodeId },
+    CreatePod { pod: Pod },
+    RemovePod { pod_name: String },
+    CreateNode { node: Node },
+    RemoveNode { node_name: String },
 }
 
 impl Trace for GenericTrace {
@@ -46,15 +45,16 @@ impl Trace for GenericTrace {
 
         for event in events {
             match event.event_type {
-                TraceEventType::CreatePod { pod_spec } => converted_events
-                    .push((event.timestamp, Box::new(CreatePodRequest { pod_spec }))),
-                TraceEventType::RemovePod { pod_id } => {
-                    converted_events.push((event.timestamp, Box::new(RemovePodRequest { pod_id })))
+                TraceEventType::CreatePod { pod } => {
+                    converted_events.push((event.timestamp, Box::new(CreatePodRequest { pod })))
                 }
-                TraceEventType::CreateNode { node_spec } => converted_events
-                    .push((event.timestamp, Box::new(CreateNodeRequest { node_spec }))),
-                TraceEventType::RemoveNode { node_id } => converted_events
-                    .push((event.timestamp, Box::new(RemoveNodeRequest { node_id }))),
+                TraceEventType::RemovePod { pod_name } => converted_events
+                    .push((event.timestamp, Box::new(RemovePodRequest { pod_name }))),
+                TraceEventType::CreateNode { node } => {
+                    converted_events.push((event.timestamp, Box::new(CreateNodeRequest { node })))
+                }
+                TraceEventType::RemoveNode { node_name } => converted_events
+                    .push((event.timestamp, Box::new(RemoveNodeRequest { node_name }))),
             }
         }
 

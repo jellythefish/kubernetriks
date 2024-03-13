@@ -41,6 +41,13 @@ pub struct RemovePodRequest {
     pub pod_name: String,
 }
 
+// Event from api server to persistent storage to tell that node is created in cluster.
+#[derive(Serialize, Clone)]
+pub struct NodeAddedToTheCluster {
+    pub event_time: f64,
+    pub node_name: String,
+}
+
 // Potential macro to be in dslab_core
 // Expect event.data to be Box<Box<dyn EventData>> to downcast it first and then extract a real type.
 #[macro_export]

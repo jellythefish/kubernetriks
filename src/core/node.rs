@@ -48,3 +48,30 @@ pub struct Node {
     pub spec: NodeSpec,
     pub status: NodeStatus,
 }
+
+impl Node {
+    pub fn update_node_condition(
+        &mut self,
+        status: String,
+        condition_type: NodeConditionType,
+        last_transition_time: f64,
+    ) {
+        let conditions = &mut self.status.conditions;
+        match conditions
+            .iter_mut()
+            .find(|elem| elem.condition_type == condition_type)
+        {
+            Some(condition) => {
+                condition.status = status;
+                condition.last_transition_time = last_transition_time;
+            }
+            None => {
+                conditions.push(NodeCondition {
+                    status,
+                    condition_type,
+                    last_transition_time,
+                });
+            }
+        }
+    }
+}

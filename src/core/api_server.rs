@@ -8,7 +8,8 @@ use dslab_core::{Event, EventHandler, SimulationContext};
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    CreateNodeRequest, CreateNodeResponse, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
+    CreateNodeRequest, CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster,
+    RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
 use crate::simulator::SimulatorConfig;
@@ -37,6 +38,33 @@ impl KubeApiServer {
             pending_node_creation_requests: Default::default(),
         }
     }
+
+    fn handle_create_node_response(&mut self, src: SimComponentId, created: bool, node_name: &str) {
+        if !created {
+            panic!(
+                "Something went wrong while creating node, component with id {:?} failed:",
+                src
+            );
+        }
+        if src == self.persistent_storage {
+            // Now we are ready to send create request to node cluster, because Node is persisted.
+            self.ctx.emit(
+                CreateNodeRequest {
+                    node: self
+                        .pending_node_creation_requests
+                        .remove(node_name)
+                        .unwrap(),
+                },
+                self.node_cluster,
+                self.config.as_to_nc_network_delay,
+            );
+        } else {
+            panic!(
+                "api server got CreateNodeResponse event type from unexpected sender with id {:?}",
+                src
+            );
+        }
+    }
 }
 
 impl EventHandler for KubeApiServer {
@@ -55,26 +83,20 @@ impl EventHandler for KubeApiServer {
                 );
             }
             CreateNodeResponse { created, node_name } => {
-                if !created {
-                    panic!(
-                        "Something went wrong while creating node, component with id {:?} failed:",
-                        event.src
-                    );
-                }
-                if event.src == self.persistent_storage {
-                    // Now we are ready to send create request to node cluster, because Node is persisted.
-                    self.ctx.emit(
-                        CreateNodeRequest {
-                            node: self
-                                .pending_node_creation_requests
-                                .remove(&node_name)
-                                .unwrap(),
-                        },
-                        self.node_cluster,
-                        self.config.as_to_nc_network_delay,
-                    );
-                }
-                // skip response from cluster node, no reason to handle it
+                self.handle_create_node_response(event.src, created, &node_name);
+            }
+            NodeAddedToTheCluster {
+                event_time,
+                node_name,
+            } => {
+                self.ctx.emit(
+                    NodeAddedToTheCluster {
+                        event_time,
+                        node_name,
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
             }
             CreatePodRequest { .. } => {}
             RemoveNodeRequest { .. } => {}

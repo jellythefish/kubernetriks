@@ -64,3 +64,14 @@ pub struct Pod {
     #[serde(default)]
     pub status: PodStatus,
 }
+
+impl Pod {
+    pub fn calculate_requested_resources(&self) -> RuntimeResources {
+        let mut resources = RuntimeResources { cpu: 0, ram: 0 };
+        for container in self.spec.containers.iter() {
+            resources.cpu += container.resources.requests.cpu;
+            resources.ram += container.resources.requests.ram;
+        }
+        resources
+    }
+}

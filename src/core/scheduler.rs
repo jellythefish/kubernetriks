@@ -4,9 +4,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use dslab_core::{Event, EventHandler, SimulationContext};
+use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
 use crate::core::common::SimComponentId;
+use crate::core::events::{AssignPodToNodeRequest, PodCreated};
 use crate::core::persistent_storage::StorageData;
 use crate::simulator::SimulatorConfig;
 use downcast_rs::{impl_downcast, Downcast};
@@ -115,5 +116,22 @@ impl Scheduler for KubeGenericScheduler {
 }
 
 impl EventHandler for KubeGenericScheduler {
-    fn on(&mut self, _event: Event) {}
+    fn on(&mut self, event: Event) {
+        cast!(match event.data {
+            PodCreated { pod_name } => {
+                let pod = &self.cluster_cache.borrow().pods[&pod_name];
+                // MAKE A QUEUE AND WAIT BEFORE PERSISTENT STORAGE REPLIES THAT PREVIOUS POD ASSIGNMENT IS PERSISTED
+                // BECAUSE ONLY PERSISTENT STORAGE CAN UPDATE ALLOCATABLE NODE STATUS!!!!!!
+                let assigned_node = self.schedule_one(&pod).unwrap();
+                self.ctx.emit(
+                    AssignPodToNodeRequest {
+                        pod_name: pod.metadata.name.clone(),
+                        node_name: assigned_node,
+                    },
+                    self.api_server,
+                    self.config.sched_to_as_network_delay,
+                );
+            }
+        })
+    }
 }

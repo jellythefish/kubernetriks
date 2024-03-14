@@ -8,8 +8,9 @@ use dslab_core::{Event, EventHandler, SimulationContext};
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    CreateNodeRequest, CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster,
-    RemoveNodeRequest, RemovePodRequest,
+    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest, CreateNodeRequest,
+    CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning,
+    PodStartedRunning, RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
 use crate::simulator::SimulatorConfig;
@@ -98,7 +99,76 @@ impl EventHandler for KubeApiServer {
                     self.config.as_to_ps_network_delay,
                 );
             }
-            CreatePodRequest { .. } => {}
+            CreatePodRequest { pod } => {
+                // Redirects to persistent storage
+                self.ctx.emit(
+                    CreatePodRequest { pod },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            AssignPodToNodeRequest {
+                pod_name,
+                node_name,
+            } => {
+                // Redirects to persistent storage
+                self.ctx.emit(
+                    AssignPodToNodeRequest {
+                        pod_name,
+                        node_name,
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            AssignPodToNodeResponse {
+                pod_name,
+                pod_duration,
+                node_name,
+            } => {
+                // Make bind request to node cluster
+                self.ctx.emit(
+                    BindPodToNodeRequest {
+                        pod_name,
+                        pod_duration,
+                        node_name,
+                    },
+                    self.node_cluster,
+                    self.config.as_to_nc_network_delay,
+                );
+            }
+            PodStartedRunning {
+                start_time,
+                pod_name,
+            } => {
+                // Redirects to persistent storage
+                self.ctx.emit(
+                    PodStartedRunning {
+                        start_time,
+                        pod_name,
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            PodFinishedRunning {
+                finish_time,
+                finish_result,
+                pod_name,
+                node_name,
+            } => {
+                // Redirects to persistent storage
+                self.ctx.emit(
+                    PodFinishedRunning {
+                        finish_time,
+                        finish_result,
+                        pod_name,
+                        node_name,
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
             RemoveNodeRequest { .. } => {}
             RemovePodRequest { .. } => {}
         })

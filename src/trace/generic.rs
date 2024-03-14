@@ -50,7 +50,8 @@ impl Trace for GenericTrace {
                 }
                 TraceEventType::RemovePod { pod_name } => converted_events
                     .push((event.timestamp, Box::new(RemovePodRequest { pod_name }))),
-                TraceEventType::CreateNode { node } => {
+                TraceEventType::CreateNode { mut node } => {
+                    node.status.allocatable = node.status.capacity.clone();
                     converted_events.push((event.timestamp, Box::new(CreateNodeRequest { node })))
                 }
                 TraceEventType::RemoveNode { node_name } => converted_events

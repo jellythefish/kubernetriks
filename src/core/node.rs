@@ -50,7 +50,7 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn update_node_condition(
+    pub fn update_condition(
         &mut self,
         status: String,
         condition_type: NodeConditionType,

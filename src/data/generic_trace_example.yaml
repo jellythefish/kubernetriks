@@ -4,21 +4,65 @@ events:
     !CreatePod
       pod:
         metadata:
+          name: pod_16
+        spec:
+          containers:
+            - resources:
+                requests:
+                  cpu: 4000
+                  ram: 8589934592
+                limits:
+                  cpu: 8000
+                  ram: 17179869184
+              running_duration: 21.0
+- timestamp: 110
+  event_type:
+    !CreatePod
+      pod:
+        metadata:
+          name: pod_25
+        spec:
+          containers:
+            - resources:
+                requests:
+                  cpu: 4000
+                  ram: 8589934592
+                limits:
+                  cpu: 8000
+                  ram: 17179869184
+              running_duration: 76.0
+- timestamp: 543
+  event_type:
+    !CreatePod
+      pod:
+        metadata:
           name: pod_42
         spec:
           containers:
             - resources:
-                limits:
+                requests:
                   cpu: 4000
                   ram: 8589934592
-                requests:
+                limits:
                   cpu: 8000
                   ram: 17179869184
-              running_duration: 21.0
-- timestamp: 245243
+              running_duration: 4.0
+- timestamp: 5423
   event_type:
-    !RemovePod
-      pod_name: pod_42
+    !CreatePod
+      pod:
+        metadata:
+          name: pod_101
+        spec:
+          containers:
+            - resources:
+                requests:
+                  cpu: 4000
+                  ram: 8589934592
+                limits:
+                  cpu: 8000
+                  ram: 17179869184
+              running_duration: 4221.0
 - timestamp: 1
   event_type:
     !CreateNode
@@ -32,7 +76,13 @@ events:
           capacity:
             cpu: 16000
             ram: 17179869184
-- timestamp: 123.212
+
+
+- timestamp: 100000
   event_type:
     !RemoveNode
       node_name: node_21
+- timestamp: 100001
+  event_type:
+    !RemovePod
+      pod_name: pod_42

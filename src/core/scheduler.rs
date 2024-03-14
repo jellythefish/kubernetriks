@@ -1,6 +1,6 @@
 //! Implementation of kube-scheduler component which is responsible for scheduling pods for nodes.
 
-use std::cell::{Cell, Ref, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -9,29 +9,33 @@ use dslab_core::{Event, EventHandler, SimulationContext};
 use crate::core::common::SimComponentId;
 use crate::core::persistent_storage::StorageData;
 use crate::simulator::SimulatorConfig;
+use downcast_rs::{impl_downcast, Downcast};
+use log::debug;
 
 use crate::core::node::Node;
 use crate::core::pod::Pod;
 
-use super::common::RuntimeResources;
+use crate::core::common::RuntimeResources;
 
+#[derive(Debug, PartialEq)]
 pub enum ScheduleError {
     NoNodesInCluster,
     RequestedResourcesAreZeros,
     NoSufficientNodes,
 }
 
-trait Scheduler {
+pub trait Scheduler: Downcast {
     // Method which should implement any scheduler to assign a node on which the pod will be executed.
     // Returns result which if is Ok - the name of assigned node, Err - scheduling error.
     fn schedule_one(&self, pod: &Pod) -> Result<String, ScheduleError>;
 }
+impl_downcast!(Scheduler);
 
 pub struct KubeGenericScheduler {
     api_server: SimComponentId,
 
     // Cache which is updated from persistent storage
-    cluster_cache: Rc<RefCell<StorageData>>,
+    pub cluster_cache: Rc<RefCell<StorageData>>,
 
     ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
@@ -103,6 +107,7 @@ impl Scheduler for KubeGenericScheduler {
                 assigned_node = &node.metadata.name;
                 max_score = score;
             }
+            debug!("Score for node {:?} - {:?}", node.metadata.name, score);
         }
 
         Ok(assigned_node.to_owned())

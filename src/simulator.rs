@@ -15,10 +15,10 @@ use crate::core::scheduler::KubeGenericScheduler;
 use crate::trace::generic::GenericTrace;
 use crate::trace::interface::Trace;
 
-#[derive(Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize)]
 pub struct SimulatorConfig {
-    sim_name: String,
-    seed: u64,
+    pub sim_name: String,
+    pub seed: u64,
     // Simulated network delays, as = api server, ps = persistent storage, nc = node cluster.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
     pub as_to_ps_network_delay: f64,

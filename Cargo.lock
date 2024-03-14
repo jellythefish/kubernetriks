@@ -161,6 +161,7 @@ name = "dslab-kubernetriks"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "downcast-rs",
  "dslab-core",
  "env_logger",
  "log",

@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 dslab-core = { git = "https://github.com/osukhoroslov/dslab", rev = "4ea3b3a" }
 
+downcast-rs = "1.2.0"
+
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.9.32"
 serde_type_name = "0.2.0"

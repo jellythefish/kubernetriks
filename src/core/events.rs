@@ -4,9 +4,7 @@
 use serde::Serialize;
 
 use crate::core::node::Node;
-use crate::core::pod::Pod;
-
-use super::pod::PodConditionType;
+use crate::core::pod::{PodConditionType, Pod};
 
 // Client to kube-api-server events
 

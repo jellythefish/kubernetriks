@@ -6,3 +6,4 @@ pub mod node_cluster;
 pub mod persistent_storage;
 pub mod pod;
 pub mod scheduler;
+pub mod node_pool;

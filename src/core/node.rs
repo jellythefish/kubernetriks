@@ -41,7 +41,7 @@ pub struct NodeStatus {
     pub conditions: Vec<NodeCondition>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Node {
     pub metadata: ObjectMeta,
     #[serde(default)]

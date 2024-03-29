@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
-use log::{debug, info};
+use log::debug;
 
 use crate::core::common::SimComponentId;
 use crate::core::events::{

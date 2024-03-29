@@ -12,6 +12,7 @@ use crate::core::api_server::KubeApiServer;
 use crate::core::node_cluster::NodeCluster;
 use crate::core::persistent_storage::{PersistentStorage, StorageData};
 use crate::core::scheduler::KubeGenericScheduler;
+use crate::core::node_pool::NodePool;
 use crate::trace::generic::GenericTrace;
 use crate::trace::interface::Trace;
 
@@ -49,6 +50,8 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, mut trace: GenericTrace) {
     let persistent_storage_context = sim.create_context(persistent_storage_component_name);
     let scheduler_context = sim.create_context(scheduler_component_name);
     let node_cluster_context = sim.create_context(node_cluster_component_name);
+
+    let _ = NodePool::new(10000, &mut sim);
 
     let node_cluster = Rc::new(RefCell::new(NodeCluster::new(
         kube_api_server_context.id(),

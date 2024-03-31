@@ -2,9 +2,10 @@ use dslab_kubernetriks::cast_box;
 
 use dslab_core::event::Event;
 
+use dslab_kubernetriks_derive::IsSimulationEvent;
 use serde::Serialize;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Serialize, IsSimulationEvent)]
 struct TestStruct {
     pub field: u64,
 }

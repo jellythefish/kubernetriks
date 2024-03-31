@@ -71,7 +71,7 @@ impl KubeApiServer {
 impl EventHandler for KubeApiServer {
     fn on(&mut self, event: Event) {
         // Macro which is called when we are sure that event.data is a Box from arbitrary
-        // Box<dyn EventData>
+        // Box<dyn SimulationEvent>
         cast_box!(match event.data {
             // Redirects to persistent storage
             CreateNodeRequest { node } => {

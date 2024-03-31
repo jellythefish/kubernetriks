@@ -4,12 +4,13 @@ use std::mem::swap;
 
 use serde::Deserialize;
 
+use crate::core::common::SimulationEvent;
 use crate::core::events::{
     CreateNodeRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
-use crate::trace::interface::{SimulationEvent, Trace};
+use crate::trace::interface::Trace;
 
 /// GenericTrace consists of timestamp-ordered events representing pod/node creation/removal,
 /// but in the format corresponding to this trace.
@@ -36,8 +37,8 @@ pub enum TraceEventType {
 
 impl Trace for GenericTrace {
     // Called once to convert and move events, TODO: better for call once semantic?
-    fn convert_to_simulator_events(&mut self) -> Vec<(f64, SimulationEvent)> {
-        let mut converted_events: Vec<(f64, SimulationEvent)> = vec![];
+    fn convert_to_simulator_events(&mut self) -> Vec<(f64, Box<dyn SimulationEvent>)> {
+        let mut converted_events: Vec<(f64, Box<dyn SimulationEvent>)> = vec![];
         converted_events.reserve(self.events.len());
 
         let mut events: Vec<TraceEvent> = vec![];

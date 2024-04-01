@@ -13,7 +13,7 @@ use crate::core::node_cluster::NodeCluster;
 use crate::core::persistent_storage::{PersistentStorage, StorageData};
 use crate::core::scheduler::KubeGenericScheduler;
 use crate::core::node_pool::NodePool;
-use crate::trace::generic::GenericTrace;
+use crate::trace::generic::{GenericWorkloadTrace, GenericClusterTrace};
 use crate::trace::interface::Trace;
 
 #[derive(Default, Debug, Deserialize)]
@@ -28,7 +28,7 @@ pub struct SimulatorConfig {
     pub as_to_nc_network_delay: f64,
 }
 
-pub fn run_simulator(config: Rc<SimulatorConfig>, mut trace: GenericTrace) {
+pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace, workload_trace: &mut dyn Trace) {
     info!(
         "Starting simulator {:?} with config: {:?}",
         config.sim_name, config
@@ -103,7 +103,10 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, mut trace: GenericTrace) {
     // the timestamps of events in a trace.
     assert_eq!(sim.time(), 0.0);
 
-    for (ts, event) in trace.convert_to_simulator_events() {
+    for (ts, event) in cluster_trace.convert_to_simulator_events().into_iter() {
+        client.emit(event, kube_api_server_id, ts);
+    }
+    for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
         client.emit(event, kube_api_server_id, ts);
     }
 

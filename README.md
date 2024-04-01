@@ -6,7 +6,9 @@ Framework to simulate k8s cluster, workload scheduling and autoscaling based on 
 Run prototype:
 ```
 cargo test
-RUST_LOG=trace cargo run -- --config-file src/config.yaml --trace-file src/data/generic_trace_example.yaml
+RUST_LOG=debug cargo run -- --config-file src/config.yaml \
+--cluster-trace-file src/data/generic_cluster_trace_example.yaml \
+--workload-trace-file src/data/generic_workload_trace_example.yaml
 ```
 
 ### TODO
@@ -19,7 +21,7 @@ RUST_LOG=trace cargo run -- --config-file src/config.yaml --trace-file src/data/
 # node_template2: 
 (посмотреть dslab iaas)
 ```
-- [ ] Создать отдельный файл событий изменения конфигурация кластера, не мешать его с подами
+- [x] Создать отдельный файл событий изменения конфигурация кластера, не мешать его с подами
 trace -> workload_trace.yaml/cluster_trace.yaml
 - [ ] Модифицировать API Simulator-а для клинета для управления симуляцией.
 ```

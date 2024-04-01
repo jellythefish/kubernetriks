@@ -8,14 +8,16 @@ use std::env;
 use std::rc::Rc;
 
 use crate::simulator::{run_simulator, SimulatorConfig};
-use crate::trace::generic::GenericTrace;
+use crate::trace::generic::{GenericWorkloadTrace, GenericClusterTrace};
 
 #[derive(Parser)]
 struct Args {
     #[clap(short, long)]
     config_file: std::path::PathBuf,
     #[clap(short, long)]
-    trace_file: std::path::PathBuf,
+    workload_trace_file: std::path::PathBuf,
+    #[clap(long)]
+    cluster_trace_file: std::path::PathBuf,
 }
 
 fn main() {
@@ -33,16 +35,22 @@ fn main() {
         args.config_file.canonicalize().unwrap()
     );
     info!(
-        "Path to trace file: {:?}",
-        args.trace_file.canonicalize().unwrap()
+        "Path to cluster trace file: {:?}",
+        args.cluster_trace_file.canonicalize().unwrap()
+    );
+    info!(
+        "Path to workload trace file: {:?}",
+        args.workload_trace_file.canonicalize().unwrap()
     );
 
     let config_yaml =
         std::fs::read_to_string(&args.config_file).expect("could not read config file");
-    let trace_yaml = std::fs::read_to_string(&args.trace_file).expect("could not read trace file");
+    let cluster_trace_yaml = std::fs::read_to_string(&args.cluster_trace_file).expect("could not read trace file");
+    let workload_trace_yaml = std::fs::read_to_string(&args.workload_trace_file).expect("could not read trace file");
 
     let config = Rc::new(serde_yaml::from_str::<SimulatorConfig>(&config_yaml).unwrap());
-    let trace = serde_yaml::from_str::<GenericTrace>(&trace_yaml).unwrap();
+    let mut cluster_trace = serde_yaml::from_str::<GenericClusterTrace>(&cluster_trace_yaml).unwrap();
+    let mut workload_trace = serde_yaml::from_str::<GenericWorkloadTrace>(&workload_trace_yaml).unwrap();
 
-    run_simulator(config, trace);
+    run_simulator(config, &mut cluster_trace, &mut workload_trace);
 }

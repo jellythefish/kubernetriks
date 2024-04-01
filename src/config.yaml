@@ -1,5 +1,25 @@
 sim_name: "kubernetriks"
 seed: 123
+node_pool_capacity: 10
+
+default_cluster:
+- node_count: 2
+  node_template:
+    metadata:
+      labels:
+        storage_type: ssd
+        proc_type: intel
+    status:
+      capacity:
+        cpu: 18000
+        ram: 18589934592
+- node_count: 3
+  node_template:
+    status:
+      capacity:
+        cpu: 24000
+        ram: 18589934592
+
 as_to_ps_network_delay: 50
 ps_to_sched_network_delay: 89
 sched_to_as_network_delay: 23

@@ -43,6 +43,7 @@ pub struct NodeStatus {
 
 #[derive(Debug, Default, Deserialize, Serialize, Clone, PartialEq)]
 pub struct Node {
+    #[serde(default)]
     pub metadata: ObjectMeta,
     #[serde(default)]
     pub spec: NodeSpec,

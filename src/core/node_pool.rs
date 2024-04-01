@@ -26,7 +26,7 @@ impl NodePool {
     pub fn new(node_number: u64, sim: &mut Simulation) -> Self {
         let mut pool = VecDeque::with_capacity(node_number as usize);
         for i in 0..node_number {
-            let node_name = format!("node_{}", i);
+            let node_name = format!("pool_node_{}", i);
             let node_component = Rc::new(RefCell::new(NodeComponent::new(sim.create_context(&node_name))));
             let id = sim.add_handler(node_name, node_component.clone());
             pool.push_back((id, node_component))

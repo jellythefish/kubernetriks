@@ -12,7 +12,7 @@ RUST_LOG=debug cargo run -- --config-file src/config.yaml \
 ```
 
 ### TODO
-- [ ] Задавать кластер статически размером из конфига
+- [x] Задавать кластер статически размером из конфига
 ```
 # max_node_pool_size: K 
 # cluster_size: N

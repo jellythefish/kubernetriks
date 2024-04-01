@@ -53,6 +53,13 @@ impl PersistentStorage {
         }
     }
 
+    pub fn add_node(&mut self, node: Node) {
+        self.storage_data
+            .borrow_mut()
+            .nodes
+            .insert(node.metadata.name.clone(), node);
+    }
+
     pub fn print_running_info(&self, pod_name: String) {
         let storage = self.storage_data.borrow();
         let pod = storage.pods.get(&pod_name).unwrap();
@@ -85,10 +92,7 @@ impl EventHandler for PersistentStorage {
         cast!(match event.data {
             CreateNodeRequest { node } => {
                 let node_name = node.metadata.name.clone();
-                self.storage_data
-                    .borrow_mut()
-                    .nodes
-                    .insert(node_name.clone(), node);
+                self.add_node(node);
                 self.ctx.emit(
                     CreateNodeResponse {
                         created: true,

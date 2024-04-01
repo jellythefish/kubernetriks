@@ -8,8 +8,10 @@ use serde::Deserialize;
 
 use dslab_core::simulation::Simulation;
 
-use crate::core::api_server::KubeApiServer;
-use crate::core::cluster_controller::ClusterController;
+use crate::core::api_server::{self, KubeApiServer};
+use crate::core::cluster_controller::{self, ClusterController};
+use crate::core::node::{Node, NodeConditionType};
+use crate::core::node_component::NodeComponent;
 use crate::core::persistent_storage::{PersistentStorage, StorageData};
 use crate::core::scheduler::KubeGenericScheduler;
 use crate::core::node_pool::NodePool;
@@ -19,12 +21,59 @@ use crate::trace::interface::Trace;
 pub struct SimulatorConfig {
     pub sim_name: String,
     pub seed: u64,
+    pub node_pool_capacity: u64,
+    pub default_cluster: Vec<NodeBundle>,
     // Simulated network delays, as = api server, ps = persistent storage, nc = node cluster.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
     pub as_to_ps_network_delay: f64,
     pub ps_to_sched_network_delay: f64,
     pub sched_to_as_network_delay: f64,
     pub as_to_nc_network_delay: f64,
+}
+
+#[derive(Clone, Default, Debug, Deserialize)]
+pub struct NodeBundle {
+    node_count: u64,
+    node_template: Node,
+}
+
+pub fn initialize_default_cluster(
+    config: Rc<SimulatorConfig>, 
+    persistent_storage: Rc<RefCell<PersistentStorage>>, 
+    api_server: Rc<RefCell<KubeApiServer>>,
+    cluster_controller: Rc<RefCell<ClusterController>>,
+    sim: &mut Simulation)
+{
+    if config.default_cluster.len() == 0 {
+        return;
+    }
+    for bundle in config.default_cluster.iter() {
+        for _ in 0..bundle.node_count {
+            let node_name = format!("default_node_{}", sim.random_string(5));
+            let node_context = sim.create_context(node_name.clone());
+            let node_id = node_context.id();
+
+            let mut node = bundle.node_template.clone();
+            node.update_condition("True".to_string(), NodeConditionType::NodeCreated, 0.0);
+            node.metadata.name = node_name.clone();
+            node.status.allocatable = node.status.capacity.clone();
+
+            // add to persistent storage
+            persistent_storage.borrow_mut().add_node(node.clone());
+
+            // add to cluster controller
+            let node_component = Rc::new(RefCell::new(NodeComponent::new(node_context)));
+            node_component.borrow_mut().node = node.clone();
+            node_component.borrow_mut().api_server = Some(api_server.borrow().ctx.id());
+            node_component.borrow_mut().config = Some(config.clone());
+
+            cluster_controller.borrow_mut().add_node(node_name.clone(), node_id, node_component.clone());
+            // add to api server
+            api_server.borrow_mut().add_created_node(node_name.clone(), node_id);
+
+            sim.add_handler(node_name, node_component);
+        }
+    }
 }
 
 pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace, workload_trace: &mut dyn Trace) {
@@ -52,7 +101,7 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
 
     let cluster_controller = Rc::new(RefCell::new(ClusterController::new(
         kube_api_server_context.id(),
-        NodePool::new(10, &mut sim),
+        NodePool::new(config.node_pool_capacity, &mut sim),
         cluster_controller_context,
         config.clone(),
     )));
@@ -100,6 +149,8 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
     // Asserting we start with the current time = 0, then all delays in emit() calls are equal to
     // the timestamps of events in a trace.
     assert_eq!(sim.time(), 0.0);
+
+    initialize_default_cluster(config, persistent_storage.clone(), kube_api_server.clone(), cluster_controller.clone(), &mut sim);
 
     for (ts, event) in cluster_trace.convert_to_simulator_events().into_iter() {
         client.emit(event, kube_api_server_id, ts);

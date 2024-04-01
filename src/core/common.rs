@@ -30,6 +30,7 @@ erased_serde::serialize_trait_object!(SimulationEvent);
 pub struct ObjectMeta {
     // A client-provided string that refers to an object. Must be unique across all objects
     // in a simulation.
+    #[serde(default)]
     pub name: String,
     // Map of kv pairs that can be used to organize and categorize (scope and select) objects.
     #[serde(default)]

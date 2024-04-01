@@ -20,8 +20,8 @@ use crate::core::node_component::NodeComponent;
 pub struct ClusterController {
     api_server: SimComponentId,
 
-    allocated_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
-    node_name_to_id: HashMap<String, SimComponentId>,
+    pub allocated_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
+    pub node_name_to_id: HashMap<String, SimComponentId>,
 
     node_pool: NodePool,
     ctx: SimulationContext,
@@ -45,18 +45,17 @@ impl ClusterController {
         }
     }
 
-    pub fn create_node(&mut self, node: Node) -> SimComponentId {
+    pub fn add_node(&mut self, node_name: String, node_id: SimComponentId, allocated: Rc<RefCell<NodeComponent>>) {
+        self.allocated_nodes.insert(node_name.clone(), allocated);
+        self.node_name_to_id.insert(node_name, node_id);
+    }
+
+    pub fn allocate_node(&mut self, node: Node) -> (SimComponentId, Rc<RefCell<NodeComponent>>) {
         let (id, allocated) = self.node_pool.allocate();
         allocated.borrow_mut().node = node;
         allocated.borrow_mut().api_server = Some(self.api_server);
         allocated.borrow_mut().config = Some(self.config.clone());
-
-        let node_name = allocated.borrow().node.metadata.name.clone();
-
-        self.allocated_nodes.insert(node_name.clone(), allocated);
-        self.node_name_to_id.insert(node_name, id);
-
-        id
+        (id, allocated)
     }
 }
 
@@ -64,9 +63,10 @@ impl EventHandler for ClusterController {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
             CreateNodeRequest { node } => {
-                let node_name = node.metadata.name.clone();
                 // TODO: ? simulate delay for node creation, event_time = event.time + delta
-                let node_id = self.create_node(node);
+                let (node_id, allocated) = self.allocate_node(node);
+                let node_name = allocated.borrow().node.metadata.name.clone();
+                self.add_node(node_name.clone(), node_id, allocated);
                 self.ctx.emit(
                     NodeAddedToTheCluster {
                         event_time: event.time,

@@ -18,7 +18,7 @@ use crate::simulator::SimulatorConfig;
 pub struct KubeApiServer {
     persistent_storage: SimComponentId,
     cluster_controller: SimComponentId,
-    ctx: SimulationContext,
+    pub ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
 
     pending_node_creation_requests: HashMap<String, Node>,
@@ -41,6 +41,10 @@ impl KubeApiServer {
             pending_node_creation_requests: Default::default(),
             created_nodes: Default::default(),
         }
+    }
+
+    pub fn add_created_node(&mut self, node_name: String, node_id: SimComponentId) {
+        self.created_nodes.insert(node_name, node_id);
     }
 
     fn handle_create_node_response(&mut self, src: SimComponentId, created: bool, node_name: &str) {
@@ -94,7 +98,7 @@ impl EventHandler for KubeApiServer {
                 node_name,
                 node_id,
             } => {
-                self.created_nodes.insert(node_name.clone(), node_id);
+                self.add_created_node(node_name.clone(), node_id);
                 self.ctx.emit(
                     NodeAddedToTheCluster {
                         event_time,

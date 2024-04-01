@@ -15,7 +15,7 @@ events:
                   cpu: 8000
                   ram: 17179869184
               running_duration: 21.0
-- timestamp: 1100
+- timestamp: 551
   event_type:
     !CreatePod
       pod:
@@ -31,7 +31,7 @@ events:
                   cpu: 8000
                   ram: 17179869184
               running_duration: 76.0
-- timestamp: 5430
+- timestamp: 552
   event_type:
     !CreatePod
       pod:
@@ -47,7 +47,7 @@ events:
                   cpu: 8000
                   ram: 17179869184
               running_duration: 4.0
-- timestamp: 54230
+- timestamp: 553
   event_type:
     !CreatePod
       pod:

@@ -1,14 +1,13 @@
 //! Implementation of kube-scheduler component which is responsible for scheduling pods for nodes.
 
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
 use crate::core::common::SimComponentId;
-use crate::core::events::{AssignPodToNodeRequest, PodCreated};
-use crate::core::persistent_storage::StorageData;
+use crate::core::events::{AssignPodToNodeRequest, PodScheduleRequest, UpdateNodeCacheRequest};
+use crate::core::common::ObjectsInfo;
 use crate::simulator::SimulatorConfig;
 use downcast_rs::{impl_downcast, Downcast};
 use log::debug;
@@ -35,8 +34,8 @@ impl_downcast!(Scheduler);
 pub struct KubeGenericScheduler {
     api_server: SimComponentId,
 
-    // Cache which is updated from persistent storage
-    pub cluster_cache: Rc<RefCell<StorageData>>,
+    // Cache which is updated based on events from persistent storage
+    pub objects_cache: ObjectsInfo,
 
     ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
@@ -45,16 +44,29 @@ pub struct KubeGenericScheduler {
 impl KubeGenericScheduler {
     pub fn new(
         api_server: SimComponentId,
-        cluster_cache: Rc<RefCell<StorageData>>,
         ctx: SimulationContext,
         config: Rc<SimulatorConfig>,
     ) -> Self {
         Self {
             api_server,
-            cluster_cache,
+            objects_cache: Default::default(),
             ctx,
             config,
         }
+    }
+
+    pub fn add_node_to_cache(&mut self, node: Node) {
+        self.objects_cache.nodes.insert(node.metadata.name.clone(), node);
+    }
+
+    pub fn add_pod_to_cache(&mut self, pod: Pod) {
+        self.objects_cache.pods.insert(pod.metadata.name.clone(), pod);
+    }
+
+    fn reserve_node_resources(&mut self, requested_resources: &RuntimeResources, assigned_node: &str) {
+        let node = self.objects_cache.nodes.get_mut(assigned_node).unwrap();
+        node.status.allocatable.cpu -= requested_resources.cpu;
+        node.status.allocatable.ram -= requested_resources.ram;
     }
 
     fn filter<'a>(
@@ -89,7 +101,7 @@ impl Scheduler for KubeGenericScheduler {
             return Err(ScheduleError::RequestedResourcesAreZeros);
         }
 
-        let nodes = &self.cluster_cache.borrow().nodes;
+        let nodes = &self.objects_cache.nodes;
         if nodes.len() == 0 {
             return Err(ScheduleError::NoNodesInCluster);
         }
@@ -108,7 +120,7 @@ impl Scheduler for KubeGenericScheduler {
                 assigned_node = &node.metadata.name;
                 max_score = score;
             }
-            debug!("Score for node {:?} - {:?}", node.metadata.name, score);
+            debug!("Pod {:?} score for node {:?} - {:?}", pod.metadata.name, node.metadata.name, score);
         }
 
         Ok(assigned_node.to_owned())
@@ -118,20 +130,24 @@ impl Scheduler for KubeGenericScheduler {
 impl EventHandler for KubeGenericScheduler {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
-            PodCreated { pod_name } => {
-                let pod = &self.cluster_cache.borrow().pods[&pod_name];
-                // MAKE A QUEUE AND WAIT BEFORE PERSISTENT STORAGE REPLIES THAT PREVIOUS POD ASSIGNMENT IS PERSISTED
-                // BECAUSE ONLY PERSISTENT STORAGE CAN UPDATE ALLOCATABLE NODE STATUS!!!!!!
+            UpdateNodeCacheRequest { node } => {
+                self.add_node_to_cache(node);
+            }
+            PodScheduleRequest { pod } => {
+                let pod_name = pod.metadata.name.clone();
                 let assigned_node = self.schedule_one(&pod).unwrap();
+                self.reserve_node_resources(&pod.calculate_requested_resources(), &assigned_node);
+                self.add_pod_to_cache(pod);
                 self.ctx.emit(
                     AssignPodToNodeRequest {
-                        pod_name: pod.metadata.name.clone(),
+                        pod_name: pod_name,
                         node_name: assigned_node,
                     },
                     self.api_server,
                     self.config.sched_to_as_network_delay,
                 );
             }
+            // TODO: UPDATE NODE CACHE WHEN THE POD IS FINISHED
         })
     }
 }

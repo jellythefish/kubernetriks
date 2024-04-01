@@ -3,7 +3,7 @@ seed: 123
 node_pool_capacity: 10
 
 default_cluster:
-- node_count: 2
+- node_count: 1
   node_template:
     metadata:
       labels:
@@ -13,7 +13,7 @@ default_cluster:
       capacity:
         cpu: 18000
         ram: 18589934592
-- node_count: 3
+- node_count: 2
   node_template:
     status:
       capacity:

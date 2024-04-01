@@ -56,8 +56,14 @@ pub struct NodeAddedToTheCluster {
 
 // Event from persistent storage to scheduler to tell that new pod is created and ready for scheduling.
 #[derive(Serialize, Clone, IsSimulationEvent)]
-pub struct PodCreated {
-    pub pod_name: String,
+pub struct PodScheduleRequest {
+    pub pod: Pod,
+}
+
+// Event from persistent storage to scheduler to tell that new node is created and ready for scheduling.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct UpdateNodeCacheRequest {
+    pub node: Node,
 }
 
 // Event to tell that new pod should be bind to a node.

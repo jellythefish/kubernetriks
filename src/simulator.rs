@@ -8,11 +8,11 @@ use serde::Deserialize;
 
 use dslab_core::simulation::Simulation;
 
-use crate::core::api_server::{self, KubeApiServer};
-use crate::core::cluster_controller::{self, ClusterController};
+use crate::core::api_server::KubeApiServer;
+use crate::core::cluster_controller::ClusterController;
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::NodeComponent;
-use crate::core::persistent_storage::{PersistentStorage, StorageData};
+use crate::core::persistent_storage::PersistentStorage;
 use crate::core::scheduler::KubeGenericScheduler;
 use crate::core::node_pool::NodePool;
 use crate::trace::interface::Trace;
@@ -42,6 +42,7 @@ pub fn initialize_default_cluster(
     persistent_storage: Rc<RefCell<PersistentStorage>>, 
     api_server: Rc<RefCell<KubeApiServer>>,
     cluster_controller: Rc<RefCell<ClusterController>>,
+    scheduler: Rc<RefCell<KubeGenericScheduler>>,
     sim: &mut Simulation)
 {
     if config.default_cluster.len() == 0 {
@@ -60,16 +61,16 @@ pub fn initialize_default_cluster(
 
             // add to persistent storage
             persistent_storage.borrow_mut().add_node(node.clone());
-
             // add to cluster controller
             let node_component = Rc::new(RefCell::new(NodeComponent::new(node_context)));
             node_component.borrow_mut().node = node.clone();
             node_component.borrow_mut().api_server = Some(api_server.borrow().ctx.id());
             node_component.borrow_mut().config = Some(config.clone());
-
             cluster_controller.borrow_mut().add_node(node_name.clone(), node_id, node_component.clone());
             // add to api server
             api_server.borrow_mut().add_created_node(node_name.clone(), node_id);
+            // add to scheduler
+            scheduler.borrow_mut().add_node_to_cache(node.clone());
 
             sim.add_handler(node_name, node_component);
         }
@@ -116,16 +117,8 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
     let kube_api_server_id =
         sim.add_handler(kube_api_server_component_name, kube_api_server.clone());
 
-    // Data about pods and nodes which is updated from persistent storage and read from scheduler
-    // for fast access to consistent cluster information.
-    let persistent_storage_data = Rc::new(RefCell::new(StorageData {
-        nodes: Default::default(),
-        pods: Default::default(),
-    }));
-
     let scheduler = Rc::new(RefCell::new(KubeGenericScheduler::new(
         kube_api_server_id,
-        persistent_storage_data.clone(),
         scheduler_context,
         config.clone(),
     )));
@@ -134,7 +127,6 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
     let persistent_storage = Rc::new(RefCell::new(PersistentStorage::new(
         kube_api_server_id,
         scheduler_id,
-        persistent_storage_data.clone(),
         persistent_storage_context,
         config.clone(),
     )));
@@ -150,7 +142,7 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
     // the timestamps of events in a trace.
     assert_eq!(sim.time(), 0.0);
 
-    initialize_default_cluster(config, persistent_storage.clone(), kube_api_server.clone(), cluster_controller.clone(), &mut sim);
+    initialize_default_cluster(config, persistent_storage.clone(), kube_api_server.clone(), cluster_controller.clone(), scheduler.clone(), &mut sim);
 
     for (ts, event) in cluster_trace.convert_to_simulator_events().into_iter() {
         client.emit(event, kube_api_server_id, ts);

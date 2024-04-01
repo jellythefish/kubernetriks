@@ -7,6 +7,8 @@ use dslab_core::{event::EventData, Id};
 
 use serde::{Deserialize, Serialize};
 
+use crate::core::{node::Node, pod::Pod};
+
 // Identifier of any component of kubernetes as a simulation component.
 // Generated from sim.create_context.
 pub type SimComponentId = Id;
@@ -44,4 +46,12 @@ pub struct ObjectMeta {
 pub struct RuntimeResources {
     pub cpu: u32, // in millicores
     pub ram: u64, // in bytes
+}
+
+#[derive(Default)]
+pub struct ObjectsInfo {
+    // State about current nodes of a cluster: <Node name, Node>
+    pub nodes: HashMap<String, Node>,
+    // State about current pods of a cluster: <Pod name, Pod>
+    pub pods: HashMap<String, Pod>,
 }

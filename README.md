@@ -37,3 +37,18 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Ограничить набор событий в SimulationEvent для трейса pub trait SimulatorEvent: EventData {} ??
 - [ ] Можно упростить и убрать контейнеры в Pod 
 - [ ] Доп фича - препроцессить трейс нод для того чтобы узнать количество для предварительной аллокации достаточного количества нод
+
+- [ ] Вынести тело цикла в отдельную функцию + сделать более понятную нумерацию нод (1,2,3) - падать если имя неуникально + сделать структуру удобную как у https://github.com/osukhoroslov/dslab/blob/4ea3b3a4abe0b36dca5359a838d502dacf9da95d/crates/dslab-iaas/src/core/config/sim_config.rs#L42
+- [ ] NodeBundle -> NodeGroup
+- [ ] Поднять очередь подов для планировщика, в которую будут складываться поды по запросу от Persistent storage. Завести цикл планирования, который в своей итерации выгребает всю очередь подов, планирует каждый под, замеряет планирование каждого пода + полностью итерацию планирования. Назначение нового цикла планирования происходит с задержкой = max(scheduling period, current scheduling time). Отправка запроса AssignPodToNodeRequest происходит с задержкой = сетевой задержке + время проведенное подом в очереди + его время планирования.
+- [ ] Заменить debug!/info! на dslab::log_debug/log_info
+- [ ] Сделать два трейта для планировщика:
+```
+// trait AnyScheduler
+// fn schedule_one(pod: &Pod, nodes: &Nodes) -> Result<String, ScheduleError>;
+
+// trait KubeGenericScheduler
+// fn filter
+// fn score
+```
+- [ ] Перенести всю логику Cluster controller-a в node pool и убрать cluster controller, обойтись только api server + node pool

@@ -9,6 +9,8 @@ use serde::Serialize;
 use crate::core::node::Node;
 use crate::core::pod::{PodConditionType, Pod};
 
+use crate::core::common::SimComponentId;
+
 // Client to kube-api-server events
 
 // K8s supports two two main ways to have Nodes added to the API server:
@@ -49,6 +51,7 @@ pub struct RemovePodRequest {
 pub struct NodeAddedToTheCluster {
     pub event_time: f64,
     pub node_name: String,
+    pub node_id: SimComponentId,
 }
 
 // Event from persistent storage to scheduler to tell that new pod is created and ready for scheduling.
@@ -105,7 +108,6 @@ pub struct PodFinishedRunning {
     pub finish_time: f64,
     pub finish_result: PodConditionType, // either PodSucceeded or PodFailed
     pub pod_name: String,
-    pub node_name: String,
 }
 
 // Expect event.data to be Box<Box<dyn SimulationEvent>> to downcast it first and then extract a real type.

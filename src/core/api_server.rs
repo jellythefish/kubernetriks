@@ -17,26 +17,29 @@ use crate::simulator::SimulatorConfig;
 
 pub struct KubeApiServer {
     persistent_storage: SimComponentId,
-    node_cluster: SimComponentId,
+    cluster_controller: SimComponentId,
     ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
 
     pending_node_creation_requests: HashMap<String, Node>,
+    // Mapping from node name to it's component id
+    created_nodes: HashMap<String, SimComponentId>,
 }
 
 impl KubeApiServer {
     pub fn new(
-        node_cluster: SimComponentId,
+        cluster_controller: SimComponentId,
         persistent_storage_id: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulatorConfig>,
     ) -> Self {
         Self {
-            node_cluster,
+            cluster_controller,
             persistent_storage: persistent_storage_id,
             ctx,
             config,
             pending_node_creation_requests: Default::default(),
+            created_nodes: Default::default(),
         }
     }
 
@@ -56,7 +59,7 @@ impl KubeApiServer {
                         .remove(node_name)
                         .unwrap(),
                 },
-                self.node_cluster,
+                self.cluster_controller,
                 self.config.as_to_nc_network_delay,
             );
         } else {
@@ -89,11 +92,14 @@ impl EventHandler for KubeApiServer {
             NodeAddedToTheCluster {
                 event_time,
                 node_name,
+                node_id,
             } => {
+                self.created_nodes.insert(node_name.clone(), node_id);
                 self.ctx.emit(
                     NodeAddedToTheCluster {
                         event_time,
                         node_name,
+                        node_id,
                     },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
@@ -127,13 +133,16 @@ impl EventHandler for KubeApiServer {
                 node_name,
             } => {
                 // Make bind request to node cluster
+                let node_component_id = self.created_nodes.get(&node_name).unwrap_or_else(|| {
+                    panic!("Trying to assign pod {:?} to a node {:?} which do not exist", pod_name, node_name);
+                });
                 self.ctx.emit(
                     BindPodToNodeRequest {
                         pod_name,
                         pod_duration,
                         node_name,
                     },
-                    self.node_cluster,
+                    *node_component_id,
                     self.config.as_to_nc_network_delay,
                 );
             }
@@ -155,7 +164,6 @@ impl EventHandler for KubeApiServer {
                 finish_time,
                 finish_result,
                 pod_name,
-                node_name,
             } => {
                 // Redirects to persistent storage
                 self.ctx.emit(
@@ -163,7 +171,6 @@ impl EventHandler for KubeApiServer {
                         finish_time,
                         finish_result,
                         pod_name,
-                        node_name,
                     },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,

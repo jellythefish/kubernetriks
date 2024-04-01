@@ -9,11 +9,10 @@ use serde::Deserialize;
 use dslab_core::simulation::Simulation;
 
 use crate::core::api_server::KubeApiServer;
-use crate::core::node_cluster::NodeCluster;
+use crate::core::cluster_controller::ClusterController;
 use crate::core::persistent_storage::{PersistentStorage, StorageData};
 use crate::core::scheduler::KubeGenericScheduler;
 use crate::core::node_pool::NodePool;
-use crate::trace::generic::{GenericWorkloadTrace, GenericClusterTrace};
 use crate::trace::interface::Trace;
 
 #[derive(Default, Debug, Deserialize)]
@@ -44,24 +43,23 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
     let kube_api_server_component_name = "kube_api_server";
     let persistent_storage_component_name = "persistent_storage";
     let scheduler_component_name = "scheduler";
-    let node_cluster_component_name = "node_cluster";
+    let cluster_controller_component_name = "cluster_controller";
 
     let kube_api_server_context = sim.create_context(kube_api_server_component_name);
     let persistent_storage_context = sim.create_context(persistent_storage_component_name);
     let scheduler_context = sim.create_context(scheduler_component_name);
-    let node_cluster_context = sim.create_context(node_cluster_component_name);
+    let cluster_controller_context = sim.create_context(cluster_controller_component_name);
 
-    let _ = NodePool::new(10000, &mut sim);
-
-    let node_cluster = Rc::new(RefCell::new(NodeCluster::new(
+    let cluster_controller = Rc::new(RefCell::new(ClusterController::new(
         kube_api_server_context.id(),
-        node_cluster_context,
+        NodePool::new(10, &mut sim),
+        cluster_controller_context,
         config.clone(),
     )));
-    let node_cluster_id = sim.add_handler(node_cluster_component_name, node_cluster.clone());
+    let cluster_controller_id = sim.add_handler(cluster_controller_component_name, cluster_controller.clone());
 
     let kube_api_server = Rc::new(RefCell::new(KubeApiServer::new(
-        node_cluster_id,
+        cluster_controller_id,
         persistent_storage_context.id(),
         kube_api_server_context,
         config.clone(),

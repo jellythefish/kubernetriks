@@ -11,44 +11,12 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use std::collections::HashSet;
 use std::collections::VecDeque;
 
-use dslab_core::Event;
-use dslab_core::EventHandler;
-use dslab_core::{Simulation, SimulationContext};
-
-use crate::core::node::Node;
+use dslab_core::Simulation;
 
 use crate::core::common::SimComponentId;
-
-struct NodeComponent {
-    node: Node,
-
-    running_pods: HashSet<String>,
-
-    ctx: SimulationContext,
-}
-
-impl NodeComponent {
-    pub fn new(ctx: SimulationContext) -> Self {
-        Self {
-            node: Default::default(),
-            running_pods: Default::default(),
-            ctx
-        }
-    }
-
-    pub fn clear_state(&mut self) {
-        self.node = Default::default();
-        self.running_pods.clear();
-    }
-}
-
-impl EventHandler for NodeComponent {
-    fn on(&mut self, event: Event) {
-    }
-}
+use crate::core::node_component::NodeComponent;
 
 pub struct NodePool {
     pool: VecDeque<(SimComponentId, Rc<RefCell<NodeComponent>>)>

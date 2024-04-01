@@ -101,6 +101,7 @@ impl EventHandler for PersistentStorage {
             NodeAddedToTheCluster {
                 event_time,
                 node_name,
+                ..
             } => {
                 self.storage_data
                     .borrow_mut()

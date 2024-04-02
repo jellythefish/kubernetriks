@@ -29,10 +29,7 @@ pub struct NodeRuntime {
 
 impl NodeComponent {
     pub fn new(ctx: SimulationContext) -> Self {
-        Self {
-            ctx,
-            runtime: None,
-        }
+        Self { ctx, runtime: None }
     }
 
     pub fn id(&self) -> SimComponentId {
@@ -43,13 +40,12 @@ impl NodeComponent {
         &self.runtime.as_ref().unwrap().node.metadata.name
     }
 
-    pub fn simulate_pod_runtime(
-        &mut self,
-        event_time: f64,
-        pod_name: String,
-        pod_duration: f64,
-    ) {
-        self.runtime.as_mut().unwrap().running_pods.insert(pod_name.clone());
+    pub fn simulate_pod_runtime(&mut self, event_time: f64, pod_name: String, pod_duration: f64) {
+        self.runtime
+            .as_mut()
+            .unwrap()
+            .running_pods
+            .insert(pod_name.clone());
         self.ctx.emit_self(
             PodFinishedRunning {
                 pod_name,
@@ -79,7 +75,11 @@ impl EventHandler for NodeComponent {
                         pod_name,
                     },
                     self.runtime.as_ref().unwrap().api_server,
-                    self.runtime.as_ref().unwrap().config.as_to_node_network_delay,
+                    self.runtime
+                        .as_ref()
+                        .unwrap()
+                        .config
+                        .as_to_node_network_delay,
                 );
             }
             PodFinishedRunning {
@@ -87,7 +87,11 @@ impl EventHandler for NodeComponent {
                 finish_result,
                 pod_name,
             } => {
-                self.runtime.as_mut().unwrap().running_pods.remove(&pod_name);
+                self.runtime
+                    .as_mut()
+                    .unwrap()
+                    .running_pods
+                    .remove(&pod_name);
                 // Redirect to api server
                 self.ctx.emit(
                     PodFinishedRunning {
@@ -96,7 +100,11 @@ impl EventHandler for NodeComponent {
                         pod_name,
                     },
                     self.runtime.as_ref().unwrap().api_server,
-                    self.runtime.as_ref().unwrap().config.as_to_node_network_delay,
+                    self.runtime
+                        .as_ref()
+                        .unwrap()
+                        .config
+                        .as_to_node_network_delay,
                 );
             }
         });

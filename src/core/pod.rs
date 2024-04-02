@@ -92,6 +92,9 @@ impl Pod {
 
     // Ref to condition if it exists else None.
     pub fn get_condition(&self, condition_type: PodConditionType) -> Option<&PodCondition> {
-        self.status.conditions.iter().find(|c| c.condition_type == condition_type)
+        self.status
+            .conditions
+            .iter()
+            .find(|c| c.condition_type == condition_type)
     }
 }

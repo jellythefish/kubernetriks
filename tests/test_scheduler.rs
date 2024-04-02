@@ -21,11 +21,13 @@ fn create_scheduler() -> Box<dyn Scheduler> {
 fn create_pod(resources_request: RuntimeResources) -> Pod {
     Pod {
         metadata: Default::default(),
-        spec: PodSpec { resources: Resources {
-            limits: resources_request.clone(),
-            requests: resources_request.clone(),
+        spec: PodSpec {
+            resources: Resources {
+                limits: resources_request.clone(),
+                requests: resources_request.clone(),
+            },
+            running_duration: Default::default(),
         },
-        running_duration: Default::default() },
         status: Default::default(),
     }
 }
@@ -50,7 +52,10 @@ fn register_nodes(scheduler: &mut dyn Scheduler, nodes: Vec<Node>) {
     match scheduler.downcast_mut::<KubeGenericScheduler>() {
         Some(generic_scheduler) => {
             for node in nodes.into_iter() {
-                generic_scheduler.objects_cache.nodes.insert(node.metadata.name.clone(), node);
+                generic_scheduler
+                    .objects_cache
+                    .nodes
+                    .insert(node.metadata.name.clone(), node);
             }
         }
         None => {
@@ -62,7 +67,11 @@ fn register_nodes(scheduler: &mut dyn Scheduler, nodes: Vec<Node>) {
 fn allocate_pod(scheduler: &mut dyn Scheduler, node_name: &str, requests: RuntimeResources) {
     match scheduler.downcast_mut::<KubeGenericScheduler>() {
         Some(generic_scheduler) => {
-            let node = generic_scheduler.objects_cache.nodes.get_mut(node_name).unwrap();
+            let node = generic_scheduler
+                .objects_cache
+                .nodes
+                .get_mut(node_name)
+                .unwrap();
             node.status.allocatable.cpu -= requests.cpu;
             node.status.allocatable.ram -= requests.ram;
         }
@@ -99,8 +108,8 @@ fn test_pod_has_requested_zero_resources() {
 fn test_no_sufficient_nodes_for_scheduling() {
     let mut scheduler = create_scheduler();
     let pod = create_pod(RuntimeResources {
-            cpu: 6000,
-            ram: 12884901888,
+        cpu: 6000,
+        ram: 12884901888,
     });
     let node = create_node(
         "node1".to_string(),
@@ -122,8 +131,8 @@ fn test_correct_pod_scheduling() {
 
     let mut scheduler = create_scheduler();
     let pod = create_pod(RuntimeResources {
-            cpu: 6000,
-            ram: 12884901888,
+        cpu: 6000,
+        ram: 12884901888,
     });
     let node1 = create_node(
         "node1".to_string(),
@@ -191,29 +200,17 @@ fn test_several_pod_scheduling() {
         node_name
     );
     // scheduler does not update cache itself, so we do it for persistent storage
-    allocate_pod(
-        scheduler.as_mut(),
-        node_name,
-        pod1.spec.resources.requests,
-    );
+    allocate_pod(scheduler.as_mut(), node_name, pod1.spec.resources.requests);
     assert_eq!(
         scheduler.as_ref().schedule_one(&pod2).ok().unwrap(),
         node_name
     );
-    allocate_pod(
-        scheduler.as_mut(),
-        node_name,
-        pod2.spec.resources.requests,
-    );
+    allocate_pod(scheduler.as_mut(), node_name, pod2.spec.resources.requests);
     assert_eq!(
         scheduler.as_ref().schedule_one(&pod3).ok().unwrap(),
         node_name
     );
-    allocate_pod(
-        scheduler.as_mut(),
-        node_name,
-        pod3.spec.resources.requests,
-    );
+    allocate_pod(scheduler.as_mut(), node_name, pod3.spec.resources.requests);
     // there is no place left on node for the fourth pod
     assert_eq!(
         scheduler.as_ref().schedule_one(&pod4).err().unwrap(),

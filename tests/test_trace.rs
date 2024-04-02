@@ -4,8 +4,8 @@ use dslab_kubernetriks::core::common::{ObjectMeta, RuntimeResources};
 use dslab_kubernetriks::core::node::{Node, NodeStatus};
 use dslab_kubernetriks::core::pod::{Pod, PodSpec, Resources};
 use dslab_kubernetriks::trace::generic::{
-    GenericWorkloadTrace, WorkloadEvent, WorkloadEventType, GenericClusterTrace, ClusterEvent,
-    ClusterEventType,
+    ClusterEvent, ClusterEventType, GenericClusterTrace, GenericWorkloadTrace, WorkloadEvent,
+    WorkloadEventType,
 };
 
 #[test]
@@ -14,7 +14,7 @@ fn test_deserialize_empty_trace_from_json() {
     events: []
     "#;
 
-    let cluster_deserialized: GenericClusterTrace  = serde_yaml::from_str(&trace_json).unwrap();
+    let cluster_deserialized: GenericClusterTrace = serde_yaml::from_str(&trace_json).unwrap();
     let workload_deserialized: GenericWorkloadTrace = serde_yaml::from_str(&trace_json).unwrap();
 
     let cluster_trace = GenericClusterTrace { events: vec![] };
@@ -48,7 +48,8 @@ fn test_deserialize_cluster_trace_from_yaml() {
           node_name: node_21    
     "#;
 
-    let cluster_deserialized: GenericClusterTrace = serde_yaml::from_str(&cluster_trace_yaml).unwrap();
+    let cluster_deserialized: GenericClusterTrace =
+        serde_yaml::from_str(&cluster_trace_yaml).unwrap();
     let cluster_trace = GenericClusterTrace {
         events: vec![
             ClusterEvent {
@@ -111,7 +112,8 @@ fn test_deserialize_workload_trace_from_yaml() {
           pod_name: pod_42
     "#;
 
-    let workload_deserialized: GenericWorkloadTrace = serde_yaml::from_str(&workload_trace_yaml).unwrap();
+    let workload_deserialized: GenericWorkloadTrace =
+        serde_yaml::from_str(&workload_trace_yaml).unwrap();
     let workload_trace = GenericWorkloadTrace {
         events: vec![
             WorkloadEvent {
@@ -146,7 +148,7 @@ fn test_deserialize_workload_trace_from_yaml() {
                     pod_name: "pod_42".to_string(),
                 },
             },
-        ]
+        ],
     };
     assert_eq!(workload_trace, workload_deserialized);
 }

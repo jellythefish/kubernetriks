@@ -7,13 +7,15 @@ use std::rc::Rc;
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 use log::debug;
 
+use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning, PodScheduleRequest, PodStartedRunning, UpdateNodeCacheRequest
+    AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest, CreateNodeResponse,
+    CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning, PodScheduleRequest,
+    PodStartedRunning, UpdateNodeCacheRequest,
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::PodConditionType;
-use crate::core::common::ObjectsInfo;
 use crate::simulator::SimulatorConfig;
 
 pub struct PersistentStorage {
@@ -44,7 +46,9 @@ impl PersistentStorage {
     }
 
     pub fn add_node(&mut self, node: Node) {
-        self.storage_data.nodes.insert(node.metadata.name.clone(), node);
+        self.storage_data
+            .nodes
+            .insert(node.metadata.name.clone(), node);
     }
 
     pub fn print_running_info(&self, pod_name: String) {
@@ -58,7 +62,10 @@ impl PersistentStorage {
             finish_time = failed.last_transition_time;
             result = "Failed";
         }
-        let start_time = pod.get_condition(PodConditionType::PodRunning).unwrap().last_transition_time;
+        let start_time = pod
+            .get_condition(PodConditionType::PodRunning)
+            .unwrap()
+            .last_transition_time;
         println!("###############################################################################");
         println!("Pod name: {:?}\nPod created at: {:?}\nPod scheduled at: {:?}\nNode assigned: {:?}\nPod started running at: {:?}\nPod finished running at: {:?}\nPod running duration: {:?}\nPod finish result: {:?}",
             pod_name,
@@ -104,22 +111,19 @@ impl EventHandler for PersistentStorage {
                 // tell scheduler about new node in the cluster
                 let node = self.storage_data.nodes.get(&node_name).unwrap().clone();
                 self.ctx.emit(
-                    UpdateNodeCacheRequest{ node },
+                    UpdateNodeCacheRequest { node },
                     self.scheduler,
-                    self.config.ps_to_sched_network_delay);
+                    self.config.ps_to_sched_network_delay,
+                );
                 debug!(
                     "Updated node conditions: {:?}",
-                    self.storage_data.nodes[&node_name]
-                        .status
-                        .conditions
+                    self.storage_data.nodes[&node_name].status.conditions
                 );
             }
             CreatePodRequest { mut pod } => {
                 let pod_name = pod.metadata.name.clone();
                 pod.update_condition("True".to_string(), PodConditionType::PodCreated, event.time);
-                self.storage_data
-                    .pods
-                    .insert(pod_name.clone(), pod);
+                self.storage_data.pods.insert(pod_name.clone(), pod);
                 // send info about newly created pod to scheduler
                 let pod = self.storage_data.pods.get(&pod_name).unwrap().clone();
                 self.ctx.emit(
@@ -154,11 +158,7 @@ impl EventHandler for PersistentStorage {
                 pod_name,
             } => {
                 let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
-                pod.update_condition(
-                    "True".to_string(),
-                    PodConditionType::PodRunning,
-                    start_time,
-                );
+                pod.update_condition("True".to_string(), PodConditionType::PodRunning, start_time);
             }
             PodFinishedRunning {
                 finish_time,
@@ -166,14 +166,8 @@ impl EventHandler for PersistentStorage {
                 pod_name,
                 ..
             } => {
-                {
-                    let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
-                    pod.update_condition(
-                        "True".to_string(),
-                        finish_result,
-                        finish_time,
-                    );
-                }
+                let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
+                pod.update_condition("True".to_string(), finish_result, finish_time);
 
                 // temporary (may be refactored) function for checking running results
                 self.print_running_info(pod_name);

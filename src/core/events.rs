@@ -7,9 +7,7 @@ use dslab_kubernetriks_derive::IsSimulationEvent;
 use serde::Serialize;
 
 use crate::core::node::Node;
-use crate::core::pod::{PodConditionType, Pod};
-
-use crate::core::common::SimComponentId;
+use crate::core::pod::{Pod, PodConditionType};
 
 // Client to kube-api-server events
 

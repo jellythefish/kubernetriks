@@ -5,9 +5,9 @@ use std::rc::Rc;
 
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
+use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
 use crate::core::events::{AssignPodToNodeRequest, PodScheduleRequest, UpdateNodeCacheRequest};
-use crate::core::common::ObjectsInfo;
 use crate::simulator::SimulatorConfig;
 use downcast_rs::{impl_downcast, Downcast};
 use log::debug;
@@ -56,14 +56,22 @@ impl KubeGenericScheduler {
     }
 
     pub fn add_node_to_cache(&mut self, node: Node) {
-        self.objects_cache.nodes.insert(node.metadata.name.clone(), node);
+        self.objects_cache
+            .nodes
+            .insert(node.metadata.name.clone(), node);
     }
 
     pub fn add_pod_to_cache(&mut self, pod: Pod) {
-        self.objects_cache.pods.insert(pod.metadata.name.clone(), pod);
+        self.objects_cache
+            .pods
+            .insert(pod.metadata.name.clone(), pod);
     }
 
-    fn reserve_node_resources(&mut self, requested_resources: &RuntimeResources, assigned_node: &str) {
+    fn reserve_node_resources(
+        &mut self,
+        requested_resources: &RuntimeResources,
+        assigned_node: &str,
+    ) {
         let node = self.objects_cache.nodes.get_mut(assigned_node).unwrap();
         node.status.allocatable.cpu -= requested_resources.cpu;
         node.status.allocatable.ram -= requested_resources.ram;
@@ -120,7 +128,10 @@ impl Scheduler for KubeGenericScheduler {
                 assigned_node = &node.metadata.name;
                 max_score = score;
             }
-            debug!("Pod {:?} score for node {:?} - {:?}", pod.metadata.name, node.metadata.name, score);
+            debug!(
+                "Pod {:?} score for node {:?} - {:?}",
+                pod.metadata.name, node.metadata.name, score
+            );
         }
 
         Ok(assigned_node.to_owned())
@@ -146,8 +157,7 @@ impl EventHandler for KubeGenericScheduler {
                     self.api_server,
                     self.config.sched_to_as_network_delay,
                 );
-            }
-            // TODO: UPDATE NODE CACHE WHEN THE POD IS FINISHED
+            } // TODO: UPDATE NODE CACHE WHEN THE POD IS FINISHED
         })
     }
 }

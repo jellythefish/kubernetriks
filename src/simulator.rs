@@ -11,9 +11,9 @@ use dslab_core::simulation::Simulation;
 use crate::core::api_server::KubeApiServer;
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::{NodeComponent, NodeRuntime};
+use crate::core::node_pool::NodePool;
 use crate::core::persistent_storage::PersistentStorage;
 use crate::core::scheduler::KubeGenericScheduler;
-use crate::core::node_pool::NodePool;
 
 use crate::trace::interface::Trace;
 
@@ -38,12 +38,12 @@ pub struct NodeGroup {
 }
 
 pub fn initialize_default_cluster(
-    config: Rc<SimulatorConfig>, 
-    persistent_storage: Rc<RefCell<PersistentStorage>>, 
+    config: Rc<SimulatorConfig>,
+    persistent_storage: Rc<RefCell<PersistentStorage>>,
     api_server: Rc<RefCell<KubeApiServer>>,
     scheduler: Rc<RefCell<KubeGenericScheduler>>,
-    sim: &mut Simulation)
-{
+    sim: &mut Simulation,
+) {
     if config.default_cluster.len() == 0 {
         return;
     }
@@ -67,7 +67,9 @@ pub fn initialize_default_cluster(
                 running_pods: Default::default(),
                 config: config.clone(),
             });
-            api_server.borrow_mut().add_node_component(node_component.clone());
+            api_server
+                .borrow_mut()
+                .add_node_component(node_component.clone());
             // add to scheduler
             scheduler.borrow_mut().add_node_to_cache(node.clone());
 
@@ -76,7 +78,11 @@ pub fn initialize_default_cluster(
     }
 }
 
-pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace, workload_trace: &mut dyn Trace) {
+pub fn run_simulator(
+    config: Rc<SimulatorConfig>,
+    cluster_trace: &mut dyn Trace,
+    workload_trace: &mut dyn Trace,
+) {
     info!(
         "Starting simulator {:?} with config: {:?}",
         config.sim_name, config
@@ -131,7 +137,13 @@ pub fn run_simulator(config: Rc<SimulatorConfig>, cluster_trace: &mut dyn Trace,
     // the timestamps of events in a trace.
     assert_eq!(sim.time(), 0.0);
 
-    initialize_default_cluster(config, persistent_storage.clone(), kube_api_server.clone(), scheduler.clone(), &mut sim);
+    initialize_default_cluster(
+        config,
+        persistent_storage.clone(),
+        kube_api_server.clone(),
+        scheduler.clone(),
+        &mut sim,
+    );
 
     for (ts, event) in cluster_trace.convert_to_simulator_events().into_iter() {
         client.emit(event, kube_api_server_id, ts);

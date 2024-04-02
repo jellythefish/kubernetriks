@@ -8,7 +8,7 @@ use std::env;
 use std::rc::Rc;
 
 use crate::simulator::{run_simulator, SimulatorConfig};
-use crate::trace::generic::{GenericWorkloadTrace, GenericClusterTrace};
+use crate::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
 
 #[derive(Parser)]
 struct Args {
@@ -45,12 +45,16 @@ fn main() {
 
     let config_yaml =
         std::fs::read_to_string(&args.config_file).expect("could not read config file");
-    let cluster_trace_yaml = std::fs::read_to_string(&args.cluster_trace_file).expect("could not read trace file");
-    let workload_trace_yaml = std::fs::read_to_string(&args.workload_trace_file).expect("could not read trace file");
+    let cluster_trace_yaml =
+        std::fs::read_to_string(&args.cluster_trace_file).expect("could not read trace file");
+    let workload_trace_yaml =
+        std::fs::read_to_string(&args.workload_trace_file).expect("could not read trace file");
 
     let config = Rc::new(serde_yaml::from_str::<SimulatorConfig>(&config_yaml).unwrap());
-    let mut cluster_trace = serde_yaml::from_str::<GenericClusterTrace>(&cluster_trace_yaml).unwrap();
-    let mut workload_trace = serde_yaml::from_str::<GenericWorkloadTrace>(&workload_trace_yaml).unwrap();
+    let mut cluster_trace =
+        serde_yaml::from_str::<GenericClusterTrace>(&cluster_trace_yaml).unwrap();
+    let mut workload_trace =
+        serde_yaml::from_str::<GenericWorkloadTrace>(&workload_trace_yaml).unwrap();
 
     run_simulator(config, &mut cluster_trace, &mut workload_trace);
 }

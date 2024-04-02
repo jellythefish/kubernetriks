@@ -16,8 +16,8 @@ use crate::core::events::{
     PodStartedRunning, RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
-use crate::core::node_pool::NodePool;
 use crate::core::node_component::NodeComponent;
+use crate::core::node_pool::NodePool;
 
 use crate::simulator::SimulatorConfig;
 
@@ -55,7 +55,13 @@ impl KubeApiServer {
         self.created_nodes.insert(node_name, node_component);
     }
 
-    fn handle_create_node_response(&mut self, event_time: f64, src: SimComponentId, created: bool, node_name: &str) {
+    fn handle_create_node_response(
+        &mut self,
+        event_time: f64,
+        src: SimComponentId,
+        created: bool,
+        node_name: &str,
+    ) {
         if !created {
             panic!(
                 "Something went wrong while creating node, component with id {:?} failed:",
@@ -69,8 +75,13 @@ impl KubeApiServer {
             );
         }
         // Now we are ready to create node via node pool, because Node info is persisted.
-        let node = self.pending_node_creation_requests.remove(node_name).unwrap();
-        let node_component = self.node_pool.allocate(node, self.ctx.id(), self.config.clone());   
+        let node = self
+            .pending_node_creation_requests
+            .remove(node_name)
+            .unwrap();
+        let node_component = self
+            .node_pool
+            .allocate(node, self.ctx.id(), self.config.clone());
         let node_name = node_component.borrow().name().to_string();
         self.add_node_component(node_component);
 
@@ -132,7 +143,10 @@ impl EventHandler for KubeApiServer {
             } => {
                 // Make bind request to node cluster
                 let node_component = self.created_nodes.get(&node_name).unwrap_or_else(|| {
-                    panic!("Trying to assign pod {:?} to a node {:?} which do not exist", pod_name, node_name);
+                    panic!(
+                        "Trying to assign pod {:?} to a node {:?} which do not exist",
+                        pod_name, node_name
+                    );
                 });
                 self.ctx.emit(
                     BindPodToNodeRequest {

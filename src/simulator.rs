@@ -15,6 +15,7 @@ use crate::core::node_component::NodeComponent;
 use crate::core::persistent_storage::PersistentStorage;
 use crate::core::scheduler::KubeGenericScheduler;
 use crate::core::node_pool::NodePool;
+
 use crate::trace::interface::Trace;
 
 #[derive(Default, Debug, Deserialize)]
@@ -22,17 +23,17 @@ pub struct SimulatorConfig {
     pub sim_name: String,
     pub seed: u64,
     pub node_pool_capacity: u64,
-    pub default_cluster: Vec<NodeBundle>,
-    // Simulated network delays, as = api server, ps = persistent storage, nc = node cluster.
+    pub default_cluster: Vec<NodeGroup>,
+    // Simulated network delays, as = api server, ps = persistent storage.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
     pub as_to_ps_network_delay: f64,
     pub ps_to_sched_network_delay: f64,
     pub sched_to_as_network_delay: f64,
-    pub as_to_nc_network_delay: f64,
+    pub as_to_node_network_delay: f64,
 }
 
 #[derive(Clone, Default, Debug, Deserialize)]
-pub struct NodeBundle {
+pub struct NodeGroup {
     node_count: u64,
     node_template: Node,
 }

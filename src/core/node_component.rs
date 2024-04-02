@@ -77,7 +77,7 @@ impl EventHandler for NodeComponent {
                         pod_name,
                     },
                     self.api_server.unwrap(),
-                    self.config.as_ref().unwrap().as_to_nc_network_delay,
+                    self.config.as_ref().unwrap().as_to_node_network_delay,
                 );
             }
             PodFinishedRunning {
@@ -94,7 +94,7 @@ impl EventHandler for NodeComponent {
                         pod_name,
                     },
                     self.api_server.unwrap(),
-                    self.config.as_ref().unwrap().as_to_nc_network_delay,
+                    self.config.as_ref().unwrap().as_to_node_network_delay,
                 );
             }
         });

@@ -74,7 +74,7 @@ impl EventHandler for ClusterController {
                         node_id,
                     },
                     self.api_server,
-                    self.config.as_to_nc_network_delay,
+                    self.config.as_to_node_network_delay,
                 );
             }
         });

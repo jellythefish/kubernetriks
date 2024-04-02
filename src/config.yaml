@@ -23,4 +23,4 @@ default_cluster:
 as_to_ps_network_delay: 50
 ps_to_sched_network_delay: 89
 sched_to_as_network_delay: 23
-as_to_nc_network_delay: 152
+as_to_node_network_delay: 152

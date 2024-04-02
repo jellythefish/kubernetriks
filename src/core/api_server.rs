@@ -64,7 +64,7 @@ impl KubeApiServer {
                         .unwrap(),
                 },
                 self.cluster_controller,
-                self.config.as_to_nc_network_delay,
+                self.config.as_to_node_network_delay,
             );
         } else {
             panic!(
@@ -147,7 +147,7 @@ impl EventHandler for KubeApiServer {
                         node_name,
                     },
                     *node_component_id,
-                    self.config.as_to_nc_network_delay,
+                    self.config.as_to_node_network_delay,
                 );
             }
             PodStartedRunning {

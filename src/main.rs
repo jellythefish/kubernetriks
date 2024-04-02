@@ -7,7 +7,8 @@ use log::info;
 use std::env;
 use std::rc::Rc;
 
-use crate::simulator::{run_simulator, SimulatorConfig};
+use crate::simulator::{KubernetriksSimulation, SimulationConfig};
+
 use crate::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
 
 #[derive(Parser)]
@@ -50,11 +51,13 @@ fn main() {
     let workload_trace_yaml =
         std::fs::read_to_string(&args.workload_trace_file).expect("could not read trace file");
 
-    let config = Rc::new(serde_yaml::from_str::<SimulatorConfig>(&config_yaml).unwrap());
+    let config = Rc::new(serde_yaml::from_str::<SimulationConfig>(&config_yaml).unwrap());
     let mut cluster_trace =
         serde_yaml::from_str::<GenericClusterTrace>(&cluster_trace_yaml).unwrap();
     let mut workload_trace =
         serde_yaml::from_str::<GenericWorkloadTrace>(&workload_trace_yaml).unwrap();
 
-    run_simulator(config, &mut cluster_trace, &mut workload_trace);
+    let mut kubernetriks_simulation = KubernetriksSimulation::new(config);
+    kubernetriks_simulation.initialize(&mut cluster_trace, &mut workload_trace);
+    kubernetriks_simulation.run();
 }

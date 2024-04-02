@@ -19,7 +19,7 @@ use crate::core::common::SimComponentId;
 use crate::core::node::Node;
 use crate::core::node_component::{NodeComponent, NodeRuntime};
 
-use crate::simulator::SimulatorConfig;
+use crate::simulator::SimulationConfig;
 
 pub struct NodePool {
     pool: VecDeque<Rc<RefCell<NodeComponent>>>,
@@ -43,7 +43,7 @@ impl NodePool {
         &mut self,
         node: Node,
         api_server: SimComponentId,
-        config: Rc<SimulatorConfig>,
+        config: Rc<SimulationConfig>,
     ) -> Rc<RefCell<NodeComponent>> {
         let node_component = self
             .pool

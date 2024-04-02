@@ -23,7 +23,7 @@ RUST_LOG=debug cargo run -- --config-file src/config.yaml \
 ```
 - [x] Создать отдельный файл событий изменения конфигурация кластера, не мешать его с подами
 trace -> workload_trace.yaml/cluster_trace.yaml
-- [ ] Модифицировать API Simulator-а для клинета для управления симуляцией.
+- [x] Модифицировать API Simulator-а для клиента для управления симуляцией.
 ```
 // struct Simulator {
     // state

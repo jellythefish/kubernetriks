@@ -11,7 +11,7 @@ use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
 
 use crate::core::common::SimComponentId;
-use crate::simulator::SimulatorConfig;
+use crate::simulator::SimulationConfig;
 
 pub struct NodeComponent {
     ctx: SimulationContext,
@@ -24,7 +24,7 @@ pub struct NodeRuntime {
     pub api_server: SimComponentId,
     pub node: Node,
     pub running_pods: HashSet<String>,
-    pub config: Rc<SimulatorConfig>,
+    pub config: Rc<SimulationConfig>,
 }
 
 impl NodeComponent {

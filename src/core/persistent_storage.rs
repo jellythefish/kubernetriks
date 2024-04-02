@@ -16,7 +16,7 @@ use crate::core::events::{
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::PodConditionType;
-use crate::simulator::SimulatorConfig;
+use crate::simulator::SimulationConfig;
 
 pub struct PersistentStorage {
     // Identifier of persistent storage as a simulation component.
@@ -26,7 +26,7 @@ pub struct PersistentStorage {
     storage_data: ObjectsInfo,
 
     ctx: SimulationContext,
-    config: Rc<SimulatorConfig>,
+    config: Rc<SimulationConfig>,
 }
 
 impl PersistentStorage {
@@ -34,7 +34,7 @@ impl PersistentStorage {
         api_server_id: SimComponentId,
         scheduler_id: SimComponentId,
         ctx: SimulationContext,
-        config: Rc<SimulatorConfig>,
+        config: Rc<SimulationConfig>,
     ) -> Self {
         Self {
             api_server: api_server_id,

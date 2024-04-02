@@ -8,7 +8,7 @@ use dslab_core::{cast, Event, EventHandler, SimulationContext};
 use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
 use crate::core::events::{AssignPodToNodeRequest, PodScheduleRequest, UpdateNodeCacheRequest};
-use crate::simulator::SimulatorConfig;
+use crate::simulator::SimulationConfig;
 use downcast_rs::{impl_downcast, Downcast};
 use log::debug;
 
@@ -38,14 +38,14 @@ pub struct KubeGenericScheduler {
     pub objects_cache: ObjectsInfo,
 
     ctx: SimulationContext,
-    config: Rc<SimulatorConfig>,
+    config: Rc<SimulationConfig>,
 }
 
 impl KubeGenericScheduler {
     pub fn new(
         api_server: SimComponentId,
         ctx: SimulationContext,
-        config: Rc<SimulatorConfig>,
+        config: Rc<SimulationConfig>,
     ) -> Self {
         Self {
             api_server,

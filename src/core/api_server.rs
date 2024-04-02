@@ -19,13 +19,13 @@ use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
 use crate::core::node_pool::NodePool;
 
-use crate::simulator::SimulatorConfig;
+use crate::simulator::SimulationConfig;
 
 pub struct KubeApiServer {
     persistent_storage: SimComponentId,
 
     pub ctx: SimulationContext,
-    config: Rc<SimulatorConfig>,
+    config: Rc<SimulationConfig>,
 
     node_pool: NodePool,
     pending_node_creation_requests: HashMap<String, Node>,
@@ -37,7 +37,7 @@ impl KubeApiServer {
     pub fn new(
         persistent_storage_id: SimComponentId,
         ctx: SimulationContext,
-        config: Rc<SimulatorConfig>,
+        config: Rc<SimulationConfig>,
         node_pool: NodePool,
     ) -> Self {
         Self {

@@ -6,7 +6,7 @@ use dslab_kubernetriks::core::scheduler::{KubeGenericScheduler, ScheduleError, S
 
 use dslab_kubernetriks::core::node::{Node, NodeStatus};
 use dslab_kubernetriks::core::pod::{Pod, PodSpec, Resources};
-use dslab_kubernetriks::simulator::SimulatorConfig;
+use dslab_kubernetriks::simulator::SimulationConfig;
 
 fn create_scheduler() -> Box<dyn Scheduler> {
     let mut fake_sim = Simulation::new(0);
@@ -14,7 +14,7 @@ fn create_scheduler() -> Box<dyn Scheduler> {
     Box::new(KubeGenericScheduler::new(
         0,
         fake_sim.create_context("scheduler"),
-        Rc::<SimulatorConfig>::new(SimulatorConfig::default()),
+        Rc::<SimulationConfig>::new(SimulationConfig::default()),
     ))
 }
 

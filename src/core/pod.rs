@@ -11,16 +11,12 @@ pub struct Resources {
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub struct Container {
+pub struct PodSpec {
+    // Simplified: instead of vector of containers - one container with resources and duration
     pub resources: Resources,
     // Custom field to simulate container workload duration
     // -1.0 is used for infinite duration to simulate long-running services
     pub running_duration: f64, // in seconds
-}
-
-#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
-pub struct PodSpec {
-    pub containers: Vec<Container>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -68,15 +64,6 @@ pub struct Pod {
 }
 
 impl Pod {
-    pub fn calculate_requested_resources(&self) -> RuntimeResources {
-        let mut resources = RuntimeResources { cpu: 0, ram: 0 };
-        for container in self.spec.containers.iter() {
-            resources.cpu += container.resources.requests.cpu;
-            resources.ram += container.resources.requests.ram;
-        }
-        resources
-    }
-
     // TODO: ? make this code general with update_node_condition
     pub fn update_condition(
         &mut self,
@@ -106,15 +93,5 @@ impl Pod {
     // Ref to condition if it exists else None.
     pub fn get_condition(&self, condition_type: PodConditionType) -> Option<&PodCondition> {
         self.status.conditions.iter().find(|c| c.condition_type == condition_type)
-    }
-
-    pub fn calculate_running_duration(&self) -> f64 {
-        let longest_running_container = self
-            .spec
-            .containers
-            .iter()
-            .max_by(|lhs, rhs| lhs.running_duration.total_cmp(&rhs.running_duration))
-            .unwrap();
-        longest_running_container.running_duration
     }
 }

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use dslab_kubernetriks::core::common::{ObjectMeta, RuntimeResources};
 use dslab_kubernetriks::core::node::{Node, NodeStatus};
-use dslab_kubernetriks::core::pod::{Container, Pod, PodSpec, Resources};
+use dslab_kubernetriks::core::pod::{Pod, PodSpec, Resources};
 use dslab_kubernetriks::trace::generic::{
     GenericWorkloadTrace, WorkloadEvent, WorkloadEventType, GenericClusterTrace, ClusterEvent,
     ClusterEventType,
@@ -97,15 +97,14 @@ fn test_deserialize_workload_trace_from_yaml() {
             metadata:
               name: pod_42
             spec:
-              containers:
-                - resources:
-                    limits:
-                      cpu: 4000
-                      ram: 8589934592
-                    requests:
-                      cpu: 8000
-                      ram: 17179869184
-                  running_duration: 21.0
+              resources:
+                limits:
+                  cpu: 4000
+                  ram: 8589934592
+                requests:
+                  cpu: 8000
+                  ram: 17179869184
+              running_duration: 21.0
     - timestamp: 432
       event_type:
         !RemovePod
@@ -125,19 +124,17 @@ fn test_deserialize_workload_trace_from_yaml() {
                             creation_timestamp: Default::default(),
                         },
                         spec: PodSpec {
-                            containers: vec![Container {
-                                resources: Resources {
-                                    limits: RuntimeResources {
-                                        cpu: 4000,
-                                        ram: 8589934592,
-                                    },
-                                    requests: RuntimeResources {
-                                        cpu: 8000,
-                                        ram: 17179869184,
-                                    },
+                            resources: Resources {
+                                limits: RuntimeResources {
+                                    cpu: 4000,
+                                    ram: 8589934592,
                                 },
-                                running_duration: 21.0,
-                            }],
+                                requests: RuntimeResources {
+                                    cpu: 8000,
+                                    ram: 17179869184,
+                                },
+                            },
+                            running_duration: 21.0,
                         },
                         status: Default::default(),
                     },

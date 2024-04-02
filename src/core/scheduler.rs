@@ -96,7 +96,7 @@ impl Scheduler for KubeGenericScheduler {
     //
     // Weights for cpu and memory are equal by default.
     fn schedule_one(&self, pod: &Pod) -> Result<String, ScheduleError> {
-        let requested_resources = pod.calculate_requested_resources();
+        let requested_resources = &pod.spec.resources.requests;
         if requested_resources.cpu == 0 && requested_resources.ram == 0 {
             return Err(ScheduleError::RequestedResourcesAreZeros);
         }
@@ -136,7 +136,7 @@ impl EventHandler for KubeGenericScheduler {
             PodScheduleRequest { pod } => {
                 let pod_name = pod.metadata.name.clone();
                 let assigned_node = self.schedule_one(&pod).unwrap();
-                self.reserve_node_resources(&pod.calculate_requested_resources(), &assigned_node);
+                self.reserve_node_resources(&pod.spec.resources.requests, &assigned_node);
                 self.add_pod_to_cache(pod);
                 self.ctx.emit(
                     AssignPodToNodeRequest {

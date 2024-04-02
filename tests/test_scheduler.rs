@@ -5,7 +5,7 @@ use dslab_kubernetriks::core::common::{ObjectMeta, RuntimeResources};
 use dslab_kubernetriks::core::scheduler::{KubeGenericScheduler, ScheduleError, Scheduler};
 
 use dslab_kubernetriks::core::node::{Node, NodeStatus};
-use dslab_kubernetriks::core::pod::{Container, Pod, PodSpec, Resources};
+use dslab_kubernetriks::core::pod::{Pod, PodSpec, Resources};
 use dslab_kubernetriks::simulator::SimulatorConfig;
 
 fn create_scheduler() -> Box<dyn Scheduler> {
@@ -18,20 +18,14 @@ fn create_scheduler() -> Box<dyn Scheduler> {
     ))
 }
 
-fn create_pod(container_requests: Vec<RuntimeResources>) -> Pod {
-    let mut containers = vec![];
-    for request in container_requests {
-        containers.push(Container {
-            resources: Resources {
-                limits: request.clone(),
-                requests: request.clone(),
-            },
-            running_duration: Default::default(),
-        })
-    }
+fn create_pod(resources_request: RuntimeResources) -> Pod {
     Pod {
         metadata: Default::default(),
-        spec: PodSpec { containers },
+        spec: PodSpec { resources: Resources {
+            limits: resources_request.clone(),
+            requests: resources_request.clone(),
+        },
+        running_duration: Default::default() },
         status: Default::default(),
     }
 }
@@ -81,10 +75,10 @@ fn allocate_pod(scheduler: &mut dyn Scheduler, node_name: &str, requests: Runtim
 #[test]
 fn test_no_nodes_no_schedule() {
     let scheduler = create_scheduler();
-    let pod = create_pod(vec![RuntimeResources {
+    let pod = create_pod(RuntimeResources {
         cpu: 4000,
         ram: 16000,
-    }]);
+    });
     assert_eq!(
         scheduler.schedule_one(&pod).err().unwrap(),
         ScheduleError::NoNodesInCluster
@@ -94,12 +88,7 @@ fn test_no_nodes_no_schedule() {
 #[test]
 fn test_pod_has_requested_zero_resources() {
     let scheduler = create_scheduler();
-    let pod = create_pod(vec![
-        // all containers requested zeros
-        RuntimeResources { cpu: 0, ram: 0 },
-        RuntimeResources { cpu: 0, ram: 0 },
-        RuntimeResources { cpu: 0, ram: 0 },
-    ]);
+    let pod = create_pod(RuntimeResources { cpu: 0, ram: 0 });
     assert_eq!(
         scheduler.schedule_one(&pod).err().unwrap(),
         ScheduleError::RequestedResourcesAreZeros
@@ -109,16 +98,10 @@ fn test_pod_has_requested_zero_resources() {
 #[test]
 fn test_no_sufficient_nodes_for_scheduling() {
     let mut scheduler = create_scheduler();
-    let pod = create_pod(vec![
-        RuntimeResources {
-            cpu: 4000,
-            ram: 8589934592,
-        },
-        RuntimeResources {
-            cpu: 2000,
-            ram: 4294967296,
-        },
-    ]);
+    let pod = create_pod(RuntimeResources {
+            cpu: 6000,
+            ram: 12884901888,
+    });
     let node = create_node(
         "node1".to_string(),
         RuntimeResources {
@@ -138,16 +121,10 @@ fn test_correct_pod_scheduling() {
     let _ = env_logger::try_init();
 
     let mut scheduler = create_scheduler();
-    let pod = create_pod(vec![
-        RuntimeResources {
-            cpu: 4000,
-            ram: 8589934592,
-        },
-        RuntimeResources {
-            cpu: 2000,
-            ram: 4294967296,
-        },
-    ]);
+    let pod = create_pod(RuntimeResources {
+            cpu: 6000,
+            ram: 12884901888,
+    });
     let node1 = create_node(
         "node1".to_string(),
         RuntimeResources {
@@ -185,22 +162,22 @@ fn test_correct_pod_scheduling() {
 fn test_several_pod_scheduling() {
     let mut scheduler = create_scheduler();
     let node_name = "node1";
-    let pod1 = create_pod(vec![RuntimeResources {
+    let pod1 = create_pod(RuntimeResources {
         cpu: 4000,
         ram: 8589934592,
-    }]);
-    let pod2 = create_pod(vec![RuntimeResources {
+    });
+    let pod2 = create_pod(RuntimeResources {
         cpu: 2000,
         ram: 4294967296,
-    }]);
-    let pod3 = create_pod(vec![RuntimeResources {
+    });
+    let pod3 = create_pod(RuntimeResources {
         cpu: 8000,
         ram: 8589934592,
-    }]);
-    let pod4 = create_pod(vec![RuntimeResources {
+    });
+    let pod4 = create_pod(RuntimeResources {
         cpu: 10000,
         ram: 8589934592,
-    }]);
+    });
     let node1 = create_node(
         node_name.to_string(),
         RuntimeResources {
@@ -217,7 +194,7 @@ fn test_several_pod_scheduling() {
     allocate_pod(
         scheduler.as_mut(),
         node_name,
-        pod1.calculate_requested_resources(),
+        pod1.spec.resources.requests,
     );
     assert_eq!(
         scheduler.as_ref().schedule_one(&pod2).ok().unwrap(),
@@ -226,7 +203,7 @@ fn test_several_pod_scheduling() {
     allocate_pod(
         scheduler.as_mut(),
         node_name,
-        pod2.calculate_requested_resources(),
+        pod2.spec.resources.requests,
     );
     assert_eq!(
         scheduler.as_ref().schedule_one(&pod3).ok().unwrap(),
@@ -235,7 +212,7 @@ fn test_several_pod_scheduling() {
     allocate_pod(
         scheduler.as_mut(),
         node_name,
-        pod3.calculate_requested_resources(),
+        pod3.spec.resources.requests,
     );
     // there is no place left on node for the fourth pod
     assert_eq!(

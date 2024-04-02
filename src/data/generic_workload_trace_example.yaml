@@ -6,15 +6,14 @@ events:
         metadata:
           name: pod_16
         spec:
-          containers:
-            - resources:
-                requests:
-                  cpu: 4000
-                  ram: 8589934592
-                limits:
-                  cpu: 8000
-                  ram: 17179869184
-              running_duration: 21.0
+          resources:
+            requests:
+              cpu: 4000
+              ram: 8589934592
+            limits:
+              cpu: 8000
+              ram: 17179869184
+          running_duration: 21.0
 - timestamp: 551
   event_type:
     !CreatePod
@@ -22,15 +21,14 @@ events:
         metadata:
           name: pod_25
         spec:
-          containers:
-            - resources:
-                requests:
-                  cpu: 4000
-                  ram: 8589934592
-                limits:
-                  cpu: 8000
-                  ram: 17179869184
-              running_duration: 76.0
+          resources:
+            requests:
+              cpu: 4000
+              ram: 8589934592
+            limits:
+              cpu: 8000
+              ram: 17179869184
+          running_duration: 76.0
 - timestamp: 552
   event_type:
     !CreatePod
@@ -38,15 +36,14 @@ events:
         metadata:
           name: pod_42
         spec:
-          containers:
-            - resources:
-                requests:
-                  cpu: 4000
-                  ram: 8589934592
-                limits:
-                  cpu: 8000
-                  ram: 17179869184
-              running_duration: 4.0
+          resources:
+            requests:
+              cpu: 4000
+              ram: 8589934592
+            limits:
+              cpu: 8000
+              ram: 17179869184
+          running_duration: 4.0
 - timestamp: 553
   event_type:
     !CreatePod
@@ -54,15 +51,14 @@ events:
         metadata:
           name: pod_101
         spec:
-          containers:
-            - resources:
-                requests:
-                  cpu: 4000
-                  ram: 8589934592
-                limits:
-                  cpu: 8000
-                  ram: 17179869184
-              running_duration: 4221.0
+          resources:
+            requests:
+              cpu: 4000
+              ram: 8589934592
+            limits:
+              cpu: 8000
+              ram: 17179869184
+          running_duration: 4221.0
 - timestamp: 100001
   event_type:
     !RemovePod

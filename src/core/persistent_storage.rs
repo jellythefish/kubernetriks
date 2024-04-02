@@ -142,7 +142,7 @@ impl EventHandler for PersistentStorage {
                 self.ctx.emit(
                     AssignPodToNodeResponse {
                         pod_name,
-                        pod_duration: pod.calculate_running_duration(),
+                        pod_duration: pod.spec.running_duration,
                         node_name,
                     },
                     self.api_server,

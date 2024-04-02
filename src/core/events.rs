@@ -51,7 +51,6 @@ pub struct RemovePodRequest {
 pub struct NodeAddedToTheCluster {
     pub event_time: f64,
     pub node_name: String,
-    pub node_id: SimComponentId,
 }
 
 // Event from persistent storage to scheduler to tell that new pod is created and ready for scheduling.

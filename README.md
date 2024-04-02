@@ -51,4 +51,4 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 // fn filter
 // fn score
 ```
-- [ ] Перенести всю логику Cluster controller-a в node pool и убрать cluster controller, обойтись только api server + node pool
+- [x] Перенести всю логику Cluster controller-a в node pool и убрать cluster controller, обойтись только api server + node pool

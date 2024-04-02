@@ -1,5 +1,8 @@
-//! Implementation of kube-api-server component
+//! Implementation of kube-api-server component.
+//! It contains node pool as a field which helps dynamically create and remove nodes from a cluster
+//! as dslab simulation components.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -13,65 +16,72 @@ use crate::core::events::{
     PodStartedRunning, RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
+use crate::core::node_pool::NodePool;
+use crate::core::node_component::NodeComponent;
+
 use crate::simulator::SimulatorConfig;
 
 pub struct KubeApiServer {
     persistent_storage: SimComponentId,
-    cluster_controller: SimComponentId,
+
     pub ctx: SimulationContext,
     config: Rc<SimulatorConfig>,
 
+    node_pool: NodePool,
     pending_node_creation_requests: HashMap<String, Node>,
-    // Mapping from node name to it's component id
-    created_nodes: HashMap<String, SimComponentId>,
+    // Mapping from node name to it's component
+    created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
 }
 
 impl KubeApiServer {
     pub fn new(
-        cluster_controller: SimComponentId,
         persistent_storage_id: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulatorConfig>,
+        node_pool: NodePool,
     ) -> Self {
         Self {
-            cluster_controller,
             persistent_storage: persistent_storage_id,
             ctx,
             config,
+            node_pool,
             pending_node_creation_requests: Default::default(),
             created_nodes: Default::default(),
         }
     }
 
-    pub fn add_created_node(&mut self, node_name: String, node_id: SimComponentId) {
-        self.created_nodes.insert(node_name, node_id);
+    pub fn add_node_component(&mut self, node_component: Rc<RefCell<NodeComponent>>) {
+        let node_name = node_component.borrow().name().to_string();
+        self.created_nodes.insert(node_name, node_component);
     }
 
-    fn handle_create_node_response(&mut self, src: SimComponentId, created: bool, node_name: &str) {
+    fn handle_create_node_response(&mut self, event_time: f64, src: SimComponentId, created: bool, node_name: &str) {
         if !created {
             panic!(
                 "Something went wrong while creating node, component with id {:?} failed:",
                 src
             );
         }
-        if src == self.persistent_storage {
-            // Now we are ready to send create request to node cluster, because Node is persisted.
-            self.ctx.emit(
-                CreateNodeRequest {
-                    node: self
-                        .pending_node_creation_requests
-                        .remove(node_name)
-                        .unwrap(),
-                },
-                self.cluster_controller,
-                self.config.as_to_node_network_delay,
-            );
-        } else {
+        if src != self.persistent_storage {
             panic!(
                 "api server got CreateNodeResponse event type from unexpected sender with id {:?}",
                 src
             );
         }
+        // Now we are ready to create node via node pool, because Node info is persisted.
+        let node = self.pending_node_creation_requests.remove(node_name).unwrap();
+        let node_component = self.node_pool.allocate(node, self.ctx.id(), self.config.clone());   
+        let node_name = node_component.borrow().name().to_string();
+        self.add_node_component(node_component);
+
+        self.ctx.emit(
+            NodeAddedToTheCluster {
+                event_time,
+                node_name,
+            },
+            self.persistent_storage,
+            self.config.as_to_ps_network_delay,
+        );
     }
 }
 
@@ -91,23 +101,7 @@ impl EventHandler for KubeApiServer {
                 );
             }
             CreateNodeResponse { created, node_name } => {
-                self.handle_create_node_response(event.src, created, &node_name);
-            }
-            NodeAddedToTheCluster {
-                event_time,
-                node_name,
-                node_id,
-            } => {
-                self.add_created_node(node_name.clone(), node_id);
-                self.ctx.emit(
-                    NodeAddedToTheCluster {
-                        event_time,
-                        node_name,
-                        node_id,
-                    },
-                    self.persistent_storage,
-                    self.config.as_to_ps_network_delay,
-                );
+                self.handle_create_node_response(event.time, event.src, created, &node_name);
             }
             CreatePodRequest { pod } => {
                 // Redirects to persistent storage
@@ -137,7 +131,7 @@ impl EventHandler for KubeApiServer {
                 node_name,
             } => {
                 // Make bind request to node cluster
-                let node_component_id = self.created_nodes.get(&node_name).unwrap_or_else(|| {
+                let node_component = self.created_nodes.get(&node_name).unwrap_or_else(|| {
                     panic!("Trying to assign pod {:?} to a node {:?} which do not exist", pod_name, node_name);
                 });
                 self.ctx.emit(
@@ -146,7 +140,7 @@ impl EventHandler for KubeApiServer {
                         pod_duration,
                         node_name,
                     },
-                    *node_component_id,
+                    node_component.borrow().id(),
                     self.config.as_to_node_network_delay,
                 );
             }

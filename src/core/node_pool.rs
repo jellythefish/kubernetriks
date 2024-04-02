@@ -16,10 +16,13 @@ use std::collections::VecDeque;
 use dslab_core::Simulation;
 
 use crate::core::common::SimComponentId;
-use crate::core::node_component::NodeComponent;
+use crate::core::node_component::{NodeComponent, NodeRuntime};
+
+use crate::core::node::Node;
+use crate::simulator::SimulatorConfig;
 
 pub struct NodePool {
-    pool: VecDeque<(SimComponentId, Rc<RefCell<NodeComponent>>)>
+    pool: VecDeque<Rc<RefCell<NodeComponent>>>
 }
 
 impl NodePool {
@@ -29,20 +32,24 @@ impl NodePool {
             let node_name = format!("pool_node_{}", i);
             let node_component = Rc::new(RefCell::new(NodeComponent::new(sim.create_context(&node_name))));
             let id = sim.add_handler(node_name, node_component.clone());
-            pool.push_back((id, node_component))
+            pool.push_back(node_component)
         }
         Self { pool }
     }
 
-    pub fn allocate(&mut self) -> (SimComponentId, Rc<RefCell<NodeComponent>>) {
-        match self.pool.pop_front() {
-            Some((id, node_component)) => return (id, node_component),
-            None => panic!("Trying to allocate node component from empty pool"),
-        }
+    pub fn allocate(&mut self, node: Node, api_server: SimComponentId, config: Rc<SimulatorConfig>) -> Rc<RefCell<NodeComponent>> {
+        let node_component = self.pool.pop_front().unwrap_or_else(|| panic!("Trying to allocate node component from empty pool"));
+        node_component.borrow_mut().runtime = Some(NodeRuntime {
+            api_server,
+            node,
+            running_pods: Default::default(),
+            config,
+        });
+        node_component
     }
 
     pub fn reclaim(&mut self, id: SimComponentId, node_component: Rc<RefCell<NodeComponent>>) {
-        node_component.borrow_mut().clear_state();
-        self.pool.push_back((id, node_component));
+        node_component.borrow_mut().runtime = None;
+        self.pool.push_back(node_component);
     }
 }

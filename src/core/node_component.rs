@@ -1,6 +1,5 @@
 //! Node component simulates a real node running pods.
 
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -15,30 +14,33 @@ use crate::core::common::SimComponentId;
 use crate::simulator::SimulatorConfig;
 
 pub struct NodeComponent {
-    pub node: Node,
-
-    pub running_pods: HashSet<String>,
-
-    pub api_server: Option<SimComponentId>,
-
     ctx: SimulationContext,
-    pub config: Option<Rc<SimulatorConfig>>,
+    // Initialized later when the node component is actually allocated from node pool.
+    // Sets to None when the node gets back to node pool.
+    pub runtime: Option<NodeRuntime>,
+}
+
+pub struct NodeRuntime {
+    pub api_server: SimComponentId,
+    pub node: Node,
+    pub running_pods: HashSet<String>,
+    pub config: Rc<SimulatorConfig>,
 }
 
 impl NodeComponent {
     pub fn new(ctx: SimulationContext) -> Self {
         Self {
-            node: Default::default(),
-            running_pods: Default::default(),
-            api_server: None,
             ctx,
-            config: None,
+            runtime: None,
         }
     }
 
-    pub fn clear_state(&mut self) {
-        self.node = Default::default();
-        self.running_pods.clear();
+    pub fn id(&self) -> SimComponentId {
+        self.ctx.id()
+    }
+
+    pub fn name(&self) -> &str {
+        &self.runtime.as_ref().unwrap().node.metadata.name
     }
 
     pub fn simulate_pod_runtime(
@@ -47,7 +49,7 @@ impl NodeComponent {
         pod_name: String,
         pod_duration: f64,
     ) {
-        self.running_pods.insert(pod_name.clone());
+        self.runtime.as_mut().unwrap().running_pods.insert(pod_name.clone());
         self.ctx.emit_self(
             PodFinishedRunning {
                 pod_name,
@@ -67,8 +69,8 @@ impl EventHandler for NodeComponent {
                 pod_duration,
                 node_name,
             } => {
-                if node_name != self.node.metadata.name {
-                    panic!("Pod is assigned to node with different node name: pod - {:?}, current node - {:?}, assigned node - {:?}", pod_name, self.node.metadata.name, node_name);
+                if node_name != self.name() {
+                    panic!("Pod is assigned to node with different node name: pod - {:?}, current node - {:?}, assigned node - {:?}", pod_name, self.name(), node_name);
                 }
                 self.simulate_pod_runtime(event.time, pod_name.clone(), pod_duration);
                 self.ctx.emit(
@@ -76,8 +78,8 @@ impl EventHandler for NodeComponent {
                         start_time: event.time,
                         pod_name,
                     },
-                    self.api_server.unwrap(),
-                    self.config.as_ref().unwrap().as_to_node_network_delay,
+                    self.runtime.as_ref().unwrap().api_server,
+                    self.runtime.as_ref().unwrap().config.as_to_node_network_delay,
                 );
             }
             PodFinishedRunning {
@@ -85,7 +87,7 @@ impl EventHandler for NodeComponent {
                 finish_result,
                 pod_name,
             } => {
-                self.running_pods.remove(&pod_name);
+                self.runtime.as_mut().unwrap().running_pods.remove(&pod_name);
                 // Redirect to api server
                 self.ctx.emit(
                     PodFinishedRunning {
@@ -93,8 +95,8 @@ impl EventHandler for NodeComponent {
                         finish_result,
                         pod_name,
                     },
-                    self.api_server.unwrap(),
-                    self.config.as_ref().unwrap().as_to_node_network_delay,
+                    self.runtime.as_ref().unwrap().api_server,
+                    self.runtime.as_ref().unwrap().config.as_to_node_network_delay,
                 );
             }
         });

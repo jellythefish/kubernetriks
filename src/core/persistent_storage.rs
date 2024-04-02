@@ -91,7 +91,6 @@ impl EventHandler for PersistentStorage {
             NodeAddedToTheCluster {
                 event_time,
                 node_name,
-                node_id
             } => {
                 self.storage_data
                     .nodes

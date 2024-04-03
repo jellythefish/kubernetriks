@@ -17,12 +17,12 @@ use crate::core::scheduler::KubeGenericScheduler;
 
 use crate::trace::interface::Trace;
 
-#[derive(Default, Debug, Deserialize)]
+#[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
     pub node_pool_capacity: u64,
-    pub default_cluster: Vec<NodeGroup>,
+    pub default_cluster: Option<Vec<NodeGroup>>,
     // Simulated network delays, as = api server, ps = persistent storage.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
     pub as_to_ps_network_delay: f64,
@@ -31,19 +31,24 @@ pub struct SimulationConfig {
     pub as_to_node_network_delay: f64,
 }
 
-#[derive(Clone, Default, Debug, Deserialize)]
+#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
 pub struct NodeGroup {
-    node_count: u64,
-    node_template: Node,
+    // If node count is not none and node's metadata has name, then it's taken as a prefix of all nodes
+    // in a group.
+    // If node count is none or 1 and node's metadata has name, then it's a single node and its name is set
+    // to metadata name.
+    // If metadata has got no name, then prefix default_node(_<idx>)? is used.
+    pub node_count: Option<u64>,
+    pub node_template: Node,
 }
 
 pub struct KubernetriksSimulation {
     config: Rc<SimulationConfig>,
     sim: Simulation,
 
-    api_server: Rc<RefCell<KubeApiServer>>,
-    persistent_storage: Rc<RefCell<PersistentStorage>>,
-    scheduler: Rc<RefCell<KubeGenericScheduler>>,
+    pub api_server: Rc<RefCell<KubeApiServer>>,
+    pub persistent_storage: Rc<RefCell<PersistentStorage>>,
+    pub scheduler: Rc<RefCell<KubeGenericScheduler>>,
 }
 
 impl KubernetriksSimulation {
@@ -103,7 +108,7 @@ impl KubernetriksSimulation {
         // Client context for submitting trace events to kube_api_server
         let client = self.sim.create_context("client");
 
-        // Wwe fully read the traces and push all events from them to simulation queue to api server
+        // We fully read the traces and push all events from them to simulation queue to api server
         // at corresponding event timestamps.
 
         // Asserting we start with the current time = 0, then all delays in emit() calls are equal to
@@ -120,37 +125,68 @@ impl KubernetriksSimulation {
         }
     }
 
-    fn initialize_default_cluster(&mut self) {
-        if self.config.default_cluster.len() == 0 {
+    pub fn add_node(&mut self, mut node: Node) {
+        let node_name = node.metadata.name.clone();
+        let node_context = self.sim.create_context(node_name.clone());
+
+        node.update_condition("True".to_string(), NodeConditionType::NodeCreated, 0.0);
+        node.metadata.name = node_name.clone();
+        node.status.allocatable = node.status.capacity.clone();
+
+        // add to persistent storage
+        self.persistent_storage.borrow_mut().add_node(node.clone());
+        // add to api server
+        let node_component = Rc::new(RefCell::new(NodeComponent::new(node_context)));
+        node_component.borrow_mut().runtime = Some(NodeRuntime {
+            api_server: self.api_server.borrow().ctx.id(),
+            node: node.clone(),
+            running_pods: Default::default(),
+            config: self.config.clone(),
+        });
+        self.api_server
+            .borrow_mut()
+            .add_node_component(node_component.clone());
+        // add to scheduler
+        self.scheduler.borrow_mut().add_node_to_cache(node.clone());
+
+        self.sim.add_handler(node_name, node_component);
+    }
+
+    pub fn initialize_default_cluster(&mut self) {
+        if self.config.default_cluster.is_none()
+            || self.config.default_cluster.as_ref().unwrap().len() == 0
+        {
             return;
         }
-        for bundle in self.config.default_cluster.iter() {
-            for _ in 0..bundle.node_count {
-                let node_name = format!("default_node_{}", self.sim.random_string(5));
-                let node_context = self.sim.create_context(node_name.clone());
+        let mut total_nodes = 0;
+        for node_group in self
+            .config
+            .default_cluster
+            .as_ref()
+            .unwrap()
+            .clone()
+            .into_iter()
+        {
+            let name_prefix: String;
+            let node_count_in_group = node_group.node_count.unwrap_or(1);
 
-                let mut node = bundle.node_template.clone();
-                node.update_condition("True".to_string(), NodeConditionType::NodeCreated, 0.0);
-                node.metadata.name = node_name.clone();
-                node.status.allocatable = node.status.capacity.clone();
+            if node_count_in_group == 1 && node_group.node_template.metadata.name.len() > 0 {
+                let mut node = node_group.node_template.clone();
+                // use name prefix as-is without suffix
+                node.metadata.name = node_group.node_template.metadata.name.clone();
+                self.add_node(node);
+                continue;
+            } else if node_group.node_template.metadata.name.len() > 0 {
+                name_prefix = node_group.node_template.metadata.name.clone();
+            } else {
+                name_prefix = "default_node".to_string();
+            }
 
-                // add to persistent storage
-                self.persistent_storage.borrow_mut().add_node(node.clone());
-                // add to api server
-                let node_component = Rc::new(RefCell::new(NodeComponent::new(node_context)));
-                node_component.borrow_mut().runtime = Some(NodeRuntime {
-                    api_server: self.api_server.borrow().ctx.id(),
-                    node: node.clone(),
-                    running_pods: Default::default(),
-                    config: self.config.clone(),
-                });
-                self.api_server
-                    .borrow_mut()
-                    .add_node_component(node_component.clone());
-                // add to scheduler
-                self.scheduler.borrow_mut().add_node_to_cache(node.clone());
-
-                self.sim.add_handler(node_name, node_component);
+            for _ in 0..node_count_in_group {
+                let mut node = node_group.node_template.clone();
+                node.metadata.name = format!("{}_{}", name_prefix, total_nodes);
+                self.add_node(node);
+                total_nodes += 1;
             }
         }
     }

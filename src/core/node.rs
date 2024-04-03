@@ -24,10 +24,10 @@ pub enum NodeConditionType {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct NodeCondition {
     // True, False or Unknown
-    status: String,
-    condition_type: NodeConditionType,
+    pub status: String,
+    pub condition_type: NodeConditionType,
     // Last event time the condition transit from one status to another.
-    last_transition_time: f64,
+    pub last_transition_time: f64,
 }
 
 #[derive(Default, Debug, Deserialize, Serialize, Clone, PartialEq)]

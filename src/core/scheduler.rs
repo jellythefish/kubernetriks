@@ -130,7 +130,9 @@ impl Scheduler for KubeGenericScheduler {
             log_debug!(
                 self.ctx,
                 "Pod {:?} score for node {:?} - {:?}",
-                pod.metadata.name, node.metadata.name, score
+                pod.metadata.name,
+                node.metadata.name,
+                score
             );
         }
 

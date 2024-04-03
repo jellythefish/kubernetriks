@@ -30,7 +30,7 @@ pub struct KubeApiServer {
     node_pool: NodePool,
     pending_node_creation_requests: HashMap<String, Node>,
     // Mapping from node name to it's component
-    created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
+    pub created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
 }
 
 impl KubeApiServer {
@@ -52,7 +52,13 @@ impl KubeApiServer {
 
     pub fn add_node_component(&mut self, node_component: Rc<RefCell<NodeComponent>>) {
         let node_name = node_component.borrow().name().to_string();
-        self.created_nodes.insert(node_name, node_component);
+        let existing_key = self.created_nodes.insert(node_name.clone(), node_component);
+        if !existing_key.is_none() {
+            panic!(
+                "Trying to add node {:?} to api server which already exists",
+                node_name
+            );
+        }
     }
 
     fn handle_create_node_response(

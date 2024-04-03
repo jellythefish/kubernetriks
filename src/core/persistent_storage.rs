@@ -22,7 +22,7 @@ pub struct PersistentStorage {
     api_server: SimComponentId,
     scheduler: SimComponentId,
 
-    storage_data: ObjectsInfo,
+    pub storage_data: ObjectsInfo,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -45,9 +45,17 @@ impl PersistentStorage {
     }
 
     pub fn add_node(&mut self, node: Node) {
-        self.storage_data
+        let node_name = node.metadata.name.clone();
+        let existing_key = self
+            .storage_data
             .nodes
             .insert(node.metadata.name.clone(), node);
+        if !existing_key.is_none() {
+            panic!(
+                "Trying to add node {:?} to persistent storage which already exists",
+                node_name
+            );
+        }
     }
 
     pub fn print_running_info(&self, pod_name: String) {

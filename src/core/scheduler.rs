@@ -3,14 +3,13 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use dslab_core::{cast, Event, EventHandler, SimulationContext};
+use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
 use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
 use crate::core::events::{AssignPodToNodeRequest, PodScheduleRequest, UpdateNodeCacheRequest};
 use crate::simulator::SimulationConfig;
 use downcast_rs::{impl_downcast, Downcast};
-use log::debug;
 
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -128,7 +127,8 @@ impl Scheduler for KubeGenericScheduler {
                 assigned_node = &node.metadata.name;
                 max_score = score;
             }
-            debug!(
+            log_debug!(
+                self.ctx,
                 "Pod {:?} score for node {:?} - {:?}",
                 pod.metadata.name, node.metadata.name, score
             );

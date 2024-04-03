@@ -4,8 +4,7 @@
 
 use std::rc::Rc;
 
-use dslab_core::{cast, Event, EventHandler, SimulationContext};
-use log::debug;
+use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
 use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
@@ -115,7 +114,8 @@ impl EventHandler for PersistentStorage {
                     self.scheduler,
                     self.config.ps_to_sched_network_delay,
                 );
-                debug!(
+                log_debug!(
+                    self.ctx,
                     "Updated node conditions: {:?}",
                     self.storage_data.nodes[&node_name].status.conditions
                 );

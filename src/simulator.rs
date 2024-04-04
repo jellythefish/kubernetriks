@@ -147,7 +147,7 @@ impl KubernetriksSimulation {
             .borrow_mut()
             .add_node_component(node_component.clone());
         // add to scheduler
-        self.scheduler.borrow_mut().add_node_to_cache(node.clone());
+        self.scheduler.borrow_mut().add_node(node.clone());
 
         self.sim.add_handler(node_name, node_component);
     }

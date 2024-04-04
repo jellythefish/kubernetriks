@@ -61,6 +61,14 @@ impl KubeApiServer {
         }
     }
 
+    pub fn get_node(&self, node_name: &str) -> Node {
+        self.created_nodes.get(node_name).unwrap().borrow().runtime.as_ref().unwrap().node.clone()
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.created_nodes.len()
+    }
+
     fn handle_create_node_response(
         &mut self,
         event_time: f64,

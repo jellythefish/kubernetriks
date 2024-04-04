@@ -14,7 +14,7 @@ use crate::core::events::{
     PodStartedRunning, UpdateNodeCacheRequest,
 };
 use crate::core::node::{Node, NodeConditionType};
-use crate::core::pod::PodConditionType;
+use crate::core::pod::{Pod, PodConditionType};
 use crate::simulator::SimulationConfig;
 
 pub struct PersistentStorage {
@@ -56,6 +56,33 @@ impl PersistentStorage {
                 node_name
             );
         }
+    }
+
+    pub fn add_pod(&mut self, pod: Pod) {
+        let pod_name = pod.metadata.name.clone();
+        let existing_key = self.storage_data.pods.insert(pod_name.clone(), pod);
+        if !existing_key.is_none() {
+            panic!(
+                "Trying to add pod {:?} to persistent storage which already exists",
+                pod_name
+            );
+        }
+    }
+
+    pub fn get_node(&self, node_name: &str) -> Node {
+        self.storage_data.nodes.get(node_name).unwrap().clone()
+    }
+
+    pub fn get_pod(&self, pod_name: &str) -> Pod {
+        self.storage_data.pods.get(pod_name).unwrap().clone()
+    }
+
+    pub fn node_count(&self) -> usize {
+        self.storage_data.nodes.len()
+    }
+
+    pub fn pod_count(&self) -> usize {
+        self.storage_data.pods.len()
     }
 
     pub fn print_running_info(&self, pod_name: String) {
@@ -129,11 +156,9 @@ impl EventHandler for PersistentStorage {
                 );
             }
             CreatePodRequest { mut pod } => {
-                let pod_name = pod.metadata.name.clone();
                 pod.update_condition("True".to_string(), PodConditionType::PodCreated, event.time);
-                self.storage_data.pods.insert(pod_name.clone(), pod);
+                self.add_pod(pod.clone());
                 // send info about newly created pod to scheduler
-                let pod = self.storage_data.pods.get(&pod_name).unwrap().clone();
                 self.ctx.emit(
                     PodScheduleRequest { pod },
                     self.scheduler,

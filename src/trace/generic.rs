@@ -70,6 +70,10 @@ impl Trace for GenericWorkloadTrace {
 
         converted_events
     }
+
+    fn event_count(&self) -> usize {
+        self.events.len()
+    }
 }
 
 impl Trace for GenericClusterTrace {
@@ -92,6 +96,10 @@ impl Trace for GenericClusterTrace {
         }
 
         converted_events
+    }
+
+    fn event_count(&self) -> usize {
+        self.events.len()
     }
 }
 

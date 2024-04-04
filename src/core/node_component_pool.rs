@@ -21,6 +21,7 @@ use crate::core::node_component::{NodeComponent, NodeRuntime};
 
 use crate::simulator::SimulationConfig;
 
+#[derive(Default)]
 pub struct NodeComponentPool {
     pool: VecDeque<Rc<RefCell<NodeComponent>>>,
 }

@@ -211,7 +211,7 @@ impl EventHandler for PersistentStorage {
                     self.scheduler,
                     self.config.ps_to_sched_network_delay,
                 );
-    
+
                 // temporary (may be refactored) function for checking running results
                 self.print_running_info(pod_name);
             }

@@ -38,13 +38,12 @@ impl KubeApiServer {
         persistent_storage_id: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
-        node_pool: NodeComponentPool,
     ) -> Self {
         Self {
             persistent_storage: persistent_storage_id,
             ctx,
             config,
-            node_pool,
+            node_pool: Default::default(),
             pending_node_creation_requests: Default::default(),
             created_nodes: Default::default(),
         }
@@ -115,6 +114,10 @@ impl KubeApiServer {
             self.persistent_storage,
             self.config.as_to_ps_network_delay,
         );
+    }
+
+    pub fn set_node_pool(&mut self, node_pool: NodeComponentPool) {
+        self.node_pool = node_pool
     }
 }
 

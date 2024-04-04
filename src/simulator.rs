@@ -1,6 +1,7 @@
 //! Represents entry point for simulator and its config.
 
 use log::info;
+use std::cmp::max;
 use std::time::Instant;
 use std::{cell::RefCell, rc::Rc};
 
@@ -88,7 +89,6 @@ impl KubernetriksSimulation {
             persistent_storage_context.id(),
             kube_api_server_context,
             config.clone(),
-            NodeComponentPool::new(config.node_pool_capacity, &mut sim),
         )));
         let api_server_id = sim.add_handler(api_server_component_name, api_server.clone());
 
@@ -132,6 +132,11 @@ impl KubernetriksSimulation {
         // Asserting we start with the current time = 0, then all delays in emit() calls are equal to
         // the timestamps of events in a trace.
         assert_eq!(self.sim.time(), 0.0);
+
+        let node_pool_size = max(self.config.node_pool_capacity, cluster_trace.event_count());
+        self.api_server
+            .borrow_mut()
+            .set_node_pool(NodeComponentPool::new(node_pool_size, &mut self.sim));
 
         self.initialize_default_cluster();
 

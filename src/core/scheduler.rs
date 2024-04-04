@@ -5,7 +5,9 @@ use std::rc::Rc;
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
 use crate::core::common::{ObjectsInfo, SimComponentId};
-use crate::core::events::{AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest, UpdateNodeCacheRequest};
+use crate::core::events::{
+    AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest, UpdateNodeCacheRequest,
+};
 use crate::core::node::Node;
 use crate::core::pod::Pod;
 use crate::simulator::SimulationConfig;
@@ -133,7 +135,11 @@ impl Scheduler {
 
     fn release_node_resources(&mut self, pod_name: &str) {
         let pod = self.objects_cache.pods.get(pod_name).unwrap();
-        let node = self.objects_cache.nodes.get_mut(&pod.status.assigned_node).unwrap();
+        let node = self
+            .objects_cache
+            .nodes
+            .get_mut(&pod.status.assigned_node)
+            .unwrap();
         node.status.allocatable.cpu += pod.spec.resources.requests.cpu;
         node.status.allocatable.ram += pod.spec.resources.requests.ram;
         self.objects_cache.pods.remove(pod_name);
@@ -215,7 +221,7 @@ impl EventHandler for Scheduler {
             PodFinishedRunning {
                 finish_time: _,
                 finish_result: _,
-                pod_name
+                pod_name,
             } => {
                 self.release_node_resources(&pod_name);
             }

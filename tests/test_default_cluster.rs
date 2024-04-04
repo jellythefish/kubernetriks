@@ -1,7 +1,14 @@
+mod helpers;
+
 use std::{collections::HashMap, rc::Rc};
 
 use dslab_kubernetriks::core::node::{Node, NodeConditionType};
 use dslab_kubernetriks::simulator::KubernetriksSimulation;
+
+use helpers::{
+    check_count_of_nodes_in_components_equals_to,
+    check_expected_node_is_equal_to_nodes_in_components,
+};
 
 fn get_default_config_yaml() -> &'static str {
     r#"
@@ -21,25 +28,6 @@ fn make_default_node(name: String, cpu: u32, ram: u64) -> Node {
     node
 }
 
-fn check_count_of_nodes_in_components_equals_to(count: usize, kube_sim: &KubernetriksSimulation) {
-    assert_eq!(count, kube_sim.api_server.borrow_mut().node_count());
-    assert_eq!(count, kube_sim.persistent_storage.borrow_mut().node_count());
-    assert_eq!(count, kube_sim.scheduler.borrow_mut().node_count());
-}
-
-fn check_expected_node_is_equal_to_nodes_in_components(
-    expected_node: Node,
-    kube_sim: &KubernetriksSimulation,
-) {
-    let actual_node_api_server = kube_sim.api_server.borrow().get_node(&expected_node.metadata.name);
-    let actual_node_persistent_storage = kube_sim.persistent_storage.borrow().get_node(&expected_node.metadata.name);
-    let actual_node_scheduler = kube_sim.scheduler.borrow().get_node(&expected_node.metadata.name);
-
-    assert_eq!(&expected_node, &actual_node_api_server);
-    assert_eq!(&expected_node, &actual_node_persistent_storage);
-    assert_eq!(&expected_node, &actual_node_scheduler);
-}
-
 #[test]
 fn test_config_default_cluster_is_none() {
     let mut kube_sim = KubernetriksSimulation::new(Rc::new(
@@ -47,17 +35,7 @@ fn test_config_default_cluster_is_none() {
     ));
     kube_sim.initialize_default_cluster();
 
-    assert_eq!(0, kube_sim.api_server.borrow_mut().created_nodes.len());
-    assert_eq!(
-        0,
-        kube_sim
-            .persistent_storage
-            .borrow_mut()
-            .storage_data
-            .nodes
-            .len()
-    );
-    assert_eq!(0, kube_sim.scheduler.borrow_mut().node_count());
+    check_count_of_nodes_in_components_equals_to(0, &mut kube_sim);
 }
 
 #[test]

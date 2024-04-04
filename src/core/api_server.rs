@@ -30,7 +30,7 @@ pub struct KubeApiServer {
     node_pool: NodeComponentPool,
     pending_node_creation_requests: HashMap<String, Node>,
     // Mapping from node name to it's component
-    pub created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
+    created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
 }
 
 impl KubeApiServer {
@@ -62,7 +62,15 @@ impl KubeApiServer {
     }
 
     pub fn get_node(&self, node_name: &str) -> Node {
-        self.created_nodes.get(node_name).unwrap().borrow().runtime.as_ref().unwrap().node.clone()
+        self.created_nodes
+            .get(node_name)
+            .unwrap()
+            .borrow()
+            .runtime
+            .as_ref()
+            .unwrap()
+            .node
+            .clone()
     }
 
     pub fn node_count(&self) -> usize {
@@ -93,9 +101,9 @@ impl KubeApiServer {
             .pending_node_creation_requests
             .remove(node_name)
             .unwrap();
-        let node_component = self
-            .node_pool
-            .allocate_component(node, self.ctx.id(), self.config.clone());
+        let node_component =
+            self.node_pool
+                .allocate_component(node, self.ctx.id(), self.config.clone());
         let node_name = node_component.borrow().node_name().to_string();
         self.add_node_component(node_component);
 

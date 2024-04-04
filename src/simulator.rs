@@ -17,7 +17,7 @@ use crate::core::scheduler::KubeGenericScheduler;
 
 use crate::trace::interface::Trace;
 
-#[derive(Default, Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
@@ -29,6 +29,21 @@ pub struct SimulationConfig {
     pub ps_to_sched_network_delay: f64,
     pub sched_to_as_network_delay: f64,
     pub as_to_node_network_delay: f64,
+}
+
+impl Default for SimulationConfig {
+    fn default() -> Self {
+        Self {
+            sim_name: "kubernetriks".to_string(),
+            seed: 123,
+            node_pool_capacity: 100,
+            default_cluster: None,
+            as_to_ps_network_delay: 0.050,
+            ps_to_sched_network_delay: 0.089,
+            sched_to_as_network_delay: 0.023,
+            as_to_node_network_delay: 0.152,
+        }
+    }
 }
 
 #[derive(Clone, Default, Debug, Deserialize, PartialEq)]
@@ -202,5 +217,9 @@ impl KubernetriksSimulation {
             duration,
             self.sim.event_count() as f64 / duration
         );
+    }
+
+    pub fn step(&mut self) {
+        self.sim.step();
     }
 }

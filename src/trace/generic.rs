@@ -16,7 +16,7 @@ use crate::trace::interface::Trace;
 /// format corresponding to this trace.
 /// These events differ from events which are emitted by simulator's components, so to get such
 /// events GenericTrace implements Trace.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct GenericWorkloadTrace {
     events: Vec<WorkloadEvent>,
 }
@@ -95,7 +95,6 @@ impl Trace for GenericClusterTrace {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -115,7 +114,8 @@ mod tests {
         "#;
 
         let cluster_deserialized: GenericClusterTrace = serde_yaml::from_str(&trace_json).unwrap();
-        let workload_deserialized: GenericWorkloadTrace = serde_yaml::from_str(&trace_json).unwrap();
+        let workload_deserialized: GenericWorkloadTrace =
+            serde_yaml::from_str(&trace_json).unwrap();
 
         let cluster_trace = GenericClusterTrace { events: vec![] };
         let workload_trace = GenericWorkloadTrace { events: vec![] };
@@ -211,7 +211,7 @@ mod tests {
             !RemovePod
               pod_name: pod_42
         "#;
-    
+
         let workload_deserialized: GenericWorkloadTrace =
             serde_yaml::from_str(&workload_trace_yaml).unwrap();
         let workload_trace = GenericWorkloadTrace {
@@ -252,5 +252,4 @@ mod tests {
         };
         assert_eq!(workload_trace, workload_deserialized);
     }
-
 }

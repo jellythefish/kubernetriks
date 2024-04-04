@@ -67,9 +67,9 @@ impl NodeComponentPool {
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-    
+
     use dslab_core::Simulation;
-    
+
     use crate::core::node::Node;
     use crate::core::node_component_pool::NodeComponentPool;
 
@@ -114,11 +114,8 @@ mod tests {
 
         let node = Node::new("node_42".to_string(), 0, 0);
 
-        let node_component = node_pool.allocate_component(
-            node.clone(),
-            0,
-            Rc::new(Default::default()),
-        );
+        let node_component =
+            node_pool.allocate_component(node.clone(), 0, Rc::new(Default::default()));
         assert_eq!(node_pool.pool.len(), 0);
         assert_eq!(node, node_component.borrow().runtime.as_ref().unwrap().node);
 

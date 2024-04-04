@@ -22,7 +22,7 @@ pub struct PersistentStorage {
     api_server: SimComponentId,
     scheduler: SimComponentId,
 
-    pub storage_data: ObjectsInfo,
+    storage_data: ObjectsInfo,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,

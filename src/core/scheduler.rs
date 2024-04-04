@@ -184,9 +184,9 @@ impl EventHandler for KubeGenericScheduler {
 mod tests {
     use std::rc::Rc;
 
-    use dslab_core::Simulation;
     use crate::core::common::RuntimeResources;
     use crate::core::scheduler::{KubeGenericScheduler, ScheduleError, Scheduler};
+    use dslab_core::Simulation;
 
     use crate::core::node::Node;
     use crate::core::pod::Pod;
@@ -194,14 +194,14 @@ mod tests {
 
     fn create_scheduler() -> Box<dyn Scheduler> {
         let mut fake_sim = Simulation::new(0);
-    
+
         Box::new(KubeGenericScheduler::new(
             0,
             fake_sim.create_context("scheduler"),
             Rc::<SimulationConfig>::new(SimulationConfig::default()),
         ))
     }
-    
+
     fn register_nodes(scheduler: &mut dyn Scheduler, nodes: Vec<Node>) {
         match scheduler.downcast_mut::<KubeGenericScheduler>() {
             Some(generic_scheduler) => {
@@ -234,7 +234,7 @@ mod tests {
             }
         }
     }
-    
+
     #[test]
     fn test_no_nodes_no_schedule() {
         let scheduler = create_scheduler();
@@ -244,7 +244,7 @@ mod tests {
             ScheduleError::NoNodesInCluster
         );
     }
-    
+
     #[test]
     fn test_pod_has_requested_zero_resources() {
         let scheduler = create_scheduler();
@@ -254,7 +254,7 @@ mod tests {
             ScheduleError::RequestedResourcesAreZeros
         );
     }
-    
+
     #[test]
     fn test_no_sufficient_nodes_for_scheduling() {
         let mut scheduler = create_scheduler();
@@ -266,11 +266,11 @@ mod tests {
             ScheduleError::NoSufficientNodes
         );
     }
-    
+
     #[test]
     fn test_correct_pod_scheduling() {
         let _ = env_logger::try_init();
-    
+
         let mut scheduler = create_scheduler();
         let pod = Pod::new("pod_1".to_string(), 6000, 12884901888, 5.0);
         let node1 = Node::new("node1".to_string(), 8000, 14589934592);
@@ -287,7 +287,7 @@ mod tests {
             "node3".to_owned()
         );
     }
-    
+
     #[test]
     fn test_several_pod_scheduling() {
         let mut scheduler = create_scheduler();
@@ -319,5 +319,5 @@ mod tests {
             scheduler.as_ref().schedule_one(&pod4).err().unwrap(),
             ScheduleError::NoSufficientNodes
         );
-    }    
+    }
 }

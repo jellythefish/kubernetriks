@@ -42,10 +42,10 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] NodeBundle -> NodeGroup
 - [ ] Поднять очередь подов для планировщика, в которую будут складываться поды по запросу от Persistent storage. Завести цикл планирования, который в своей итерации выгребает всю очередь подов, планирует каждый под, замеряет планирование каждого пода + полностью итерацию планирования. Назначение нового цикла планирования происходит с задержкой = max(scheduling period, current scheduling time). Отправка запроса AssignPodToNodeRequest происходит с задержкой = сетевой задержке + время проведенное подом в очереди + его время планирования.
 - [x] Заменить debug!/info! на dslab::log_debug/log_info
-- [ ] Сделать два трейта для планировщика:
+- [x] Сделать два трейта для планировщика:
 ```
 // trait AnyScheduler
-// fn schedule_one(pod: &Pod, nodes: &Nodes) -> Result<String, ScheduleError>;
+// fn schedule_one(pod: &Pod, nodes: [Nodes]) -> Result<String, ScheduleError>;
 
 // trait KubeGenericScheduler
 // fn filter

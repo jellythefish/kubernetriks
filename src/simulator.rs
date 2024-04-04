@@ -13,7 +13,7 @@ use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::{NodeComponent, NodeRuntime};
 use crate::core::node_component_pool::NodeComponentPool;
 use crate::core::persistent_storage::PersistentStorage;
-use crate::core::scheduler::KubeGenericScheduler;
+use crate::core::scheduler::{AnyScheduler, LeastRequestedPriorityScheduler, Scheduler};
 
 use crate::trace::interface::Trace;
 
@@ -63,7 +63,7 @@ pub struct KubernetriksSimulation {
 
     pub api_server: Rc<RefCell<KubeApiServer>>,
     pub persistent_storage: Rc<RefCell<PersistentStorage>>,
-    pub scheduler: Rc<RefCell<KubeGenericScheduler>>,
+    pub scheduler: Rc<RefCell<Scheduler>>,
 }
 
 impl KubernetriksSimulation {
@@ -92,8 +92,11 @@ impl KubernetriksSimulation {
         )));
         let api_server_id = sim.add_handler(api_server_component_name, api_server.clone());
 
-        let scheduler = Rc::new(RefCell::new(KubeGenericScheduler::new(
+        let default_scheduler_impl = Box::new(LeastRequestedPriorityScheduler {});
+
+        let scheduler = Rc::new(RefCell::new(Scheduler::new(
             api_server_id,
+            default_scheduler_impl,
             scheduler_context,
             config.clone(),
         )));
@@ -204,6 +207,12 @@ impl KubernetriksSimulation {
                 total_nodes += 1;
             }
         }
+    }
+
+    pub fn set_scheduler_impl(&mut self, scheduler_impl: Box<dyn AnyScheduler>) {
+        self.scheduler
+            .borrow_mut()
+            .set_scheduler_impl(scheduler_impl)
     }
 
     pub fn run(&mut self) {

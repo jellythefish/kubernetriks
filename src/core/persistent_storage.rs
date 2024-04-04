@@ -200,7 +200,7 @@ impl EventHandler for PersistentStorage {
                 ..
             } => {
                 let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
-                pod.update_condition("True".to_string(), finish_result, finish_time);
+                pod.update_condition("True".to_string(), finish_result.clone(), finish_time);
 
                 // temporary (may be refactored) function for checking running results
                 self.print_running_info(pod_name);

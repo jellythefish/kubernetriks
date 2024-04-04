@@ -202,6 +202,16 @@ impl EventHandler for PersistentStorage {
                 let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
                 pod.update_condition("True".to_string(), finish_result.clone(), finish_time);
 
+                self.ctx.emit(
+                    PodFinishedRunning {
+                        finish_time,
+                        finish_result,
+                        pod_name: pod_name.clone(),
+                    },
+                    self.scheduler,
+                    self.config.ps_to_sched_network_delay,
+                );
+    
                 // temporary (may be refactored) function for checking running results
                 self.print_running_info(pod_name);
             }

@@ -131,6 +131,14 @@ impl Scheduler {
         node.status.allocatable.ram -= requested_resources.ram;
     }
 
+    fn release_node_resources(&mut self, pod_name: &str) {
+        let pod = self.objects_cache.pods.get(pod_name).unwrap();
+        let node = self.objects_cache.nodes.get_mut(&pod.status.assigned_node).unwrap();
+        node.status.allocatable.cpu += pod.spec.resources.requests.cpu;
+        node.status.allocatable.ram += pod.spec.resources.requests.ram;
+        self.objects_cache.pods.remove(pod_name);
+    }
+
     fn schedule_one<'a>(&'a self, pod: &'a Pod) -> Result<&'a Node, ScheduleError> {
         let mut nodes_iter = self.objects_cache.nodes.values();
         self.scheduler_impl.schedule_one(pod, &mut nodes_iter)
@@ -180,9 +188,11 @@ impl EventHandler for Scheduler {
             UpdateNodeCacheRequest { node } => {
                 self.add_node(node);
             }
-            PodScheduleRequest { pod } => {
+            PodScheduleRequest { mut pod } => {
                 let pod_name = pod.metadata.name.clone();
                 let assigned_node = self.schedule_one(&pod).unwrap().metadata.name.clone();
+
+                pod.status.assigned_node = assigned_node.clone();
                 self.reserve_node_resources(&pod.spec.resources.requests, &assigned_node);
                 self.add_pod(pod);
 
@@ -201,6 +211,13 @@ impl EventHandler for Scheduler {
                     self.api_server,
                     self.config.sched_to_as_network_delay,
                 );
+            }
+            PodFinishedRunning {
+                finish_time: _,
+                finish_result: _,
+                pod_name
+            } => {
+                self.release_node_resources(&pod_name);
             }
         })
     }

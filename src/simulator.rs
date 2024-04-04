@@ -11,7 +11,7 @@ use dslab_core::simulation::Simulation;
 use crate::core::api_server::KubeApiServer;
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::{NodeComponent, NodeRuntime};
-use crate::core::node_pool::NodePool;
+use crate::core::node_component_pool::NodeComponentPool;
 use crate::core::persistent_storage::PersistentStorage;
 use crate::core::scheduler::KubeGenericScheduler;
 
@@ -21,7 +21,7 @@ use crate::trace::interface::Trace;
 pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
-    pub node_pool_capacity: u64,
+    pub node_pool_capacity: usize,
     pub default_cluster: Option<Vec<NodeGroup>>,
     // Simulated network delays, as = api server, ps = persistent storage.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
@@ -73,7 +73,7 @@ impl KubernetriksSimulation {
             persistent_storage_context.id(),
             kube_api_server_context,
             config.clone(),
-            NodePool::new(config.node_pool_capacity, &mut sim),
+            NodeComponentPool::new(config.node_pool_capacity, &mut sim),
         )));
         let api_server_id = sim.add_handler(api_server_component_name, api_server.clone());
 

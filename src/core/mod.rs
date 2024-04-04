@@ -3,7 +3,7 @@ pub mod common;
 pub mod events;
 pub mod node;
 pub mod node_component;
-pub mod node_pool;
+pub mod node_component_pool;
 pub mod persistent_storage;
 pub mod pod;
 pub mod scheduler;

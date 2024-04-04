@@ -36,8 +36,12 @@ impl NodeComponent {
         self.ctx.id()
     }
 
-    pub fn name(&self) -> &str {
+    pub fn node_name(&self) -> &str {
         &self.runtime.as_ref().unwrap().node.metadata.name
+    }
+
+    pub fn context_name(&self) -> &str {
+        &self.ctx.name()
     }
 
     pub fn simulate_pod_runtime(&mut self, event_time: f64, pod_name: String, pod_duration: f64) {
@@ -65,8 +69,8 @@ impl EventHandler for NodeComponent {
                 pod_duration,
                 node_name,
             } => {
-                if node_name != self.name() {
-                    panic!("Pod is assigned to node with different node name: pod - {:?}, current node - {:?}, assigned node - {:?}", pod_name, self.name(), node_name);
+                if node_name != self.node_name() {
+                    panic!("Pod is assigned to node with different node name: pod - {:?}, current node - {:?}, assigned node - {:?}", pod_name, self.node_name(), node_name);
                 }
                 self.simulate_pod_runtime(event.time, pod_name.clone(), pod_duration);
                 self.ctx.emit(

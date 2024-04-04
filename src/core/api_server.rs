@@ -17,7 +17,7 @@ use crate::core::events::{
 };
 use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
-use crate::core::node_pool::NodePool;
+use crate::core::node_component_pool::NodeComponentPool;
 
 use crate::simulator::SimulationConfig;
 
@@ -27,7 +27,7 @@ pub struct KubeApiServer {
     pub ctx: SimulationContext,
     config: Rc<SimulationConfig>,
 
-    node_pool: NodePool,
+    node_pool: NodeComponentPool,
     pending_node_creation_requests: HashMap<String, Node>,
     // Mapping from node name to it's component
     pub created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
@@ -38,7 +38,7 @@ impl KubeApiServer {
         persistent_storage_id: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
-        node_pool: NodePool,
+        node_pool: NodeComponentPool,
     ) -> Self {
         Self {
             persistent_storage: persistent_storage_id,
@@ -51,7 +51,7 @@ impl KubeApiServer {
     }
 
     pub fn add_node_component(&mut self, node_component: Rc<RefCell<NodeComponent>>) {
-        let node_name = node_component.borrow().name().to_string();
+        let node_name = node_component.borrow().node_name().to_string();
         let existing_key = self.created_nodes.insert(node_name.clone(), node_component);
         if !existing_key.is_none() {
             panic!(
@@ -87,8 +87,8 @@ impl KubeApiServer {
             .unwrap();
         let node_component = self
             .node_pool
-            .allocate(node, self.ctx.id(), self.config.clone());
-        let node_name = node_component.borrow().name().to_string();
+            .allocate_component(node, self.ctx.id(), self.config.clone());
+        let node_name = node_component.borrow().node_name().to_string();
         self.add_node_component(node_component);
 
         self.ctx.emit(

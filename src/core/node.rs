@@ -51,6 +51,22 @@ pub struct Node {
 }
 
 impl Node {
+    pub fn new(name: String, cpu: u32, ram: u64) -> Self {
+        Self {
+            metadata: ObjectMeta {
+                name: name,
+                labels: Default::default(),
+                creation_timestamp: Default::default(),
+            },
+            spec: Default::default(),
+            status: NodeStatus {
+                allocatable: RuntimeResources { cpu, ram },
+                capacity: RuntimeResources { cpu, ram },
+                conditions: Default::default(),
+            },
+        }
+    }
+
     pub fn update_condition(
         &mut self,
         status: String,

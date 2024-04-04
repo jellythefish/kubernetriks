@@ -1,12 +1,7 @@
 use std::{collections::HashMap, rc::Rc};
 
-use dslab_kubernetriks::{
-    core::{
-        common::RuntimeResources,
-        node::{Node, NodeCondition, NodeConditionType, NodeStatus},
-    },
-    simulator::KubernetriksSimulation,
-};
+use dslab_kubernetriks::core::node::{Node, NodeConditionType};
+use dslab_kubernetriks::simulator::KubernetriksSimulation;
 
 fn get_default_config_yaml() -> &'static str {
     r#"
@@ -20,20 +15,10 @@ fn get_default_config_yaml() -> &'static str {
     "#
 }
 
-fn make_default_node(cpu: u32, ram: u64) -> Node {
-    Node {
-        metadata: Default::default(),
-        status: NodeStatus {
-            capacity: RuntimeResources { cpu, ram },
-            allocatable: RuntimeResources { cpu, ram },
-            conditions: vec![NodeCondition {
-                status: "True".to_owned(),
-                condition_type: NodeConditionType::NodeCreated,
-                last_transition_time: 0.0,
-            }],
-        },
-        spec: Default::default(),
-    }
+fn make_default_node(name: String, cpu: u32, ram: u64) -> Node {
+    let mut node = Node::new(name, cpu, ram);
+    node.update_condition("True".to_string(), NodeConditionType::NodeCreated, 0.0);
+    node
 }
 
 fn check_count_of_nodes_in_components_equals_to(count: usize, kube_sim: &KubernetriksSimulation) {
@@ -141,8 +126,8 @@ fn test_config_default_cluster_with_no_name_prefix() {
     check_count_of_nodes_in_components_equals_to(30, &kube_sim);
 
     for idx in 0..10 {
-        let mut expected_node = make_default_node(18000, 18589934592);
-        expected_node.metadata.name = format!("default_node_{}", idx);
+        let mut expected_node =
+            make_default_node(format!("default_node_{}", idx), 18000, 18589934592);
         expected_node.metadata.labels = HashMap::from([
             ("storage_type".to_string(), "ssd".to_string()),
             ("proc_type".to_string(), "intel".to_string()),
@@ -152,8 +137,7 @@ fn test_config_default_cluster_with_no_name_prefix() {
     }
 
     for idx in 10..30 {
-        let mut expected_node = make_default_node(24000, 18589934592);
-        expected_node.metadata.name = format!("default_node_{}", idx);
+        let expected_node = make_default_node(format!("default_node_{}", idx), 24000, 18589934592);
 
         check_expected_node_is_equal_to_nodes_in_components(expected_node, &kube_sim);
     }
@@ -196,20 +180,16 @@ fn test_config_default_cluster_no_node_count() {
 
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);
 
-    let mut expected_node1 = make_default_node(24000, 18589934592);
-    expected_node1.metadata.name = "default_node_0".to_string();
+    let expected_node1 = make_default_node("default_node_0".to_string(), 24000, 18589934592);
     check_expected_node_is_equal_to_nodes_in_components(expected_node1, &kube_sim);
 
-    let mut expected_node2 = make_default_node(12000, 10589934592);
-    expected_node2.metadata.name = "default_node_1".to_string();
+    let expected_node2 = make_default_node("default_node_1".to_string(), 12000, 10589934592);
     check_expected_node_is_equal_to_nodes_in_components(expected_node2, &kube_sim);
 
-    let mut expected_node3 = make_default_node(6000, 185899345);
-    expected_node3.metadata.name = "default_node_2".to_string();
+    let expected_node3 = make_default_node("default_node_2".to_string(), 6000, 185899345);
     check_expected_node_is_equal_to_nodes_in_components(expected_node3, &kube_sim);
 
-    let mut expected_node4 = make_default_node(8000, 185899345);
-    expected_node4.metadata.name = "default_node_3".to_string();
+    let expected_node4 = make_default_node("default_node_3".to_string(), 8000, 185899345);
     check_expected_node_is_equal_to_nodes_in_components(expected_node4, &kube_sim);
 }
 
@@ -251,18 +231,14 @@ fn test_config_default_cluster_has_name_prefix() {
 
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);
 
-    let mut expected_node1 = make_default_node(32000, 18589934592);
-    let mut expected_node2 = expected_node1.clone();
-    expected_node1.metadata.name = "node_group_1_0".to_string();
-    expected_node2.metadata.name = "node_group_1_1".to_string();
+    let expected_node1 = make_default_node("node_group_1_0".to_string(), 32000, 18589934592);
+    let expected_node2 = make_default_node("node_group_1_1".to_string(), 32000, 18589934592);
     check_expected_node_is_equal_to_nodes_in_components(expected_node1, &kube_sim);
     check_expected_node_is_equal_to_nodes_in_components(expected_node2, &kube_sim);
 
-    let mut expected_node3 = make_default_node(6000, 185899345);
-    expected_node3.metadata.name = "exact_node_name".to_string();
+    let expected_node3 = make_default_node("exact_node_name".to_string(), 6000, 185899345);
     check_expected_node_is_equal_to_nodes_in_components(expected_node3, &kube_sim);
 
-    let mut expected_node4 = make_default_node(4000, 185899345);
-    expected_node4.metadata.name = "exact_node_name_2".to_string();
+    let expected_node4 = make_default_node("exact_node_name_2".to_string(), 4000, 185899345);
     check_expected_node_is_equal_to_nodes_in_components(expected_node4, &kube_sim);
 }

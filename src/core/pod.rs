@@ -64,6 +64,24 @@ pub struct Pod {
 }
 
 impl Pod {
+    pub fn new(name: String, cpu: u32, ram: u64, running_duration: f64) -> Self {
+        Self {
+            metadata: ObjectMeta {
+                name: name,
+                labels: Default::default(),
+                creation_timestamp: Default::default(),
+            },
+            spec: PodSpec {
+                resources: Resources {
+                    limits: RuntimeResources { cpu, ram },
+                    requests: RuntimeResources { cpu, ram },
+                },
+                running_duration,
+            },
+            status: Default::default(),
+        }
+    }
+
     // TODO: ? make this code general with update_node_condition
     pub fn update_condition(
         &mut self,

@@ -59,7 +59,7 @@ pub struct PodScheduleRequest {
 
 // Event from persistent storage to scheduler to tell that new node is created and ready for scheduling.
 #[derive(Serialize, Clone, IsSimulationEvent)]
-pub struct UpdateNodeCacheRequest {
+pub struct AddNodeToCacheRequest {
     pub node: Node,
 }
 
@@ -112,6 +112,10 @@ pub struct PodFinishedRunning {
     pub finish_result: PodConditionType, // either PodSucceeded or PodFailed
     pub pod_name: String,
 }
+
+// Event from scheduler to itself to run pod scheduling cycle.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RunSchedulingCycle {}
 
 // Expect event.data to be Box<Box<dyn SimulationEvent>> to downcast it first and then extract a real type.
 #[macro_export]

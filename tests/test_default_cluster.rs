@@ -15,10 +15,11 @@ fn get_default_config_yaml() -> &'static str {
     sim_name: "kubernetriks"
     seed: 123
     node_pool_capacity: 10
-    as_to_ps_network_delay: 50
-    ps_to_sched_network_delay: 89
-    sched_to_as_network_delay: 23
-    as_to_node_network_delay: 152
+    scheduling_cycle_interval: 10.0
+    as_to_ps_network_delay: 0.05
+    ps_to_sched_network_delay: 0.089
+    sched_to_as_network_delay: 0.023
+    as_to_node_network_delay: 0.152
     "#
 }
 

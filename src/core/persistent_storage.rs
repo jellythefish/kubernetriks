@@ -11,7 +11,7 @@ use crate::core::common::SimComponentId;
 use crate::core::events::{
     AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest, CreateNodeResponse,
     CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning, PodScheduleRequest,
-    PodStartedRunning, UpdateNodeCacheRequest,
+    PodStartedRunning, AddNodeToCacheRequest,
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
@@ -145,7 +145,7 @@ impl EventHandler for PersistentStorage {
                 // tell scheduler about new node in the cluster
                 let node = self.storage_data.nodes.get(&node_name).unwrap().clone();
                 self.ctx.emit(
-                    UpdateNodeCacheRequest { node },
+                    AddNodeToCacheRequest { node },
                     self.scheduler,
                     self.config.ps_to_sched_network_delay,
                 );

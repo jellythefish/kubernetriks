@@ -59,7 +59,7 @@ events:
               cpu: 8000
               ram: 17179869184
           running_duration: 4221.0
-- timestamp: 100001
+- timestamp: 5001
   event_type:
     !RemovePod
       pod_name: pod_42

@@ -24,6 +24,7 @@ pub struct SimulationConfig {
     pub seed: u64,
     pub node_pool_capacity: usize,
     pub default_cluster: Option<Vec<NodeGroup>>,
+    pub scheduling_cycle_interval: f64, // in seconds
     // Simulated network delays, as = api server, ps = persistent storage.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
     pub as_to_ps_network_delay: f64,
@@ -39,6 +40,7 @@ impl Default for SimulationConfig {
             seed: 123,
             node_pool_capacity: 100,
             default_cluster: None,
+            scheduling_cycle_interval: 10.0,
             as_to_ps_network_delay: 0.050,
             ps_to_sched_network_delay: 0.089,
             sched_to_as_network_delay: 0.023,
@@ -222,6 +224,8 @@ impl KubernetriksSimulation {
 
     pub fn run(&mut self) {
         // Run simulation until completion of all events and measure time.
+        self.scheduler.borrow_mut().start();
+
         let t = Instant::now();
         self.sim.step_until_no_events();
         let duration = t.elapsed().as_secs_f64();

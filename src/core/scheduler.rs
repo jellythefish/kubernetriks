@@ -1,18 +1,20 @@
 //! Implementation of kube-scheduler component which is responsible for scheduling pods for nodes.
 
+use std::collections::VecDeque;
 use std::rc::Rc;
+use std::time::Instant;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
 use crate::core::common::{ObjectsInfo, SimComponentId};
 use crate::core::events::{
-    AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest, UpdateNodeCacheRequest,
+    AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest, RunSchedulingCycle,
+    AddNodeToCacheRequest,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
 use crate::simulator::SimulationConfig;
 
-use crate::core::common::RuntimeResources;
 
 #[derive(Debug, PartialEq)]
 pub enum ScheduleError {
@@ -68,8 +70,10 @@ pub struct Scheduler {
 
     // Cache which is updated based on events from persistent storage
     objects_cache: ObjectsInfo,
-
     scheduler_impl: Box<dyn AnyScheduler>,
+
+    // queue of pod names to schedule, pod as objects themselves are stored in objects_cache
+    pod_queue: VecDeque<String>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -86,9 +90,14 @@ impl Scheduler {
             api_server,
             objects_cache: Default::default(),
             scheduler_impl,
+            pod_queue: Default::default(),
             ctx,
             config,
         }
+    }
+
+    pub fn start(&mut self) {
+        self.ctx.emit_self_now(RunSchedulingCycle {});
     }
 
     pub fn add_node(&mut self, node: Node) {
@@ -123,14 +132,27 @@ impl Scheduler {
         self.scheduler_impl = scheduler_impl
     }
 
-    fn reserve_node_resources(
-        &mut self,
-        requested_resources: &RuntimeResources,
-        assigned_node: &str,
-    ) {
+    fn reserve_node_resources(&mut self, pod_name: &str, assigned_node: &str) {
+        let pod = self.objects_cache.pods.get(pod_name).unwrap();
         let node = self.objects_cache.nodes.get_mut(assigned_node).unwrap();
-        node.status.allocatable.cpu -= requested_resources.cpu;
-        node.status.allocatable.ram -= requested_resources.ram;
+        node.status.allocatable.cpu -= pod.spec.resources.requests.cpu;
+        node.status.allocatable.ram -= pod.spec.resources.requests.ram;
+    }
+
+    fn assign_node_to_pod(&mut self, pod_name: &str, node_name: &str) {
+        self.objects_cache
+            .pods
+            .get_mut(pod_name)
+            .unwrap()
+            .status
+            .assigned_node = node_name.to_string();
+
+        log_debug!(
+            self.ctx,
+            "Pod {:?} has been assigned a Node {:?}",
+            pod_name,
+            node_name,
+        );
     }
 
     fn release_node_resources(&mut self, pod_name: &str) {
@@ -148,6 +170,57 @@ impl Scheduler {
     fn schedule_one<'a>(&'a self, pod: &'a Pod) -> Result<&'a Node, ScheduleError> {
         let mut nodes_iter = self.objects_cache.nodes.values();
         self.scheduler_impl.schedule_one(pod, &mut nodes_iter)
+    }
+
+    fn run_scheduling_cycle(&mut self) {
+        let cycle_start_time = Instant::now();
+        let mut unscheduled_queue: VecDeque<String> = Default::default();
+
+        while let Some(next_pod_name) = self.pod_queue.pop_front() {
+            let assigned_node =
+                match self.schedule_one(self.objects_cache.pods.get(&next_pod_name).unwrap()) {
+                    Ok(assigned_node) => assigned_node.metadata.name.clone(),
+                    Err(err) => {
+                        log_debug!(
+                            self.ctx,
+                            "failed to schedule pod {:?}: {:?}",
+                            next_pod_name,
+                            err
+                        );
+                        unscheduled_queue.push_back(next_pod_name);
+                        continue;
+                    }
+                };
+
+            self.reserve_node_resources(&next_pod_name, &assigned_node);
+            self.assign_node_to_pod(&next_pod_name, &assigned_node);
+
+            self.ctx.emit(
+                AssignPodToNodeRequest {
+                    pod_name: next_pod_name,
+                    node_name: assigned_node,
+                },
+                self.api_server,
+                cycle_start_time.elapsed().as_secs_f64() + self.config.sched_to_as_network_delay,
+            );
+        }
+
+        assert_eq!(
+            0,
+            self.pod_queue.len(),
+            "impossible scenario: queue is not empty after while cycle"
+        );
+        self.pod_queue = unscheduled_queue;
+
+        let elapsed = cycle_start_time.elapsed();
+        let next_cycle_delay = f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval)
+            + self.config.sched_to_as_network_delay;
+
+        // TODO: need some better way to stop
+        if self.ctx.time() > 10000.0 {
+            return;
+        }
+        self.ctx.emit_self(RunSchedulingCycle {}, next_cycle_delay);
     }
 }
 
@@ -191,32 +264,16 @@ impl KubeGenericScheduler for LeastRequestedPriorityScheduler {
 impl EventHandler for Scheduler {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
-            UpdateNodeCacheRequest { node } => {
+            RunSchedulingCycle {} => {
+                self.run_scheduling_cycle();
+            }
+            AddNodeToCacheRequest { node } => {
                 self.add_node(node);
             }
-            PodScheduleRequest { mut pod } => {
+            PodScheduleRequest { pod } => {
                 let pod_name = pod.metadata.name.clone();
-                let assigned_node = self.schedule_one(&pod).unwrap().metadata.name.clone();
-
-                pod.status.assigned_node = assigned_node.clone();
-                self.reserve_node_resources(&pod.spec.resources.requests, &assigned_node);
+                self.pod_queue.push_back(pod_name);
                 self.add_pod(pod);
-
-                log_debug!(
-                    self.ctx,
-                    "Pod {:?} has been assigned a Node {:?}",
-                    pod_name,
-                    assigned_node,
-                );
-
-                self.ctx.emit(
-                    AssignPodToNodeRequest {
-                        pod_name: pod_name,
-                        node_name: assigned_node,
-                    },
-                    self.api_server,
-                    self.config.sched_to_as_network_delay,
-                );
             }
             PodFinishedRunning {
                 finish_time: _,
@@ -256,6 +313,15 @@ mod tests {
                 .objects_cache
                 .nodes
                 .insert(node.metadata.name.clone(), node);
+        }
+    }
+
+    fn register_pods(scheduler: &mut Scheduler, pods: Vec<Pod>) {
+        for pod in pods.into_iter() {
+            scheduler
+                .objects_cache
+                .pods
+                .insert(pod.metadata.name.clone(), pod);
         }
     }
 
@@ -319,21 +385,25 @@ mod tests {
         let pod4 = Pod::new("pod_4".to_string(), 10000, 8589934592, 5.0);
         let node1 = Node::new(node_name.to_string(), 16000, 100589934592);
         register_nodes(&mut scheduler, vec![node1.clone()]);
+        register_pods(
+            &mut scheduler,
+            vec![pod1.clone(), pod2.clone(), pod3.clone(), pod4.clone()],
+        );
         assert_eq!(
             *scheduler.schedule_one(&pod1).ok().unwrap(),
             scheduler.get_node(node_name)
         );
-        scheduler.reserve_node_resources(&pod1.spec.resources.requests, node_name);
+        scheduler.reserve_node_resources(&pod1.metadata.name, node_name);
         assert_eq!(
             *scheduler.schedule_one(&pod2).ok().unwrap(),
             scheduler.get_node(node_name)
         );
-        scheduler.reserve_node_resources(&pod2.spec.resources.requests, node_name);
+        scheduler.reserve_node_resources(&pod2.metadata.name, node_name);
         assert_eq!(
             *scheduler.schedule_one(&pod3).ok().unwrap(),
             scheduler.get_node(node_name)
         );
-        scheduler.reserve_node_resources(&pod3.spec.resources.requests, node_name);
+        scheduler.reserve_node_resources(&pod3.metadata.name, node_name);
         // there is no place left on node for the fourth pod
         assert_eq!(
             scheduler.schedule_one(&pod4).err().unwrap(),

@@ -33,22 +33,6 @@ pub struct SimulationConfig {
     pub as_to_node_network_delay: f64,
 }
 
-impl Default for SimulationConfig {
-    fn default() -> Self {
-        Self {
-            sim_name: "kubernetriks".to_string(),
-            seed: 123,
-            node_pool_capacity: 100,
-            default_cluster: None,
-            scheduling_cycle_interval: 10.0,
-            as_to_ps_network_delay: 0.050,
-            ps_to_sched_network_delay: 0.089,
-            sched_to_as_network_delay: 0.023,
-            as_to_node_network_delay: 0.152,
-        }
-    }
-}
-
 #[derive(Clone, Default, Debug, Deserialize, PartialEq)]
 pub struct NodeGroup {
     // If node count is not none and node's metadata has name, then it's taken as a prefix of all nodes
@@ -165,7 +149,6 @@ impl KubernetriksSimulation {
         node_component.borrow_mut().runtime = Some(NodeRuntime {
             api_server: self.api_server.borrow().ctx.id(),
             node: node.clone(),
-            running_pods: Default::default(),
             config: self.config.clone(),
         });
         self.api_server

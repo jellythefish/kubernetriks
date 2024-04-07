@@ -9,9 +9,9 @@ use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest, CreateNodeResponse,
-    CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning, PodScheduleRequest,
-    PodStartedRunning, AddNodeToCacheRequest,
+    AddNodeToCacheRequest, AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest,
+    CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning,
+    PodScheduleRequest, PodStartedRunning,
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
@@ -194,10 +194,9 @@ impl EventHandler for PersistentStorage {
                 pod.update_condition("True".to_string(), PodConditionType::PodRunning, start_time);
             }
             PodFinishedRunning {
+                pod_name,
                 finish_time,
                 finish_result,
-                pod_name,
-                ..
             } => {
                 let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
                 pod.update_condition("True".to_string(), finish_result.clone(), finish_time);

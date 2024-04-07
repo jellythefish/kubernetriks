@@ -100,17 +100,17 @@ pub struct BindPodToNodeResponse {
 // pod started running on a node.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodStartedRunning {
-    pub start_time: f64,
     pub pod_name: String,
+    pub start_time: f64,
 }
 
 // Event from node cluster to self to simulate pod running, also from node cluster to api server
 // and from api server to persistent storage to tell that pod is finished.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodFinishedRunning {
+    pub pod_name: String,
     pub finish_time: f64,
     pub finish_result: PodConditionType, // either PodSucceeded or PodFailed
-    pub pod_name: String,
 }
 
 // Event from scheduler to itself to run pod scheduling cycle.

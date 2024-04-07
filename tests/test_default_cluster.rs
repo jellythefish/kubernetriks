@@ -1,11 +1,9 @@
-mod helpers;
-
 use std::{collections::HashMap, rc::Rc};
 
 use dslab_kubernetriks::core::node::{Node, NodeConditionType};
 use dslab_kubernetriks::simulator::KubernetriksSimulation;
 
-use helpers::{
+use dslab_kubernetriks::test_util::helpers::{
     check_count_of_nodes_in_components_equals_to,
     check_expected_node_is_equal_to_nodes_in_components,
 };

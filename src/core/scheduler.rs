@@ -8,13 +8,12 @@ use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
 use crate::core::common::{ObjectsInfo, SimComponentId};
 use crate::core::events::{
-    AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest, RunSchedulingCycle,
-    AddNodeToCacheRequest,
+    AddNodeToCacheRequest, AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest,
+    RunSchedulingCycle,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
 use crate::simulator::SimulationConfig;
-
 
 #[derive(Debug, PartialEq)]
 pub enum ScheduleError {
@@ -213,8 +212,9 @@ impl Scheduler {
         self.pod_queue = unscheduled_queue;
 
         let elapsed = cycle_start_time.elapsed();
-        let next_cycle_delay = f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval)
-            + self.config.sched_to_as_network_delay;
+        let next_cycle_delay =
+            f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval)
+                + self.config.sched_to_as_network_delay;
 
         // TODO: need some better way to stop
         if self.ctx.time() > 10000.0 {
@@ -290,11 +290,13 @@ impl EventHandler for Scheduler {
 mod tests {
     use std::rc::Rc;
 
-    use crate::core::scheduler::{LeastRequestedPriorityScheduler, ScheduleError, Scheduler};
     use dslab_core::Simulation;
 
     use crate::core::node::Node;
     use crate::core::pod::Pod;
+    use crate::core::scheduler::{LeastRequestedPriorityScheduler, ScheduleError, Scheduler};
+
+    use crate::test_util::helpers::default_test_simulation_config;
 
     fn create_scheduler() -> Scheduler {
         let mut fake_sim = Simulation::new(0);
@@ -303,25 +305,19 @@ mod tests {
             0,
             Box::new(LeastRequestedPriorityScheduler {}),
             fake_sim.create_context("scheduler"),
-            Rc::new(Default::default()),
+            Rc::new(default_test_simulation_config()),
         )
     }
 
     fn register_nodes(scheduler: &mut Scheduler, nodes: Vec<Node>) {
         for node in nodes.into_iter() {
-            scheduler
-                .objects_cache
-                .nodes
-                .insert(node.metadata.name.clone(), node);
+            scheduler.add_node(node);
         }
     }
 
     fn register_pods(scheduler: &mut Scheduler, pods: Vec<Pod>) {
         for pod in pods.into_iter() {
-            scheduler
-                .objects_cache
-                .pods
-                .insert(pod.metadata.name.clone(), pod);
+            scheduler.add_pod(pod);
         }
     }
 

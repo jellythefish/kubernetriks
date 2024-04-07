@@ -83,18 +83,16 @@ impl KubeApiServer {
         created: bool,
         node_name: &str,
     ) {
-        if !created {
-            panic!(
-                "Something went wrong while creating node, component with id {:?} failed:",
-                src
-            );
-        }
-        if src != self.persistent_storage {
-            panic!(
-                "api server got CreateNodeResponse event type from unexpected sender with id {:?}",
-                src
-            );
-        }
+        assert!(
+            created,
+            "Something went wrong while creating node, component with id {:?} failed:",
+            src
+        );
+        assert_eq!(
+            src, self.persistent_storage,
+            "Got create node response not from persistent storage: id - {:?}",
+            src
+        );
         // Now we are ready to create node via node pool, because Node info is persisted.
         let node = self
             .pending_node_creation_requests
@@ -103,13 +101,12 @@ impl KubeApiServer {
         let node_component =
             self.node_pool
                 .allocate_component(node, self.ctx.id(), self.config.clone());
-        let node_name = node_component.borrow().node_name().to_string();
         self.add_node_component(node_component);
 
         self.ctx.emit(
             NodeAddedToTheCluster {
                 event_time,
-                node_name,
+                node_name: node_name.to_string(),
             },
             self.persistent_storage,
             self.config.as_to_ps_network_delay,
@@ -167,12 +164,7 @@ impl EventHandler for KubeApiServer {
                 node_name,
             } => {
                 // Make bind request to node cluster
-                let node_component = self.created_nodes.get(&node_name).unwrap_or_else(|| {
-                    panic!(
-                        "Trying to assign pod {:?} to a node {:?} which do not exist",
-                        pod_name, node_name
-                    );
-                });
+                let node_component = self.created_nodes.get(&node_name).unwrap();
                 self.ctx.emit(
                     BindPodToNodeRequest {
                         pod_name,

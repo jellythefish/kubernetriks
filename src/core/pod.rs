@@ -27,7 +27,7 @@ pub enum PodConditionType {
     PodScheduled,
     // Pod is on a node and started to initialize (fetching container images, etc)
     // TODO: may be unused now
-    PodReadyToStartContainers,
+    PodInitializing,
     // Pod initialized all containers and started them, at least one container is still running in
     // this phase.
     PodRunning,

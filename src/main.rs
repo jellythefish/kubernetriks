@@ -1,15 +1,10 @@
-mod core;
-mod simulator;
-mod trace;
-
 use clap::Parser;
 use log::info;
 use std::env;
 use std::rc::Rc;
 
-use crate::simulator::{KubernetriksSimulation, SimulationConfig};
-
-use crate::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
+use dslab_kubernetriks::simulator::{KubernetriksSimulation, SimulationConfig};
+use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
 
 #[derive(Parser)]
 struct Args {

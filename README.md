@@ -6,9 +6,7 @@ Framework to simulate k8s cluster, workload scheduling and autoscaling based on 
 Run prototype:
 ```
 cargo test
-RUST_LOG=debug cargo run -- --config-file src/config.yaml \
---cluster-trace-file src/data/generic_cluster_trace_example.yaml \
---workload-trace-file src/data/generic_workload_trace_example.yaml
+RUST_LOG=debug cargo run -- --config-file src/config.yaml
 ```
 
 ### TODO

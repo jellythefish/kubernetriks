@@ -35,7 +35,7 @@ pub enum WorkloadEventType {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct GenericClusterTrace {
-    events: Vec<ClusterEvent>,
+    pub events: Vec<ClusterEvent>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

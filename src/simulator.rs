@@ -22,6 +22,7 @@ use crate::trace::interface::Trace;
 pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
+    pub trace_config: Option<TraceConfig>,
     pub node_pool_capacity: usize,
     pub default_cluster: Option<Vec<NodeGroup>>,
     pub scheduling_cycle_interval: f64, // in seconds
@@ -31,6 +32,24 @@ pub struct SimulationConfig {
     pub ps_to_sched_network_delay: f64,
     pub sched_to_as_network_delay: f64,
     pub as_to_node_network_delay: f64,
+}
+#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
+pub struct AlibabaWorkloadTraceV2017Paths {
+    pub batch_instance_trace_path: String,
+    pub batch_task_trace_path: String,
+}
+
+#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
+pub struct GenericTracePaths {
+    pub workload_trace_path: String,
+    pub cluster_trace_path: String,
+}
+
+#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
+pub struct TraceConfig {
+    // should be one of, not both
+    pub alibaba_cluster_trace_v2017: Option<AlibabaWorkloadTraceV2017Paths>,
+    pub generic_trace: Option<GenericTracePaths>,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, PartialEq)]

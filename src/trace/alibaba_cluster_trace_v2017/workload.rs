@@ -39,7 +39,7 @@ struct BatchInstance {
     average_normalized_memory_usage: Option<f64>,
 }
 
-struct AlibabaWorkloadTraceV2017 {
+pub struct AlibabaWorkloadTraceV2017 {
     batch_instances_events: Vec<BatchInstance>,
     batch_tasks: HashMap<i64, BatchTask>,
 }
@@ -66,9 +66,9 @@ impl AlibabaWorkloadTraceV2017 {
             {
                 continue;
             }
-            let start_timestamp = instance.end_timestamp.unwrap();
-            let end_timestamp = instance.start_timestamp.unwrap();
-            if start_timestamp <= 0 || end_timestamp <= 0 || start_timestamp < end_timestamp {
+            let start_timestamp = instance.start_timestamp.unwrap();
+            let end_timestamp = instance.end_timestamp.unwrap();
+            if start_timestamp <= 0 || end_timestamp <= 0 || start_timestamp >= end_timestamp {
                 continue;
             }
             let batch_task = self.batch_tasks.get(&instance.task_id.unwrap()).unwrap();
@@ -149,7 +149,7 @@ fn read_batch_trace_from_str(trace_str: &str) -> HashMap<i64, BatchTask> {
         let batch_task: BatchTask = row.unwrap();
         let task_id = batch_task.task_id;
         match trace.insert(task_id, batch_task) {
-            Some(val) => panic!("duplicated task id: {:?}", task_id),
+            Some(_val) => panic!("duplicated task id: {:?}", task_id),
             _ => {}
         }
     }
@@ -194,19 +194,19 @@ mod tests {
         BatchInstance, BatchTask,
     };
 
-    #[test]
-    fn try_read_the_trace() {
-        let instance = PathBuf::from(
-            "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv",
-        );
-        let task = PathBuf::from(
-            "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv",
-        );
+    // #[test]
+    // fn try_read_the_trace() {
+    //     let instance = PathBuf::from(
+    //         "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv",
+    //     );
+    //     let task = PathBuf::from(
+    //         "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv",
+    //     );
 
-        let mut trace = AlibabaWorkloadTraceV2017::new(instance, task);
-        let events = trace.convert_to_simulator_events();
-        println!("event count: {:?}", events.len());
-    }
+    //     let mut trace = AlibabaWorkloadTraceV2017::new(instance, task);
+    //     let events = trace.convert_to_simulator_events();
+    //     println!("event count: {:?}", events.len());
+    // }
 
     #[test]
     fn test_parsing_ok() {
@@ -266,8 +266,8 @@ mod tests {
             BatchInstance {
                 start_timestamp: Some(0),
                 end_timestamp: None,
-                job_id: None,
-                task_id: None,
+                job_id: Some(120),
+                task_id: Some(686),
                 machine_id: None,
                 status: "Interrupted".to_string(),
                 sequence_number: 1,

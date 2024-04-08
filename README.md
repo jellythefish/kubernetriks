@@ -35,7 +35,6 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Ограничить набор событий в SimulationEvent для трейса pub trait SimulatorEvent: EventData {} ??
 - [x] Можно упростить и убрать контейнеры в Pod 
 - [x] Доп фича - препроцессить трейс нод для того чтобы узнать количество для предварительной аллокации достаточного количества нод
-
 - [x] Вынести тело цикла в отдельную функцию + сделать более понятную нумерацию нод (1,2,3) - падать если имя неуникально + сделать структуру удобную как у https://github.com/osukhoroslov/dslab/blob/4ea3b3a4abe0b36dca5359a838d502dacf9da95d/crates/dslab-iaas/src/core/config/sim_config.rs#L42
 - [x] NodeBundle -> NodeGroup
 - [x] Поднять очередь подов для планировщика, в которую будут складываться поды по запросу от Persistent storage. Завести цикл планирования, который в своей итерации выгребает всю очередь подов, планирует каждый под, замеряет планирование каждого пода + полностью итерацию планирования. Назначение нового цикла планирования происходит с задержкой = max(scheduling period, current scheduling time). Отправка запроса AssignPodToNodeRequest происходит с задержкой = сетевой задержке + время проведенное подом в очереди + его время планирования.
@@ -50,3 +49,8 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 // fn score
 ```
 - [x] Перенести всю логику Cluster controller-a в node pool и убрать cluster controller, обойтись только api server + node pool
+
+- [ ] Переделать интерфейс PodSchedulingAlgorithm чтобы не возвращал ссылки с лайфтаймами (`return Result<String, SchedulerError>`)
+- [ ] Добавить коллбэки для остановки симулятора (SimulationCallback traits): step for duration + check lambda to stop simulation
+- [ ] Убрать опцию node_pool_capacity (она позже будет заменена опцией max_autoscaler_cluster_size). А вместо этой опции вычислять размер пула из трейса следующим образом: проходится в цикле по событиям, если событие - создание ноды, то +1 к счетчику, если событие - удаление/падение ноды, то обновление максимума нод, затем вычитание -1 из счетчика. Размер нод пула будет равным этому максимуму + некоторая дельта.
+- [ ] Подумать над тем, как реализовать schedule_one (под опцией в конфиге), вызываемый на каждое событие от persistent_storage - PodFinishedRunning/AddNodeToCacheRequest/PodScheduleRequest

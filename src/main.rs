@@ -1,9 +1,9 @@
-use clap::Parser;
-use log::info;
-use std::borrow::BorrowMut;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::{env, vec};
+
+use clap::Parser;
+use log::info;
 
 use dslab_kubernetriks::simulator::{KubernetriksSimulation, SimulationConfig};
 use dslab_kubernetriks::trace::alibaba_cluster_trace_v2017::workload::AlibabaWorkloadTraceV2017;

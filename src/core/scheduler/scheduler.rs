@@ -1,4 +1,4 @@
-//! Implementation of kube-scheduler component which is responsible for scheduling pods for nodes.
+//! Implementation of scheduler component which is responsible for scheduling pods for nodes.
 
 use std::collections::VecDeque;
 use std::rc::Rc;
@@ -15,61 +15,14 @@ use crate::core::node::Node;
 use crate::core::pod::Pod;
 use crate::simulator::SimulationConfig;
 
-#[derive(Debug, PartialEq)]
-pub enum ScheduleError {
-    RequestedResourcesAreZeros,
-    NoSufficientNodes,
-}
-
-pub trait AnyScheduler {
-    // Method which should implement any scheduler to assign a node on which the pod will be executed.
-    // Returns result which if is Ok - the name of assigned node, Err - scheduling error.
-    fn schedule_one<'a>(
-        &self,
-        pod: &'a Pod,
-        nodes: &mut dyn Iterator<Item = &'a Node>,
-    ) -> Result<&'a Node, ScheduleError>;
-}
-
-pub trait KubeGenericScheduler: AnyScheduler {
-    fn filter<'a>(&self, pod: &'a Pod, nodes: &mut dyn Iterator<Item = &'a Node>) -> Vec<&'a Node>;
-    fn score(&self, pod: &Pod, node: &Node) -> f64;
-
-    fn schedule_one<'a>(
-        &self,
-        pod: &'a Pod,
-        nodes: &mut dyn Iterator<Item = &'a Node>,
-    ) -> Result<&'a Node, ScheduleError> {
-        let requested_resources = &pod.spec.resources.requests;
-        if requested_resources.cpu == 0 && requested_resources.ram == 0 {
-            return Err(ScheduleError::RequestedResourcesAreZeros);
-        }
-
-        let filtered_nodes = self.filter(pod, nodes);
-        if filtered_nodes.len() == 0 {
-            return Err(ScheduleError::NoSufficientNodes);
-        }
-
-        let mut assigned_node = filtered_nodes[0];
-        let mut max_score = 0.0;
-
-        for node in filtered_nodes {
-            let score = self.score(pod, node);
-            if score >= max_score {
-                assigned_node = &node;
-                max_score = score;
-            }
-        }
-        Ok(assigned_node)
-    }
-}
+use crate::core::scheduler::interface::{PodSchedulingAlgorithm, ScheduleError};
 
 pub struct Scheduler {
     api_server: SimComponentId,
 
     // Cache which is updated based on events from persistent storage
     objects_cache: ObjectsInfo,
-    scheduler_impl: Box<dyn AnyScheduler>,
+    scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
 
     // queue of pod names to schedule, pod as objects themselves are stored in objects_cache
     pod_queue: VecDeque<String>,
@@ -81,14 +34,14 @@ pub struct Scheduler {
 impl Scheduler {
     pub fn new(
         api_server: SimComponentId,
-        scheduler_impl: Box<dyn AnyScheduler>,
+        scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
     ) -> Self {
         Self {
             api_server,
             objects_cache: Default::default(),
-            scheduler_impl,
+            scheduler_algorithm,
             pod_queue: Default::default(),
             ctx,
             config,
@@ -127,8 +80,11 @@ impl Scheduler {
         self.objects_cache.pods.len()
     }
 
-    pub fn set_scheduler_impl(&mut self, scheduler_impl: Box<dyn AnyScheduler>) {
-        self.scheduler_impl = scheduler_impl
+    pub fn set_scheduler_algorithm(
+        &mut self,
+        scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
+    ) {
+        self.scheduler_algorithm = scheduler_algorithm
     }
 
     fn reserve_node_resources(&mut self, pod_name: &str, assigned_node: &str) {
@@ -167,8 +123,8 @@ impl Scheduler {
     }
 
     fn schedule_one<'a>(&'a self, pod: &'a Pod) -> Result<&'a Node, ScheduleError> {
-        let mut nodes_iter = self.objects_cache.nodes.values();
-        self.scheduler_impl.schedule_one(pod, &mut nodes_iter)
+        let nodes_iter = self.objects_cache.nodes.values().collect::<Vec<&Node>>();
+        self.scheduler_algorithm.schedule_one(pod, nodes_iter)
     }
 
     fn run_scheduling_cycle(&mut self) {
@@ -213,51 +169,13 @@ impl Scheduler {
 
         let elapsed = cycle_start_time.elapsed();
         let next_cycle_delay =
-            f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval)
-                + self.config.sched_to_as_network_delay;
+            f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval);
 
         // TODO: need some better way to stop
         if self.ctx.time() > 10000.0 {
             return;
         }
         self.ctx.emit_self(RunSchedulingCycle {}, next_cycle_delay);
-    }
-}
-
-pub struct LeastRequestedPriorityScheduler {}
-impl AnyScheduler for LeastRequestedPriorityScheduler {
-    // TODO: write proc_macros for this
-    fn schedule_one<'a>(
-        &self,
-        pod: &'a Pod,
-        nodes: &mut dyn Iterator<Item = &'a Node>,
-    ) -> Result<&'a Node, ScheduleError> {
-        KubeGenericScheduler::schedule_one(self, pod, nodes)
-    }
-}
-impl KubeGenericScheduler for LeastRequestedPriorityScheduler {
-    // Basic least requested priority algorithm. It means that after subtracting pod's
-    // requested resources from node's allocatable resources, the node with the highest
-    // percentage difference (relatively to capacity) is prioritized for scheduling.
-    //
-    // Weights for cpu and memory are equal by default.
-    fn filter<'a>(&self, pod: &'a Pod, nodes: &mut dyn Iterator<Item = &'a Node>) -> Vec<&'a Node> {
-        nodes
-            .filter(|&node| {
-                pod.spec.resources.requests.cpu <= node.status.allocatable.cpu
-                    && pod.spec.resources.requests.ram <= node.status.allocatable.ram
-            })
-            .collect()
-    }
-
-    fn score(&self, pod: &Pod, node: &Node) -> f64 {
-        let cpu_score = (node.status.allocatable.cpu - pod.spec.resources.requests.cpu) as f64
-            * 100.0
-            / node.status.allocatable.cpu as f64;
-        let ram_score = (node.status.allocatable.ram - pod.spec.resources.requests.ram) as f64
-            * 100.0
-            / node.status.allocatable.ram as f64;
-        (cpu_score + ram_score) / 2.0
     }
 }
 
@@ -294,7 +212,9 @@ mod tests {
 
     use crate::core::node::Node;
     use crate::core::pod::Pod;
-    use crate::core::scheduler::{LeastRequestedPriorityScheduler, ScheduleError, Scheduler};
+    use crate::core::scheduler::interface::ScheduleError;
+    use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, KubeScheduler};
+    use crate::core::scheduler::scheduler::Scheduler;
 
     use crate::test_util::helpers::default_test_simulation_config;
 
@@ -303,7 +223,9 @@ mod tests {
 
         Scheduler::new(
             0,
-            Box::new(LeastRequestedPriorityScheduler {}),
+            Box::new(KubeScheduler {
+                config: default_kube_scheduler_config(),
+            }),
             fake_sim.create_context("scheduler"),
             Rc::new(default_test_simulation_config()),
         )

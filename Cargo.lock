@@ -189,6 +189,7 @@ dependencies = [
  "dyn-clone",
  "env_logger",
  "erased-serde",
+ "lazy_static",
  "log",
  "serde",
  "serde_type_name",

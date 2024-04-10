@@ -10,8 +10,6 @@ trace_config:
   #   batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
   #   batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
 
-node_pool_capacity: 10
-
 default_cluster:
 - node_template:
     metadata:

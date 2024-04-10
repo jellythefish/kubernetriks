@@ -39,7 +39,6 @@ pub fn default_test_simulation_config() -> SimulationConfig {
     SimulationConfig {
         sim_name: "test_kubernetriks".to_string(),
         seed: 123,
-        node_pool_capacity: 100,
         trace_config: None,
         default_cluster: None,
         scheduling_cycle_interval: 10.0,

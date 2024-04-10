@@ -11,7 +11,8 @@ use serde::Deserialize;
 use dslab_core::simulation::Simulation;
 
 use crate::core::api_server::KubeApiServer;
-use crate::core::events::CreatePodRequest;
+use crate::core::common::SimulationEvent;
+use crate::core::events::{CreateNodeRequest, CreatePodRequest, RemoveNodeRequest};
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::{NodeComponent, NodeRuntime};
 use crate::core::node_component_pool::NodeComponentPool;
@@ -28,7 +29,6 @@ pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
     pub trace_config: Option<TraceConfig>,
-    pub node_pool_capacity: usize,
     pub default_cluster: Option<Vec<NodeGroup>>,
     pub scheduling_cycle_interval: f64, // in seconds
     // Simulated network delays, as = api server, ps = persistent storage.
@@ -142,6 +142,25 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     }
 }
 
+pub fn get_max_simultaneously_existing_nodes_in_trace(trace: &Vec<(f64, Box<dyn SimulationEvent>)>) -> usize {
+    let mut trace_sorted = trace.clone();
+    trace_sorted.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap());
+    
+    let mut count: usize = 0;
+    let mut max_count: usize = 0;
+
+    for (_, event) in trace_sorted.into_iter() {
+        if let Some(_) = event.downcast_ref::<CreateNodeRequest>() {
+            count += 1;
+        } else if let Some(_) = event.downcast_ref::<RemoveNodeRequest>() {
+            count -= 1;
+        }
+        max_count = max(count, max_count);
+    }
+
+    max_count
+}
+
 impl KubernetriksSimulation {
     pub fn new(config: Rc<SimulationConfig>) -> Self {
         info!(
@@ -212,14 +231,17 @@ impl KubernetriksSimulation {
         // the timestamps of events in a trace.
         assert_eq!(self.sim.time(), 0.0);
 
-        let node_pool_size = max(self.config.node_pool_capacity, cluster_trace.event_count());
+        let cluster_trace_events = cluster_trace.convert_to_simulator_events();
+        let node_count = get_max_simultaneously_existing_nodes_in_trace(&cluster_trace_events);
+        info!("Node pool capacity={:?} (from trace)", node_count);
+
         self.api_server
             .borrow_mut()
-            .set_node_pool(NodeComponentPool::new(node_pool_size, &mut self.sim));
+            .set_node_pool(NodeComponentPool::new(node_count, &mut self.sim));
 
         self.initialize_default_cluster();
 
-        for (ts, event) in cluster_trace.convert_to_simulator_events().into_iter() {
+        for (ts, event) in cluster_trace_events.into_iter() {
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
         for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
@@ -348,5 +370,45 @@ impl KubernetriksSimulation {
     /// Returns `true` if there could be more pending events and `false` otherwise.
     pub fn step_for_duration(&mut self, duration: f64) -> bool {
         self.sim.step_for_duration(duration)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{core::{common::SimulationEvent, events::{CreateNodeRequest, RemoveNodeRequest}, node::Node}, simulator::get_max_simultaneously_existing_nodes_in_trace};
+
+    #[test]
+    fn test_get_max_simultaneously_existing_nodes_from_trace_of_node_creations_only() {
+        let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
+            (15.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (20.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (10.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (350.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+        ];
+        assert_eq!(4, get_max_simultaneously_existing_nodes_in_trace(&trace));
+    }
+
+    #[test]
+    fn test_get_max_simultaneously_existing_nodes_from_trace_of_node_creations_and_removals() {
+        let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
+            (10.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (15.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
+            (20.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (35.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
+        ];
+        assert_eq!(1, get_max_simultaneously_existing_nodes_in_trace(&trace));
+
+        let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
+            (10.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (11.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (12.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (13.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (14.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (15.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
+            (16.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
+            (17.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (18.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+        ];
+        assert_eq!(5, get_max_simultaneously_existing_nodes_in_trace(&trace));
     }
 }

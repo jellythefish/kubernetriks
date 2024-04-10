@@ -9,9 +9,24 @@ pub fn check_expected_node_is_equal_to_nodes_in_components(
     let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
     let scheduler_borrowed = kube_sim.scheduler.borrow();
 
-    assert_eq!(expected_node, api_server_borrowed.get_node_component(&expected_node.metadata.name).unwrap().borrow().get_node());
-    assert_eq!(expected_node, persistent_storage_borrowed.get_node(&expected_node.metadata.name).unwrap());
-    assert_eq!(expected_node, scheduler_borrowed.get_node(&expected_node.metadata.name));
+    assert_eq!(
+        expected_node,
+        api_server_borrowed
+            .get_node_component(&expected_node.metadata.name)
+            .unwrap()
+            .borrow()
+            .get_node()
+    );
+    assert_eq!(
+        expected_node,
+        persistent_storage_borrowed
+            .get_node(&expected_node.metadata.name)
+            .unwrap()
+    );
+    assert_eq!(
+        expected_node,
+        scheduler_borrowed.get_node(&expected_node.metadata.name)
+    );
 }
 
 pub fn check_count_of_nodes_in_components_equals_to(
@@ -30,7 +45,11 @@ pub fn check_expected_node_appeared_in_components(
     // do not throw if exists
     let api_server_borrowed = kube_sim.api_server.borrow();
 
-    api_server_borrowed.get_node_component(node_name).unwrap().borrow().get_node();
+    api_server_borrowed
+        .get_node_component(node_name)
+        .unwrap()
+        .borrow()
+        .get_node();
     kube_sim.persistent_storage.borrow().get_node(node_name);
     kube_sim.scheduler.borrow().get_node(node_name);
 }

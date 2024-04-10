@@ -11,9 +11,5 @@ pub enum ScheduleError {
 pub trait PodSchedulingAlgorithm {
     // A method to assign a node on which the pod will be executed.
     // Returns Result consisting of name of assigned node or scheduling error.
-    fn schedule_one(
-        &self,
-        pod: &Pod,
-        nodes: Vec<&Node>,
-    ) -> Result<String, ScheduleError>;
+    fn schedule_one(&self, pod: &Pod, nodes: Vec<&Node>) -> Result<String, ScheduleError>;
 }

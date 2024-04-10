@@ -150,11 +150,13 @@ fn test_many_pods_running_one_at_a_time_at_slow_node() {
 
     // all pods succeeded and run sequentially
     for i in 0..pods.len() - 1 {
-        let pod_finish_time = pods[i].unwrap()
+        let pod_finish_time = pods[i]
+            .unwrap()
             .get_condition(PodConditionType::PodSucceeded)
             .unwrap()
             .last_transition_time;
-        let next_pod_running_time = pods[i + 1].unwrap()
+        let next_pod_running_time = pods[i + 1]
+            .unwrap()
             .get_condition(PodConditionType::PodRunning)
             .unwrap()
             .last_transition_time;
@@ -162,7 +164,8 @@ fn test_many_pods_running_one_at_a_time_at_slow_node() {
     }
 
     // last pod succeeded
-    pods[pods.len() - 1].unwrap()
+    pods[pods.len() - 1]
+        .unwrap()
         .get_condition(PodConditionType::PodSucceeded)
         .unwrap();
 }
@@ -236,16 +239,20 @@ fn test_node_fits_all_pods() {
 
     // all pods succeeded
     for pod in pods.iter() {
-        pod.unwrap().get_condition(PodConditionType::PodSucceeded).unwrap();
+        pod.unwrap()
+            .get_condition(PodConditionType::PodSucceeded)
+            .unwrap();
     }
 
     // all pods run parallel
     for i in 0..pods.len() - 1 {
-        let pod_finish_time = pods[i].unwrap()
+        let pod_finish_time = pods[i]
+            .unwrap()
             .get_condition(PodConditionType::PodSucceeded)
             .unwrap()
             .last_transition_time;
-        let next_pod_finish_time = pods[i + 1].unwrap()
+        let next_pod_finish_time = pods[i + 1]
+            .unwrap()
             .get_condition(PodConditionType::PodSucceeded)
             .unwrap()
             .last_transition_time;

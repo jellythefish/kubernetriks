@@ -110,7 +110,7 @@ impl RunUntilAllPodsAreFinishedCallbacks {
         for pod in self.created_pods.iter() {
             let pod_option = persistent_storage_borrowed.get_pod(&pod);
             if pod_option.is_none() {
-                continue
+                continue;
             }
             let pod = pod_option.unwrap();
             match pod.get_condition(PodConditionType::PodSucceeded) {
@@ -136,16 +136,18 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
 
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if sim.sim.time() % 1000.0 == 0.0 {
-            return self.check_pods(sim)
+            return self.check_pods(sim);
         }
         true
     }
 }
 
-pub fn get_max_simultaneously_existing_nodes_in_trace(trace: &Vec<(f64, Box<dyn SimulationEvent>)>) -> usize {
+pub fn get_max_simultaneously_existing_nodes_in_trace(
+    trace: &Vec<(f64, Box<dyn SimulationEvent>)>,
+) -> usize {
     let mut trace_sorted = trace.clone();
     trace_sorted.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap());
-    
+
     let mut count: usize = 0;
     let mut max_count: usize = 0;
 
@@ -247,7 +249,8 @@ impl KubernetriksSimulation {
         for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
             // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
             if let Some(create_pod_req) = event.downcast_ref::<CreatePodRequest>() {
-                self.pod_names.push(create_pod_req.pod.metadata.name.clone());
+                self.pod_names
+                    .push(create_pod_req.pod.metadata.name.clone());
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
@@ -375,15 +378,42 @@ impl KubernetriksSimulation {
 
 #[cfg(test)]
 mod tests {
-    use crate::{core::{common::SimulationEvent, events::{CreateNodeRequest, RemoveNodeRequest}, node::Node}, simulator::get_max_simultaneously_existing_nodes_in_trace};
+    use crate::{
+        core::{
+            common::SimulationEvent,
+            events::{CreateNodeRequest, RemoveNodeRequest},
+            node::Node,
+        },
+        simulator::get_max_simultaneously_existing_nodes_in_trace,
+    };
 
     #[test]
     fn test_get_max_simultaneously_existing_nodes_from_trace_of_node_creations_only() {
         let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
-            (15.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (20.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (10.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (350.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (
+                15.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                20.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                10.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                350.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
         ];
         assert_eq!(4, get_max_simultaneously_existing_nodes_in_trace(&trace));
     }
@@ -391,23 +421,88 @@ mod tests {
     #[test]
     fn test_get_max_simultaneously_existing_nodes_from_trace_of_node_creations_and_removals() {
         let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
-            (10.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (15.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
-            (20.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (35.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
+            (
+                10.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                15.0f64,
+                Box::new(RemoveNodeRequest {
+                    node_name: "name".to_string(),
+                }),
+            ),
+            (
+                20.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                35.0f64,
+                Box::new(RemoveNodeRequest {
+                    node_name: "name".to_string(),
+                }),
+            ),
         ];
         assert_eq!(1, get_max_simultaneously_existing_nodes_in_trace(&trace));
 
         let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
-            (10.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (11.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (12.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (13.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (14.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (15.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
-            (16.0f64, Box::new(RemoveNodeRequest{node_name: "name".to_string()})),
-            (17.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
-            (18.0f64, Box::new(CreateNodeRequest{node: Node::new("name".to_string(), 0, 0)})),
+            (
+                10.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                11.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                12.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                13.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                14.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                15.0f64,
+                Box::new(RemoveNodeRequest {
+                    node_name: "name".to_string(),
+                }),
+            ),
+            (
+                16.0f64,
+                Box::new(RemoveNodeRequest {
+                    node_name: "name".to_string(),
+                }),
+            ),
+            (
+                17.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
+            (
+                18.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
         ];
         assert_eq!(5, get_max_simultaneously_existing_nodes_in_trace(&trace));
     }

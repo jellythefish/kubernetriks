@@ -286,7 +286,10 @@ mod tests {
         // node3: ((6000 - 6000) * 100 / 6000 + (100589934592 - 12884901888) * 100 / 100589934592) / 2 = 43.59
         // node3 - max score - choose it for scheduling
         register_nodes(&mut scheduler, vec![node1, node2, node3.clone()]);
-        assert_eq!(*scheduler.schedule_one(&pod).ok().unwrap(), node3.metadata.name);
+        assert_eq!(
+            *scheduler.schedule_one(&pod).ok().unwrap(),
+            node3.metadata.name
+        );
     }
 
     #[test]
@@ -303,20 +306,11 @@ mod tests {
             &mut scheduler,
             vec![pod1.clone(), pod2.clone(), pod3.clone(), pod4.clone()],
         );
-        assert_eq!(
-            &*scheduler.schedule_one(&pod1).ok().unwrap(),
-            node_name
-        );
+        assert_eq!(&*scheduler.schedule_one(&pod1).ok().unwrap(), node_name);
         scheduler.reserve_node_resources(&pod1.metadata.name, node_name);
-        assert_eq!(
-            &*scheduler.schedule_one(&pod2).ok().unwrap(),
-            node_name
-        );
+        assert_eq!(&*scheduler.schedule_one(&pod2).ok().unwrap(), node_name);
         scheduler.reserve_node_resources(&pod2.metadata.name, node_name);
-        assert_eq!(
-            &*scheduler.schedule_one(&pod3).ok().unwrap(),
-            node_name
-        );
+        assert_eq!(&*scheduler.schedule_one(&pod3).ok().unwrap(), node_name);
         scheduler.reserve_node_resources(&pod3.metadata.name, node_name);
         // there is no place left on node for the fourth pod
         assert_eq!(

@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use dslab_kubernetriks::core::pod::PodConditionType;
-use dslab_kubernetriks::simulator::KubernetriksSimulation;
+use dslab_kubernetriks::simulator::{KubernetriksSimulation, RunUntilAllPodsAreFinishedCallbacks};
 use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
 
 use dslab_kubernetriks::test_util::helpers::default_test_simulation_config;
@@ -51,9 +51,11 @@ fn test_pod_arrived_before_a_node() {
     .unwrap();
 
     kube_sim.initialize(&mut make_cluster_trace(), &mut workload_trace);
-    kube_sim.run();
+    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
 
-    let pod = kube_sim.persistent_storage.borrow().get_pod("pod_16");
+    let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
+
+    let pod = persistent_storage_borrowed.get_pod("pod_16").unwrap();
     assert!(
         pod.get_condition(PodConditionType::PodRunning)
             .unwrap()
@@ -135,22 +137,24 @@ fn test_many_pods_running_one_at_a_time_at_slow_node() {
     .unwrap();
 
     kube_sim.initialize(&mut make_cluster_trace(), &mut workload_trace);
-    kube_sim.run();
+    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
+
+    let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
 
     let pods = vec![
-        kube_sim.persistent_storage.borrow().get_pod("pod_0"),
-        kube_sim.persistent_storage.borrow().get_pod("pod_1"),
-        kube_sim.persistent_storage.borrow().get_pod("pod_2"),
-        kube_sim.persistent_storage.borrow().get_pod("pod_3"),
+        persistent_storage_borrowed.get_pod("pod_0"),
+        persistent_storage_borrowed.get_pod("pod_1"),
+        persistent_storage_borrowed.get_pod("pod_2"),
+        persistent_storage_borrowed.get_pod("pod_3"),
     ];
 
     // all pods succeeded and run sequentially
     for i in 0..pods.len() - 1 {
-        let pod_finish_time = pods[i]
+        let pod_finish_time = pods[i].unwrap()
             .get_condition(PodConditionType::PodSucceeded)
             .unwrap()
             .last_transition_time;
-        let next_pod_running_time = pods[i + 1]
+        let next_pod_running_time = pods[i + 1].unwrap()
             .get_condition(PodConditionType::PodRunning)
             .unwrap()
             .last_transition_time;
@@ -158,7 +162,7 @@ fn test_many_pods_running_one_at_a_time_at_slow_node() {
     }
 
     // last pod succeeded
-    pods[pods.len() - 1]
+    pods[pods.len() - 1].unwrap()
         .get_condition(PodConditionType::PodSucceeded)
         .unwrap();
 }
@@ -220,26 +224,28 @@ fn test_node_fits_all_pods() {
     .unwrap();
 
     kube_sim.initialize(&mut make_cluster_trace(), &mut workload_trace);
-    kube_sim.run();
+    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
+
+    let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
 
     let pods = vec![
-        kube_sim.persistent_storage.borrow().get_pod("pod_0"),
-        kube_sim.persistent_storage.borrow().get_pod("pod_1"),
-        kube_sim.persistent_storage.borrow().get_pod("pod_2"),
+        persistent_storage_borrowed.get_pod("pod_0"),
+        persistent_storage_borrowed.get_pod("pod_1"),
+        persistent_storage_borrowed.get_pod("pod_2"),
     ];
 
     // all pods succeeded
     for pod in pods.iter() {
-        pod.get_condition(PodConditionType::PodSucceeded).unwrap();
+        pod.unwrap().get_condition(PodConditionType::PodSucceeded).unwrap();
     }
 
     // all pods run parallel
     for i in 0..pods.len() - 1 {
-        let pod_finish_time = pods[i]
+        let pod_finish_time = pods[i].unwrap()
             .get_condition(PodConditionType::PodSucceeded)
             .unwrap()
             .last_transition_time;
-        let next_pod_finish_time = pods[i + 1]
+        let next_pod_finish_time = pods[i + 1].unwrap()
             .get_condition(PodConditionType::PodSucceeded)
             .unwrap()
             .last_transition_time;

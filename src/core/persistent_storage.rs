@@ -69,12 +69,12 @@ impl PersistentStorage {
         }
     }
 
-    pub fn get_node(&self, node_name: &str) -> Node {
-        self.storage_data.nodes.get(node_name).unwrap().clone()
+    pub fn get_node(&self, node_name: &str) -> Option<&Node> {
+        self.storage_data.nodes.get(node_name)
     }
 
-    pub fn get_pod(&self, pod_name: &str) -> Pod {
-        self.storage_data.pods.get(pod_name).unwrap().clone()
+    pub fn get_pod(&self, pod_name: &str) -> Option<&Pod> {
+        self.storage_data.pods.get(pod_name)
     }
 
     pub fn node_count(&self) -> usize {

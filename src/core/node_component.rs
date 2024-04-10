@@ -36,6 +36,10 @@ impl NodeComponent {
         &self.runtime.as_ref().unwrap().node.metadata.name
     }
 
+    pub fn get_node(&self) -> &Node {
+        &self.runtime.as_ref().unwrap().node
+    }
+
     pub fn context_name(&self) -> &str {
         &self.ctx.name()
     }

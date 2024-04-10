@@ -60,16 +60,8 @@ impl KubeApiServer {
         }
     }
 
-    pub fn get_node(&self, node_name: &str) -> Node {
-        self.created_nodes
-            .get(node_name)
-            .unwrap()
-            .borrow()
-            .runtime
-            .as_ref()
-            .unwrap()
-            .node
-            .clone()
+    pub fn get_node_component(&self, node_name: &str) -> Option<Rc<RefCell<NodeComponent>>> {
+        self.created_nodes.get(node_name).cloned()
     }
 
     pub fn node_count(&self) -> usize {

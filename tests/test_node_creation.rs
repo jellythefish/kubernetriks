@@ -47,7 +47,7 @@ fn test_node_creation_from_trace_and_default_cluster() {
     check_expected_node_appeared_in_components(&node1.metadata.name, &kube_sim);
 
     // handle trace events
-    kube_sim.run();
+    kube_sim.step_for_duration(1000.0);
 
     check_count_of_nodes_in_components_equals_to(2, &kube_sim);
     check_expected_node_appeared_in_components(&node2.metadata.name, &kube_sim);

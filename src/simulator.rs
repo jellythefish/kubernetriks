@@ -2,6 +2,7 @@
 
 use log::info;
 use std::cmp::max;
+use std::collections::HashSet;
 use std::time::Instant;
 use std::{cell::RefCell, rc::Rc};
 
@@ -10,10 +11,12 @@ use serde::Deserialize;
 use dslab_core::simulation::Simulation;
 
 use crate::core::api_server::KubeApiServer;
+use crate::core::events::CreatePodRequest;
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::{NodeComponent, NodeRuntime};
 use crate::core::node_component_pool::NodeComponentPool;
 use crate::core::persistent_storage::PersistentStorage;
+use crate::core::pod::PodConditionType;
 use crate::core::scheduler::interface::PodSchedulingAlgorithm;
 use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, KubeScheduler};
 use crate::core::scheduler::scheduler::Scheduler;
@@ -67,11 +70,76 @@ pub struct NodeGroup {
 
 pub struct KubernetriksSimulation {
     config: Rc<SimulationConfig>,
-    sim: Simulation,
+    pub sim: Simulation,
 
     pub api_server: Rc<RefCell<KubeApiServer>>,
     pub persistent_storage: Rc<RefCell<PersistentStorage>>,
     pub scheduler: Rc<RefCell<Scheduler>>,
+
+    pub pod_names: Vec<String>,
+    pub node_names: Vec<String>,
+}
+
+pub trait SimulationCallbacks {
+    /// Runs before starting a simulation run.
+    fn on_simulation_start(&mut self, _sim: &mut KubernetriksSimulation) {}
+
+    /// Runs on each step of a simulation run, returns false if the simulation must be stopped.
+    fn on_step(&mut self, _sim: &mut KubernetriksSimulation) -> bool {
+        true
+    }
+
+    /// Runs upon the completion of a simulation run, returns results of this run.
+    fn on_simulation_finish(&mut self, _sim: &mut KubernetriksSimulation) {}
+}
+
+pub struct RunUntilAllPodsAreFinishedCallbacks {
+    created_pods: HashSet<String>,
+}
+
+impl RunUntilAllPodsAreFinishedCallbacks {
+    pub fn new() -> Self {
+        Self {
+            created_pods: Default::default(),
+        }
+    }
+
+    fn check_pods(&mut self, sim: &mut KubernetriksSimulation) -> bool {
+        let mut ready_pods: Vec<&str> = vec![];
+        let persistent_storage_borrowed = sim.persistent_storage.borrow();
+        for pod in self.created_pods.iter() {
+            let pod_option = persistent_storage_borrowed.get_pod(&pod);
+            if pod_option.is_none() {
+                continue
+            }
+            let pod = pod_option.unwrap();
+            match pod.get_condition(PodConditionType::PodSucceeded) {
+                Some(_) => ready_pods.push(&pod.metadata.name),
+                None => {}
+            }
+        }
+
+        for pod in ready_pods {
+            self.created_pods.remove(pod);
+        }
+
+        !self.created_pods.is_empty()
+    }
+}
+
+impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
+    fn on_simulation_start(&mut self, sim: &mut KubernetriksSimulation) {
+        for created_pod in sim.pod_names.iter() {
+            self.created_pods.insert(created_pod.clone());
+        }
+    }
+
+    fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
+        if sim.sim.time() % 1000.0 == 0.0 {
+            return self.check_pods(sim)
+        }
+        true
+    }
 }
 
 impl KubernetriksSimulation {
@@ -128,6 +196,8 @@ impl KubernetriksSimulation {
             api_server,
             persistent_storage,
             scheduler,
+            pod_names: Default::default(),
+            node_names: Default::default(),
         }
     }
 
@@ -153,6 +223,10 @@ impl KubernetriksSimulation {
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
         for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
+            // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
+            if let Some(create_pod_req) = event.downcast_ref::<CreatePodRequest>() {
+                self.pod_names.push(create_pod_req.pod.metadata.name.clone());
+            }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
     }
@@ -231,7 +305,28 @@ impl KubernetriksSimulation {
             .set_scheduler_algorithm(scheduler_algorithm)
     }
 
-    pub fn run(&mut self) {
+    pub fn run_with_callbacks(&mut self, mut callbacks: Box<dyn SimulationCallbacks>) {
+        self.scheduler.borrow_mut().start();
+
+        callbacks.on_simulation_start(self);
+
+        let t = Instant::now();
+        while callbacks.on_step(self) {
+            self.sim.step();
+        }
+        let duration = t.elapsed().as_secs_f64();
+        info!(
+            "Processed {} events in {:.2?}s ({:.0} events/s)",
+            self.sim.event_count(),
+            duration,
+            self.sim.event_count() as f64 / duration
+        );
+        info!("Finished at {}", self.sim.time());
+
+        callbacks.on_simulation_finish(self);
+    }
+
+    pub fn run_until_no_events(&mut self) {
         // Run simulation until completion of all events and measure time.
         self.scheduler.borrow_mut().start();
 
@@ -248,5 +343,10 @@ impl KubernetriksSimulation {
 
     pub fn step(&mut self) {
         self.sim.step();
+    }
+
+    /// Returns `true` if there could be more pending events and `false` otherwise.
+    pub fn step_for_duration(&mut self, duration: f64) -> bool {
+        self.sim.step_for_duration(duration)
     }
 }

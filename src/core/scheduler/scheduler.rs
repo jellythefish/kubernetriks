@@ -64,12 +64,12 @@ impl Scheduler {
             .insert(pod.metadata.name.clone(), pod);
     }
 
-    pub fn get_node(&self, node_name: &str) -> Node {
-        self.objects_cache.nodes.get(node_name).unwrap().clone()
+    pub fn get_node(&self, node_name: &str) -> &Node {
+        self.objects_cache.nodes.get(node_name).unwrap()
     }
 
-    pub fn get_pod(&self, pod_name: &str) -> Pod {
-        self.objects_cache.pods.get(pod_name).unwrap().clone()
+    pub fn get_pod(&self, pod_name: &str) -> &Pod {
+        self.objects_cache.pods.get(pod_name).unwrap()
     }
 
     pub fn node_count(&self) -> usize {
@@ -171,10 +171,6 @@ impl Scheduler {
         let next_cycle_delay =
             f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval);
 
-        // TODO: need some better way to stop
-        if self.ctx.time() > 10000.0 {
-            return;
-        }
         self.ctx.emit_self(RunSchedulingCycle {}, next_cycle_delay);
     }
 }

@@ -75,13 +75,13 @@ fn test_config_default_cluster_with_no_name_prefix() {
             ("proc_type".to_string(), "intel".to_string()),
         ]);
 
-        check_expected_node_is_equal_to_nodes_in_components(expected_node, &kube_sim);
+        check_expected_node_is_equal_to_nodes_in_components(&expected_node, &kube_sim);
     }
 
     for idx in 10..30 {
         let expected_node = make_default_node(format!("default_node_{}", idx), 24000, 18589934592);
 
-        check_expected_node_is_equal_to_nodes_in_components(expected_node, &kube_sim);
+        check_expected_node_is_equal_to_nodes_in_components(&expected_node, &kube_sim);
     }
 }
 
@@ -123,16 +123,16 @@ fn test_config_default_cluster_no_node_count() {
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);
 
     let expected_node1 = make_default_node("default_node_0".to_string(), 24000, 18589934592);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node1, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node1, &kube_sim);
 
     let expected_node2 = make_default_node("default_node_1".to_string(), 12000, 10589934592);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node2, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node2, &kube_sim);
 
     let expected_node3 = make_default_node("default_node_2".to_string(), 6000, 185899345);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node3, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node3, &kube_sim);
 
     let expected_node4 = make_default_node("default_node_3".to_string(), 8000, 185899345);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node4, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node4, &kube_sim);
 }
 
 #[test]
@@ -175,12 +175,12 @@ fn test_config_default_cluster_has_name_prefix() {
 
     let expected_node1 = make_default_node("node_group_1_0".to_string(), 32000, 18589934592);
     let expected_node2 = make_default_node("node_group_1_1".to_string(), 32000, 18589934592);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node1, &kube_sim);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node2, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node1, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node2, &kube_sim);
 
     let expected_node3 = make_default_node("exact_node_name".to_string(), 6000, 185899345);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node3, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node3, &kube_sim);
 
     let expected_node4 = make_default_node("exact_node_name_2".to_string(), 4000, 185899345);
-    check_expected_node_is_equal_to_nodes_in_components(expected_node4, &kube_sim);
+    check_expected_node_is_equal_to_nodes_in_components(&expected_node4, &kube_sim);
 }

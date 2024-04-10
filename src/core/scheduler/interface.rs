@@ -10,9 +10,10 @@ pub enum ScheduleError {
 // Trait which should implement any scheduler in kubernetriks framework.
 pub trait PodSchedulingAlgorithm {
     // A method to assign a node on which the pod will be executed.
-    fn schedule_one<'a>(
+    // Returns Result consisting of name of assigned node or scheduling error.
+    fn schedule_one(
         &self,
-        pod: &'a Pod,
-        nodes: Vec<&'a Node>,
-    ) -> Result<&'a Node, ScheduleError>;
+        pod: &Pod,
+        nodes: Vec<&Node>,
+    ) -> Result<String, ScheduleError>;
 }

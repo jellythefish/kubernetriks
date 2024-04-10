@@ -122,9 +122,9 @@ impl Scheduler {
         self.objects_cache.pods.remove(pod_name);
     }
 
-    fn schedule_one<'a>(&'a self, pod: &'a Pod) -> Result<&'a Node, ScheduleError> {
-        let nodes_iter = self.objects_cache.nodes.values().collect::<Vec<&Node>>();
-        self.scheduler_algorithm.schedule_one(pod, nodes_iter)
+    fn schedule_one(&self, pod: &Pod) -> Result<String, ScheduleError> {
+        let node_refs = self.objects_cache.nodes.values().collect::<Vec<&Node>>();
+        self.scheduler_algorithm.schedule_one(pod, node_refs)
     }
 
     fn run_scheduling_cycle(&mut self) {
@@ -134,7 +134,7 @@ impl Scheduler {
         while let Some(next_pod_name) = self.pod_queue.pop_front() {
             let assigned_node =
                 match self.schedule_one(self.objects_cache.pods.get(&next_pod_name).unwrap()) {
-                    Ok(assigned_node) => assigned_node.metadata.name.clone(),
+                    Ok(assigned_node) => assigned_node,
                     Err(err) => {
                         log_debug!(
                             self.ctx,
@@ -290,7 +290,7 @@ mod tests {
         // node3: ((6000 - 6000) * 100 / 6000 + (100589934592 - 12884901888) * 100 / 100589934592) / 2 = 43.59
         // node3 - max score - choose it for scheduling
         register_nodes(&mut scheduler, vec![node1, node2, node3.clone()]);
-        assert_eq!(*scheduler.schedule_one(&pod).ok().unwrap(), node3);
+        assert_eq!(*scheduler.schedule_one(&pod).ok().unwrap(), node3.metadata.name);
     }
 
     #[test]
@@ -308,18 +308,18 @@ mod tests {
             vec![pod1.clone(), pod2.clone(), pod3.clone(), pod4.clone()],
         );
         assert_eq!(
-            *scheduler.schedule_one(&pod1).ok().unwrap(),
-            scheduler.get_node(node_name)
+            &*scheduler.schedule_one(&pod1).ok().unwrap(),
+            node_name
         );
         scheduler.reserve_node_resources(&pod1.metadata.name, node_name);
         assert_eq!(
-            *scheduler.schedule_one(&pod2).ok().unwrap(),
-            scheduler.get_node(node_name)
+            &*scheduler.schedule_one(&pod2).ok().unwrap(),
+            node_name
         );
         scheduler.reserve_node_resources(&pod2.metadata.name, node_name);
         assert_eq!(
-            *scheduler.schedule_one(&pod3).ok().unwrap(),
-            scheduler.get_node(node_name)
+            &*scheduler.schedule_one(&pod3).ok().unwrap(),
+            node_name
         );
         scheduler.reserve_node_resources(&pod3.metadata.name, node_name);
         // there is no place left on node for the fourth pod

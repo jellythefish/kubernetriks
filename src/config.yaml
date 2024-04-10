@@ -2,13 +2,13 @@ sim_name: "kubernetriks"
 seed: 123
 
 trace_config:
-  # generic_trace:
-  #   workload_trace_path: src/data/generic_workload_trace_example.yaml
-  #   cluster_trace_path: src/data/generic_cluster_trace_example.yaml
+  generic_trace:
+    workload_trace_path: src/data/generic_workload_trace_example.yaml
+    cluster_trace_path: src/data/generic_cluster_trace_example.yaml
 
-  alibaba_cluster_trace_v2017:
-    batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
-    batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
+  # alibaba_cluster_trace_v2017:
+  #   batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
+  #   batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
 
 node_pool_capacity: 10
 

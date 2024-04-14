@@ -142,7 +142,9 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     }
 }
 
-pub fn get_max_simultaneously_existing_nodes_in_trace(
+/// Calculates number of simultaneously existing nodes in trace by counting node creations and
+/// removals. Used as node pool capacity.
+fn max_nodes_in_trace(
     trace: &Vec<(f64, Box<dyn SimulationEvent>)>,
 ) -> usize {
     let mut trace_sorted = trace.clone();
@@ -234,12 +236,12 @@ impl KubernetriksSimulation {
         assert_eq!(self.sim.time(), 0.0);
 
         let cluster_trace_events = cluster_trace.convert_to_simulator_events();
-        let node_count = get_max_simultaneously_existing_nodes_in_trace(&cluster_trace_events);
-        info!("Node pool capacity={:?} (from trace)", node_count);
+        let max_nodes = max_nodes_in_trace(&cluster_trace_events);
+        info!("Node pool capacity={:?} (from trace)", max_nodes);
 
         self.api_server
             .borrow_mut()
-            .set_node_pool(NodeComponentPool::new(node_count, &mut self.sim));
+            .set_node_pool(NodeComponentPool::new(max_nodes, &mut self.sim));
 
         self.initialize_default_cluster();
 
@@ -384,7 +386,7 @@ mod tests {
             events::{CreateNodeRequest, RemoveNodeRequest},
             node::Node,
         },
-        simulator::get_max_simultaneously_existing_nodes_in_trace,
+        simulator::max_nodes_in_trace,
     };
 
     #[test]
@@ -415,7 +417,7 @@ mod tests {
                 }),
             ),
         ];
-        assert_eq!(4, get_max_simultaneously_existing_nodes_in_trace(&trace));
+        assert_eq!(4, max_nodes_in_trace(&trace));
     }
 
     #[test]
@@ -446,7 +448,7 @@ mod tests {
                 }),
             ),
         ];
-        assert_eq!(1, get_max_simultaneously_existing_nodes_in_trace(&trace));
+        assert_eq!(1, max_nodes_in_trace(&trace));
 
         let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
             (
@@ -504,6 +506,6 @@ mod tests {
                 }),
             ),
         ];
-        assert_eq!(5, get_max_simultaneously_existing_nodes_in_trace(&trace));
+        assert_eq!(5, max_nodes_in_trace(&trace));
     }
 }

@@ -123,8 +123,8 @@ impl Scheduler {
     }
 
     fn schedule_one(&self, pod: &Pod) -> Result<String, ScheduleError> {
-        let node_refs = self.objects_cache.nodes.values().collect::<Vec<&Node>>();
-        self.scheduler_algorithm.schedule_one(pod, node_refs)
+        self.scheduler_algorithm
+            .schedule_one(pod, &self.objects_cache.nodes)
     }
 
     fn run_scheduling_cycle(&mut self) {

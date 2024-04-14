@@ -67,7 +67,8 @@ impl Trace for GenericWorkloadTrace {
                     .push((event.timestamp, Box::new(RemovePodRequest { pod_name }))),
             }
         }
-
+        // sort by timestamp in increasing order
+        converted_events.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap());
         converted_events
     }
 
@@ -94,7 +95,7 @@ impl Trace for GenericClusterTrace {
                     .push((event.timestamp, Box::new(RemoveNodeRequest { node_name }))),
             }
         }
-
+        converted_events.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap());
         converted_events
     }
 

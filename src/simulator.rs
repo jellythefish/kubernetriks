@@ -144,16 +144,11 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
 
 /// Calculates number of simultaneously existing nodes in trace by counting node creations and
 /// removals. Used as node pool capacity.
-fn max_nodes_in_trace(
-    trace: &Vec<(f64, Box<dyn SimulationEvent>)>,
-) -> usize {
-    let mut trace_sorted = trace.clone();
-    trace_sorted.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap());
-
+fn max_nodes_in_trace(trace: &Vec<(f64, Box<dyn SimulationEvent>)>) -> usize {
     let mut count: usize = 0;
     let mut max_count: usize = 0;
 
-    for (_, event) in trace_sorted.into_iter() {
+    for (_, event) in trace.iter() {
         if let Some(_) = event.downcast_ref::<CreateNodeRequest>() {
             count += 1;
         } else if let Some(_) = event.downcast_ref::<RemoveNodeRequest>() {
@@ -390,8 +385,14 @@ mod tests {
     };
 
     #[test]
-    fn test_get_max_simultaneously_existing_nodes_from_trace_of_node_creations_only() {
+    fn test_max_nodes_in_trace_of_node_creations_only() {
         let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
+            (
+                10.0f64,
+                Box::new(CreateNodeRequest {
+                    node: Node::new("name".to_string(), 0, 0),
+                }),
+            ),
             (
                 15.0f64,
                 Box::new(CreateNodeRequest {
@@ -400,12 +401,6 @@ mod tests {
             ),
             (
                 20.0f64,
-                Box::new(CreateNodeRequest {
-                    node: Node::new("name".to_string(), 0, 0),
-                }),
-            ),
-            (
-                10.0f64,
                 Box::new(CreateNodeRequest {
                     node: Node::new("name".to_string(), 0, 0),
                 }),
@@ -421,7 +416,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_max_simultaneously_existing_nodes_from_trace_of_node_creations_and_removals() {
+    fn test_max_nodes_in_trace_of_node_creations_and_removals() {
         let trace: Vec<(f64, Box<dyn SimulationEvent>)> = vec![
             (
                 10.0f64,

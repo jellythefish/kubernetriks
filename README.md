@@ -56,9 +56,9 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [ ] Подумать над тем, как реализовать schedule_one (под опцией в конфиге), вызываемый на каждое событие от persistent_storage - PodFinishedRunning/AddNodeToCacheRequest/PodScheduleRequest
 
 - [ ] Печатать в simulation callbacks статистику или прогресс каждые n шагов, состояние кластера и тд
-- [ ] Переименовать get_max_simultaneously_existing_nodes_in_trace в понятное название, дать комментарий, что она делает
+- [x] Переименовать get_max_simultaneously_existing_nodes_in_trace в понятное название, дать комментарий, что она делает
 - [ ] Сделать MetricsCollector
-- [ ] Отсортировать события в симуляторе в функции convert_to_simulator_events
+- [x] Отсортировать события в симуляторе в функции convert_to_simulator_events
 - [ ] Симулировать время работы планирования пода в зависимости от размера нод, которые мы перебираем. Время планирования на одну ноду пока считать константнтым.
-- [ ] Принимать &HashMap вместо Vec<&Node> в schedule one функции интерфейса
+- [x] Принимать &HashMap вместо Vec<&Node> в schedule one функции интерфейса
 - [ ] Поэксперементировать с конвертацией alibaba trace в generic для ускорения загрузки и парсинга трейса с диска

@@ -65,7 +65,11 @@ impl KubeScheduler {
         Self { config }
     }
 
-    fn schedule_one(&self, pod: &Pod, nodes: Vec<&Node>) -> Result<String, ScheduleError> {
+    fn schedule_one(
+        &self,
+        pod: &Pod,
+        nodes: &HashMap<String, Node>,
+    ) -> Result<String, ScheduleError> {
         let requested_resources = &pod.spec.resources.requests;
         if requested_resources.cpu == 0 && requested_resources.ram == 0 {
             return Err(ScheduleError::RequestedResourcesAreZeros);
@@ -78,7 +82,7 @@ impl KubeScheduler {
             .get("scheduler_name")
             .unwrap_or(&default_scheduler_name);
 
-        let mut filtered_nodes = nodes;
+        let mut filtered_nodes = nodes.values().into_iter().collect::<Vec<&Node>>();
 
         for filter in self
             .config
@@ -145,7 +149,11 @@ impl KubeScheduler {
 
 impl PodSchedulingAlgorithm for KubeScheduler {
     // TODO: write proc_macros for this
-    fn schedule_one(&self, pod: &Pod, nodes: Vec<&Node>) -> Result<String, ScheduleError> {
+    fn schedule_one(
+        &self,
+        pod: &Pod,
+        nodes: &HashMap<String, Node>,
+    ) -> Result<String, ScheduleError> {
         KubeScheduler::schedule_one(self, pod, nodes)
     }
 }

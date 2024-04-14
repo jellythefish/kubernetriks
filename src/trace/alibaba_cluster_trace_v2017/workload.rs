@@ -129,6 +129,7 @@ impl Trace for AlibabaWorkloadTraceV2017 {
         // do not need it anymore
         self.batch_tasks.clear();
 
+        converted_events.sort_by(|lhs, rhs| lhs.0.partial_cmp(&rhs.0).unwrap());
         converted_events
     }
 

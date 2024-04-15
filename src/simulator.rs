@@ -79,9 +79,6 @@ pub struct KubernetriksSimulation {
     pub scheduler: Rc<RefCell<Scheduler>>,
 
     pub metrics_collector: Rc<RefCell<MetricsCollector>>,
-
-    pub pod_names: Vec<String>,
-    pub node_names: Vec<String>,
 }
 
 pub trait SimulationCallbacks {
@@ -98,51 +95,16 @@ pub trait SimulationCallbacks {
 }
 
 pub struct RunUntilAllPodsAreFinishedCallbacks {
-    created_pods: HashSet<String>,
-}
-
-impl RunUntilAllPodsAreFinishedCallbacks {
-    pub fn new() -> Self {
-        Self {
-            created_pods: Default::default(),
-        }
-    }
-
-    fn check_pods(&mut self, sim: &mut KubernetriksSimulation) -> bool {
-        let mut ready_pods: Vec<&str> = vec![];
-        let persistent_storage_borrowed = sim.persistent_storage.borrow();
-        for pod in self.created_pods.iter() {
-            let pod_option = persistent_storage_borrowed.get_pod(&pod);
-            if pod_option.is_none() {
-                continue;
-            }
-            let pod = pod_option.unwrap();
-            match pod.get_condition(PodConditionType::PodSucceeded) {
-                Some(_) => ready_pods.push(&pod.metadata.name),
-                None => {}
-            }
-        }
-
-        for pod in ready_pods {
-            self.created_pods.remove(pod);
-        }
-
-        println!("Pods not scheduled: {:?}", self.created_pods.len());
-
-        !self.created_pods.is_empty()
-    }
 }
 
 impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
-    fn on_simulation_start(&mut self, sim: &mut KubernetriksSimulation) {
-        for created_pod in sim.pod_names.iter() {
-            self.created_pods.insert(created_pod.clone());
-        }
-    }
-
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if sim.sim.time() % 1000.0 == 0.0 {
-            return self.check_pods(sim);
+            let processed_pods = sim.metrics_collector.borrow().processed_pods;
+            let total_pods_in_trace = sim.metrics_collector.borrow().total_pods_in_trace;
+            info!("Processed {} out of {} pods", processed_pods, total_pods_in_trace);
+
+            return processed_pods < total_pods_in_trace
         }
         true
     }
@@ -229,8 +191,6 @@ impl KubernetriksSimulation {
             api_server,
             persistent_storage,
             scheduler,
-            pod_names: Default::default(),
-            node_names: Default::default(),
             metrics_collector,
         }
     }
@@ -266,8 +226,7 @@ impl KubernetriksSimulation {
         for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
             // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
             if let Some(create_pod_req) = event.downcast_ref::<CreatePodRequest>() {
-                self.pod_names
-                    .push(create_pod_req.pod.metadata.name.clone());
+                self.metrics_collector.borrow_mut().total_pods_in_trace += 1;
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }

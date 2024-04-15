@@ -97,5 +97,5 @@ fn main() {
     kubernetriks_simulation.initialize(cluster_trace.as_mut(), workload_trace.as_mut());
     info!("Running simulation...");
     kubernetriks_simulation
-        .run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
+        .run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks{}));
 }

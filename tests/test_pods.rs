@@ -51,7 +51,7 @@ fn test_pod_arrived_before_a_node() {
     .unwrap();
 
     kube_sim.initialize(&mut make_cluster_trace(), &mut workload_trace);
-    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
+    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks{}));
 
     let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
 
@@ -137,7 +137,7 @@ fn test_many_pods_running_one_at_a_time_at_slow_node() {
     .unwrap();
 
     kube_sim.initialize(&mut make_cluster_trace(), &mut workload_trace);
-    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
+    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks{}));
 
     let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
 
@@ -227,7 +227,7 @@ fn test_node_fits_all_pods() {
     .unwrap();
 
     kube_sim.initialize(&mut make_cluster_trace(), &mut workload_trace);
-    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks::new()));
+    kube_sim.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks{}));
 
     let persistent_storage_borrowed = kube_sim.persistent_storage.borrow();
 

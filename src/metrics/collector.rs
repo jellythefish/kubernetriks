@@ -17,8 +17,10 @@ concatenate!(
 
 #[derive(Default)]
 pub struct MetricsCollector {
-    /// total_pods = pods_succeeded + pods_failed
-    pub total_pods: u64,
+    /// The number of created pods in trace. Calculated before simulation starts.
+    pub total_pods_in_trace: u64,
+    /// The number of pods that were processed. Increases with the progress of simulation.
+    pub processed_pods: u64,
     pub pods_succeeded: u64,
     pub pods_failed: u64,
 
@@ -37,7 +39,8 @@ pub struct MetricsCollector {
 impl MetricsCollector {
     pub fn new() -> Self {
         Self {
-            total_pods: 0,
+            total_pods_in_trace: 0,
+            processed_pods: 0,
             pods_succeeded: 0,
             pods_failed: 0,
             pod_duration_stats: Estimator::new(),
@@ -63,7 +66,8 @@ impl MetricsCollector {
 
         let mut aggregated_table = Table::new();
         aggregated_table.add_row(row!["Metric", "Count"]);
-        aggregated_table.add_row(row!["Total pods", self.total_pods]);
+        aggregated_table.add_row(row!["Total pods in trace", self.total_pods_in_trace]);
+        aggregated_table.add_row(row!["Pods processed", self.processed_pods]);
         aggregated_table.add_row(row!["Pods succeeded", self.pods_succeeded]);
         aggregated_table.add_row(row!["Pods failed", self.pods_failed]);
 

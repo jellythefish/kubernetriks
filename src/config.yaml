@@ -2,13 +2,13 @@ sim_name: "kubernetriks"
 seed: 123
 
 trace_config:
-  generic_trace:
-    workload_trace_path: src/data/generic_workload_trace_example.yaml
-    cluster_trace_path: src/data/generic_cluster_trace_example.yaml
+  # generic_trace:
+  #   workload_trace_path: src/data/generic_workload_trace_example.yaml
+  #   cluster_trace_path: src/data/generic_cluster_trace_example.yaml
 
-  # alibaba_cluster_trace_v2017:
-  #   batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
-  #   batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
+  alibaba_cluster_trace_v2017:
+    batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
+    batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
 
 default_cluster:
 - node_template:
@@ -35,7 +35,7 @@ default_cluster:
         cpu: 64000
         ram: 137438953472
 
-scheduling_cycle_interval: 10.0
+scheduling_cycle_interval: 500.0
 
 as_to_ps_network_delay: 0.050
 ps_to_sched_network_delay: 0.089

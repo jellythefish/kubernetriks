@@ -2,6 +2,7 @@
 //! In k8s etcd plays this role, in our simulator it is a component which implements simple
 //! in-memory key-value storage.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
@@ -13,6 +14,7 @@ use crate::core::events::{
     CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning,
     PodScheduleRequest, PodStartedRunning,
 };
+use crate::metrics::collector::MetricsCollector;
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
 use crate::simulator::SimulationConfig;
@@ -26,6 +28,8 @@ pub struct PersistentStorage {
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
+
+    metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
 impl PersistentStorage {
@@ -34,6 +38,7 @@ impl PersistentStorage {
         scheduler_id: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
+        metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         Self {
             api_server: api_server_id,
@@ -41,6 +46,7 @@ impl PersistentStorage {
             storage_data: Default::default(),
             ctx,
             config,
+            metrics_collector,
         }
     }
 
@@ -211,8 +217,10 @@ impl EventHandler for PersistentStorage {
                     self.config.ps_to_sched_network_delay,
                 );
 
-                // temporary (may be refactored) function for checking running results
-                self.print_running_info(pod_name);
+                self.metrics_collector.borrow_mut().increment_pod_duration(pod.spec.running_duration);
+
+                // TODO: temporary (may be refactored) function for checking running results
+                // self.print_running_info(pod_name);
             }
         })
     }

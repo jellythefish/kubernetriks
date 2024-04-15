@@ -22,6 +22,8 @@ use crate::core::scheduler::interface::PodSchedulingAlgorithm;
 use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, KubeScheduler};
 use crate::core::scheduler::scheduler::Scheduler;
 
+use crate::metrics::collector::MetricsCollector;
+
 use crate::trace::interface::Trace;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -76,6 +78,8 @@ pub struct KubernetriksSimulation {
     pub persistent_storage: Rc<RefCell<PersistentStorage>>,
     pub scheduler: Rc<RefCell<Scheduler>>,
 
+    pub metrics_collector: Rc<RefCell<MetricsCollector>>,
+
     pub pod_names: Vec<String>,
     pub node_names: Vec<String>,
 }
@@ -123,6 +127,8 @@ impl RunUntilAllPodsAreFinishedCallbacks {
             self.created_pods.remove(pod);
         }
 
+        println!("Pods not scheduled: {:?}", self.created_pods.len());
+
         !self.created_pods.is_empty()
     }
 }
@@ -139,6 +145,10 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
             return self.check_pods(sim);
         }
         true
+    }
+
+    fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
+        sim.metrics_collector.borrow().dump_metrics();
     }
 }
 
@@ -169,6 +179,8 @@ impl KubernetriksSimulation {
 
         let mut sim = Simulation::new(config.seed);
 
+        let metrics_collector = Rc::new(RefCell::new(MetricsCollector::new()));
+
         // Register simulator components
         let api_server_component_name = "kube_api_server";
         let persistent_storage_component_name = "persistent_storage";
@@ -182,6 +194,7 @@ impl KubernetriksSimulation {
             persistent_storage_context.id(),
             kube_api_server_context,
             config.clone(),
+            metrics_collector.clone(),
         )));
         let api_server_id = sim.add_handler(api_server_component_name, api_server.clone());
 
@@ -194,6 +207,7 @@ impl KubernetriksSimulation {
             default_scheduler_impl,
             scheduler_context,
             config.clone(),
+            metrics_collector.clone(),
         )));
         let scheduler_id = sim.add_handler(scheduler_component_name, scheduler.clone());
 
@@ -202,6 +216,7 @@ impl KubernetriksSimulation {
             scheduler_id,
             persistent_storage_context,
             config.clone(),
+            metrics_collector.clone(),
         )));
         sim.add_handler(
             persistent_storage_component_name,
@@ -216,6 +231,7 @@ impl KubernetriksSimulation {
             scheduler,
             pod_names: Default::default(),
             node_names: Default::default(),
+            metrics_collector,
         }
     }
 
@@ -236,7 +252,11 @@ impl KubernetriksSimulation {
 
         self.api_server
             .borrow_mut()
-            .set_node_pool(NodeComponentPool::new(max_nodes, &mut self.sim));
+            .set_node_pool(NodeComponentPool::new(
+                max_nodes,
+                &mut self.sim,
+                self.metrics_collector.clone(),
+            ));
 
         self.initialize_default_cluster();
 
@@ -264,7 +284,10 @@ impl KubernetriksSimulation {
         // add to persistent storage
         self.persistent_storage.borrow_mut().add_node(node.clone());
         // add to api server
-        let node_component = Rc::new(RefCell::new(NodeComponent::new(node_context)));
+        let node_component = Rc::new(RefCell::new(NodeComponent::new(
+            node_context,
+            self.metrics_collector.clone(),
+        )));
         node_component.borrow_mut().runtime = Some(NodeRuntime {
             api_server: self.api_server.borrow().ctx.id(),
             node: node.clone(),

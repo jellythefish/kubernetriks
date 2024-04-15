@@ -1,11 +1,13 @@
 //! Node component simulates a real node running pods.
 
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
 use crate::core::common::SimComponentId;
 use crate::core::events::{BindPodToNodeRequest, PodFinishedRunning, PodStartedRunning};
+use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
 use crate::simulator::SimulationConfig;
@@ -15,6 +17,8 @@ pub struct NodeComponent {
     // Initialized later when the node component is actually allocated from node pool.
     // Sets to None when the node gets back to node pool.
     pub runtime: Option<NodeRuntime>,
+
+    metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
 pub struct NodeRuntime {
@@ -24,8 +28,12 @@ pub struct NodeRuntime {
 }
 
 impl NodeComponent {
-    pub fn new(ctx: SimulationContext) -> Self {
-        Self { ctx, runtime: None }
+    pub fn new(ctx: SimulationContext, metrics_collector: Rc<RefCell<MetricsCollector>>) -> Self {
+        Self {
+            ctx,
+            runtime: None,
+            metrics_collector,
+        }
     }
 
     pub fn id(&self) -> SimComponentId {

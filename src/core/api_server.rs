@@ -15,6 +15,7 @@ use crate::core::events::{
     CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning,
     PodStartedRunning, RemoveNodeRequest, RemovePodRequest,
 };
+use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
 use crate::core::node_component_pool::NodeComponentPool;
@@ -31,6 +32,8 @@ pub struct KubeApiServer {
     pending_node_creation_requests: HashMap<String, Node>,
     // Mapping from node name to it's component
     created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
+
+    metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
 impl KubeApiServer {
@@ -38,6 +41,7 @@ impl KubeApiServer {
         persistent_storage_id: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
+        metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         Self {
             persistent_storage: persistent_storage_id,
@@ -46,6 +50,7 @@ impl KubeApiServer {
             node_pool: Default::default(),
             pending_node_creation_requests: Default::default(),
             created_nodes: Default::default(),
+            metrics_collector,
         }
     }
 
@@ -129,6 +134,7 @@ impl EventHandler for KubeApiServer {
                 self.handle_create_node_response(event.time, event.src, created, &node_name);
             }
             CreatePodRequest { pod } => {
+                self.metrics_collector.borrow_mut().total_pods += 1;
                 // Redirects to persistent storage
                 self.ctx.emit(
                     CreatePodRequest { pod },
@@ -186,6 +192,7 @@ impl EventHandler for KubeApiServer {
                 finish_result,
                 pod_name,
             } => {
+                self.metrics_collector.borrow_mut().pods_succeeded += 1;
                 // Redirects to persistent storage
                 self.ctx.emit(
                     PodFinishedRunning {

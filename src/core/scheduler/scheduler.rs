@@ -1,5 +1,6 @@
 //! Implementation of scheduler component which is responsible for scheduling pods for nodes.
 
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 use std::time::Instant;
@@ -13,22 +14,28 @@ use crate::core::events::{
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
-use crate::simulator::SimulationConfig;
-
 use crate::core::scheduler::interface::{PodSchedulingAlgorithm, ScheduleError};
+
+use crate::metrics::collector::MetricsCollector;
+
+use crate::simulator::SimulationConfig;
 
 pub struct Scheduler {
     api_server: SimComponentId,
 
-    // Cache which is updated based on events from persistent storage
+    /// Cache which is updated based on events from persistent storage
     objects_cache: ObjectsInfo,
     scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
 
-    // queue of pod names to schedule, pod as objects themselves are stored in objects_cache
-    pod_queue: VecDeque<String>,
+    /// Queue of timestamps and pod names to schedule.
+    /// Pods as objects themselves are stored in objects_cache, timestamps reflects the time
+    /// when pod was pushed to the queue.
+    pod_queue: VecDeque<(f64, String)>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
+
+    metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
 impl Scheduler {
@@ -37,6 +44,7 @@ impl Scheduler {
         scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
+        metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         Self {
             api_server,
@@ -45,6 +53,7 @@ impl Scheduler {
             pod_queue: Default::default(),
             ctx,
             config,
+            metrics_collector,
         }
     }
 
@@ -127,11 +136,13 @@ impl Scheduler {
             .schedule_one(pod, &self.objects_cache.nodes)
     }
 
-    fn run_scheduling_cycle(&mut self) {
+    fn run_scheduling_cycle(&mut self, scheduling_cycle_event_time: f64) {
         let cycle_start_time = Instant::now();
-        let mut unscheduled_queue: VecDeque<String> = Default::default();
+        let mut unscheduled_queue: VecDeque<(f64, String)> = Default::default();
 
-        while let Some(next_pod_name) = self.pod_queue.pop_front() {
+        while let Some((ts, next_pod_name)) = self.pod_queue.pop_front() {
+            let pod_queue_time = scheduling_cycle_event_time + cycle_start_time.elapsed().as_secs_f64() - ts;
+            let pod_schedule_time = Instant::now();
             let assigned_node =
                 match self.schedule_one(self.objects_cache.pods.get(&next_pod_name).unwrap()) {
                     Ok(assigned_node) => assigned_node,
@@ -142,7 +153,7 @@ impl Scheduler {
                             next_pod_name,
                             err
                         );
-                        unscheduled_queue.push_back(next_pod_name);
+                        unscheduled_queue.push_back((ts, next_pod_name));
                         continue;
                     }
                 };
@@ -158,6 +169,9 @@ impl Scheduler {
                 self.api_server,
                 cycle_start_time.elapsed().as_secs_f64() + self.config.sched_to_as_network_delay,
             );
+
+            self.metrics_collector.borrow_mut().increment_pod_schedule_time(pod_schedule_time.elapsed().as_secs_f64());
+            self.metrics_collector.borrow_mut().increment_pod_queue_time(pod_queue_time);
         }
 
         assert_eq!(
@@ -179,14 +193,14 @@ impl EventHandler for Scheduler {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
             RunSchedulingCycle {} => {
-                self.run_scheduling_cycle();
+                self.run_scheduling_cycle(event.time);
             }
             AddNodeToCacheRequest { node } => {
                 self.add_node(node);
             }
             PodScheduleRequest { pod } => {
                 let pod_name = pod.metadata.name.clone();
-                self.pod_queue.push_back(pod_name);
+                self.pod_queue.push_back((event.time, pod_name));
                 self.add_pod(pod);
             }
             PodFinishedRunning {
@@ -202,6 +216,7 @@ impl EventHandler for Scheduler {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
     use std::rc::Rc;
 
     use dslab_core::Simulation;
@@ -211,6 +226,8 @@ mod tests {
     use crate::core::scheduler::interface::ScheduleError;
     use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, KubeScheduler};
     use crate::core::scheduler::scheduler::Scheduler;
+    
+    use crate::metrics::collector::MetricsCollector;
 
     use crate::test_util::helpers::default_test_simulation_config;
 
@@ -224,6 +241,7 @@ mod tests {
             }),
             fake_sim.create_context("scheduler"),
             Rc::new(default_test_simulation_config()),
+            Rc::new(RefCell::new(MetricsCollector::new())),
         )
     }
 

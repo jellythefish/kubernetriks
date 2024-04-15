@@ -57,7 +57,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 
 - [ ] Печатать в simulation callbacks статистику или прогресс каждые n шагов, состояние кластера и тд
 - [x] Переименовать get_max_simultaneously_existing_nodes_in_trace в понятное название, дать комментарий, что она делает
-- [ ] Сделать MetricsCollector
+- [x] Сделать MetricsCollector
 - [x] Отсортировать события в симуляторе в функции convert_to_simulator_events
 - [ ] Симулировать время работы планирования пода в зависимости от размера нод, которые мы перебираем. Время планирования на одну ноду пока считать константнтым.
 - [x] Принимать &HashMap вместо Vec<&Node> в schedule one функции интерфейса

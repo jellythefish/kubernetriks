@@ -3,7 +3,6 @@
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
-use std::time::Instant;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
@@ -15,6 +14,7 @@ use crate::core::events::{
 use crate::core::node::Node;
 use crate::core::pod::Pod;
 use crate::core::scheduler::interface::{PodSchedulingAlgorithm, ScheduleError};
+use crate::core::scheduler::model::{ConstantTimePerNodeModel, PodSchedulingTimeModel};
 
 use crate::metrics::collector::MetricsCollector;
 
@@ -35,6 +35,8 @@ pub struct Scheduler {
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
 
+    pod_scheduling_time_model: Box<dyn PodSchedulingTimeModel>,
+
     metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
@@ -53,6 +55,7 @@ impl Scheduler {
             pod_queue: Default::default(),
             ctx,
             config,
+            pod_scheduling_time_model: Box::new(ConstantTimePerNodeModel::default()),
             metrics_collector,
         }
     }
@@ -137,14 +140,18 @@ impl Scheduler {
     }
 
     fn run_scheduling_cycle(&mut self, scheduling_cycle_event_time: f64) {
-        let cycle_start_time = Instant::now();
+        let mut cycle_sim_duration = 0.0;
         let mut unscheduled_queue: VecDeque<(f64, String)> = Default::default();
 
         while let Some((ts, next_pod_name)) = self.pod_queue.pop_front() {
-            let pod_queue_time = scheduling_cycle_event_time + cycle_start_time.elapsed().as_secs_f64() - ts;
-            let pod_schedule_time = Instant::now();
+            let pod = self.objects_cache.pods.get(&next_pod_name).unwrap();
+
+            let pod_queue_time = scheduling_cycle_event_time - ts + cycle_sim_duration;
+            let pod_schedule_time = self.pod_scheduling_time_model.simulate_time(pod, &self.objects_cache.nodes);
+            cycle_sim_duration += pod_schedule_time;
+
             let assigned_node =
-                match self.schedule_one(self.objects_cache.pods.get(&next_pod_name).unwrap()) {
+                match self.schedule_one(pod) {
                     Ok(assigned_node) => assigned_node,
                     Err(err) => {
                         log_debug!(
@@ -167,24 +174,16 @@ impl Scheduler {
                     node_name: assigned_node,
                 },
                 self.api_server,
-                cycle_start_time.elapsed().as_secs_f64() + self.config.sched_to_as_network_delay,
+                cycle_sim_duration + self.config.sched_to_as_network_delay,
             );
 
-            self.metrics_collector.borrow_mut().increment_pod_schedule_time(pod_schedule_time.elapsed().as_secs_f64());
+            self.metrics_collector.borrow_mut().increment_pod_schedule_time(pod_schedule_time);
             self.metrics_collector.borrow_mut().increment_pod_queue_time(pod_queue_time);
         }
 
-        assert_eq!(
-            0,
-            self.pod_queue.len(),
-            "impossible scenario: queue is not empty after while cycle"
-        );
         self.pod_queue = unscheduled_queue;
 
-        let elapsed = cycle_start_time.elapsed();
-        let next_cycle_delay =
-            f64::max(elapsed.as_secs_f64(), self.config.scheduling_cycle_interval);
-
+        let next_cycle_delay = f64::max(cycle_sim_duration, self.config.scheduling_cycle_interval);
         self.ctx.emit_self(RunSchedulingCycle {}, next_cycle_delay);
     }
 }

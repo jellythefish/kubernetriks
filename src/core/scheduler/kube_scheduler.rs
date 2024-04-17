@@ -75,6 +75,10 @@ impl KubeScheduler {
             return Err(ScheduleError::RequestedResourcesAreZeros);
         }
 
+        if nodes.len() == 0 {
+            return Err(ScheduleError::NoNodesInCluster)
+        }
+
         let default_scheduler_name = "default_scheduler".to_string();
         let pod_scheduler = pod
             .metadata
@@ -103,7 +107,7 @@ impl KubeScheduler {
         }
 
         if filtered_nodes.len() == 0 {
-            return Err(ScheduleError::NoSufficientNodes);
+            return Err(ScheduleError::NoSufficientResources);
         }
 
         let mut node_scores: HashMap<&str, (&Node, f64)> = Default::default();

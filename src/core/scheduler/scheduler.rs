@@ -263,14 +263,16 @@ mod tests {
         let pod = Pod::new("pod_1".to_string(), 4000, 16000, 5.0);
         assert_eq!(
             scheduler.schedule_one(&pod).err().unwrap(),
-            ScheduleError::NoSufficientNodes
+            ScheduleError::NoNodesInCluster
         );
     }
 
     #[test]
     fn test_pod_has_requested_zero_resources() {
-        let scheduler = create_scheduler();
+        let mut scheduler = create_scheduler();
         let pod = Pod::new("pod_1".to_string(), 0, 0, 5.0);
+        let node = Node::new("node1".to_string(), 3000, 8589934592);
+        register_nodes(&mut scheduler, vec![node]);
         assert_eq!(
             scheduler.schedule_one(&pod).err().unwrap(),
             ScheduleError::RequestedResourcesAreZeros
@@ -285,7 +287,7 @@ mod tests {
         register_nodes(&mut scheduler, vec![node]);
         assert_eq!(
             scheduler.schedule_one(&pod).err().unwrap(),
-            ScheduleError::NoSufficientNodes
+            ScheduleError::NoSufficientResources
         );
     }
 
@@ -333,7 +335,7 @@ mod tests {
         // there is no place left on node for the fourth pod
         assert_eq!(
             scheduler.schedule_one(&pod4).err().unwrap(),
-            ScheduleError::NoSufficientNodes
+            ScheduleError::NoSufficientResources
         );
     }
 }

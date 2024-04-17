@@ -5,8 +5,9 @@ use crate::core::pod::Pod;
 
 #[derive(Debug, PartialEq)]
 pub enum ScheduleError {
+    NoNodesInCluster,
+    NoSufficientResources,
     RequestedResourcesAreZeros,
-    NoSufficientNodes,
 }
 
 // Trait which should implement any scheduler in kubernetriks framework.

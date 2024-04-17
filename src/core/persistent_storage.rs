@@ -160,6 +160,8 @@ impl EventHandler for PersistentStorage {
                     "Updated node conditions: {:?}",
                     self.storage_data.nodes[&node_name].status.conditions
                 );
+
+                self.metrics_collector.borrow_mut().internal.processed_nodes += 1;
             }
             CreatePodRequest { mut pod } => {
                 pod.update_condition("True".to_string(), PodConditionType::PodCreated, event.time);

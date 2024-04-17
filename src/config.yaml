@@ -35,7 +35,7 @@ default_cluster:
         cpu: 64000
         ram: 137438953472
 
-scheduling_cycle_interval: 500.0
+scheduling_cycle_interval: 10.0
 
 as_to_ps_network_delay: 0.050
 ps_to_sched_network_delay: 0.089

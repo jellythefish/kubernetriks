@@ -1,11 +1,7 @@
 //! Implements centralized storage for metrics. Any component may access this component to
 //! report metrics about pods, nodes, etc.
 
-use std::fs::File;
-
 use average::{concatenate, Estimate, Max, Mean, Min, Variance};
-
-use prettytable::{row, Table};
 
 concatenate!(
     Estimator,
@@ -16,36 +12,85 @@ concatenate!(
 );
 
 #[derive(Default)]
-pub struct MetricsCollector {
-    /// The number of created pods in trace. Calculated before simulation starts.
-    pub total_pods_in_trace: u64,
+pub struct EstimatorWrapper {
+    estimator: Estimator
+}
+
+impl EstimatorWrapper {
+    pub fn new() -> Self {
+        Self { estimator: Estimator::new() }
+    }
+
+    pub fn add(&mut self, value: f64) {
+        self.estimator.add(value);
+    }
+
+    pub fn min(&self) -> f64 {
+        self.estimator.min()
+    }
+
+    pub fn max(&self) -> f64 {
+        self.estimator.max()
+    }
+    
+    pub fn mean(&self) -> f64 {
+        self.estimator.mean()
+    }
+
+    pub fn population_variance(&self) -> f64 {
+        self.estimator.population_variance()
+    }
+}
+
+
+#[derive(Default)]
+pub(crate) struct InternalMetrics {
+    /// The number of nodes that were processed. Increases with the progress of simulation.
+    /// This counter does not include the nodes from default cluster.
+    pub(crate) processed_nodes: u64,
     /// The number of pods that were processed. Increases with the progress of simulation.
-    pub processed_pods: u64,
+    pub(crate) processed_pods: u64,
+}
+
+#[derive(Default)]
+pub struct MetricsCollector {
+    /// The number of created nodes in trace. Calculated before simulation starts.
+    pub total_nodes_in_trace: u64,
+    /// The number of created pods in trace. Calculated before simulation starts.
+    /// Equals to pods succeeded + pods unschedulable.
+    pub total_pods_in_trace: u64,
+    /// The number of successfully finished pods.
     pub pods_succeeded: u64,
-    pub pods_failed: u64,
+    /// The number of pods which could not be scheduled and started during the simulation.
+    pub pods_unschedulable: u64,
 
     /// Estimations for the pod running duration.
-    pod_duration_stats: Estimator,
+    pub pod_duration_stats: EstimatorWrapper,
 
     /// Estimations for the time a pod spent between it was popped from queue by scheduler
-    /// and assigned a node.
-    pod_schedule_time_stats: Estimator,
+    /// and assigned a node. Considers only pods in one scheduling cycle which were successfully
+    /// assigned a node.
+    pub pod_schedule_time_stats: EstimatorWrapper,
 
-    /// Estimations for the time a pod spent between it was pushed to the scheduling queue
-    /// and popped from it.
-    pod_queue_time_stats: Estimator,
+    /// Estimations for the time a pod spent between it was firstly pushed to the scheduling queue
+    /// and lastly popped from it thus considering repushes due to insufficient resources
+    /// scheduling error.
+    pub pod_queue_time_stats: EstimatorWrapper,
+
+    pub(crate) internal: InternalMetrics,
 }
 
 impl MetricsCollector {
     pub fn new() -> Self {
         Self {
+            total_nodes_in_trace: 0,
             total_pods_in_trace: 0,
-            processed_pods: 0,
             pods_succeeded: 0,
-            pods_failed: 0,
-            pod_duration_stats: Estimator::new(),
-            pod_schedule_time_stats: Estimator::new(),
-            pod_queue_time_stats: Estimator::new(),
+            pods_unschedulable: 0,
+            pod_duration_stats: EstimatorWrapper::new(),
+            pod_schedule_time_stats: EstimatorWrapper::new(),
+            pod_queue_time_stats: EstimatorWrapper::new(),
+            internal: InternalMetrics { processed_pods: 0, processed_nodes: 0 }
         }
     }
 
@@ -59,43 +104,5 @@ impl MetricsCollector {
 
     pub fn increment_pod_queue_time(&mut self, value: f64) {
         self.pod_queue_time_stats.add(value);
-    }
-
-    pub fn dump_metrics(&self) {
-        let mut metrics_file = File::create("metrics.txt").unwrap();
-
-        let mut aggregated_table = Table::new();
-        aggregated_table.add_row(row!["Metric", "Count"]);
-        aggregated_table.add_row(row!["Total pods in trace", self.total_pods_in_trace]);
-        aggregated_table.add_row(row!["Pods processed", self.processed_pods]);
-        aggregated_table.add_row(row!["Pods succeeded", self.pods_succeeded]);
-        aggregated_table.add_row(row!["Pods failed", self.pods_failed]);
-
-        let mut stats_table = Table::new();
-        stats_table.add_row(row!["Metric", "Min", "Max", "Mean", "Variance"]);
-        stats_table.add_row(row![
-            "Pod duration",
-            self.pod_duration_stats.min(),
-            self.pod_duration_stats.max(),
-            self.pod_duration_stats.mean(),
-            self.pod_duration_stats.population_variance()
-        ]);
-        stats_table.add_row(row![
-            "Pod schedule time",
-            self.pod_schedule_time_stats.min(),
-            self.pod_schedule_time_stats.max(),
-            self.pod_schedule_time_stats.mean(),
-            self.pod_schedule_time_stats.population_variance()
-        ]);
-        stats_table.add_row(row![
-            "Pod queue time",
-            self.pod_queue_time_stats.min(),
-            self.pod_queue_time_stats.max(),
-            self.pod_queue_time_stats.mean(),
-            self.pod_queue_time_stats.population_variance()
-        ]);
-
-        let _ = aggregated_table.print(&mut metrics_file);
-        let _ = stats_table.print(&mut metrics_file);
     }
 }

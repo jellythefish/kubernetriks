@@ -192,7 +192,7 @@ impl EventHandler for KubeApiServer {
                 pod_name,
             } => {
                 self.metrics_collector.borrow_mut().pods_succeeded += 1;
-                self.metrics_collector.borrow_mut().processed_pods += 1;
+                self.metrics_collector.borrow_mut().internal.processed_pods += 1;
                 // Redirects to persistent storage
                 self.ctx.emit(
                     PodFinishedRunning {

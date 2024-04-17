@@ -2,7 +2,6 @@
 
 use log::info;
 use std::cmp::max;
-use std::collections::HashSet;
 use std::time::Instant;
 use std::{cell::RefCell, rc::Rc};
 
@@ -17,13 +16,13 @@ use crate::core::node::{Node, NodeConditionType};
 use crate::core::node_component::{NodeComponent, NodeRuntime};
 use crate::core::node_component_pool::NodeComponentPool;
 use crate::core::persistent_storage::PersistentStorage;
-use crate::core::pod::PodConditionType;
 use crate::core::scheduler::interface::PodSchedulingAlgorithm;
 use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, KubeScheduler};
 use crate::core::scheduler::scheduler::Scheduler;
 
 use crate::metrics::collector::MetricsCollector;
 
+use crate::metrics::printer::print_metrics_as_pretty_table;
 use crate::trace::interface::Trace;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -100,7 +99,7 @@ pub struct RunUntilAllPodsAreFinishedCallbacks {
 impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if sim.sim.time() % 1000.0 == 0.0 {
-            let processed_pods = sim.metrics_collector.borrow().processed_pods;
+            let processed_pods = sim.metrics_collector.borrow().internal.processed_pods;
             let total_pods_in_trace = sim.metrics_collector.borrow().total_pods_in_trace;
             info!("Processed {} out of {} pods", processed_pods, total_pods_in_trace);
 
@@ -110,7 +109,7 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     }
 
     fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
-        sim.metrics_collector.borrow().dump_metrics();
+        print_metrics_as_pretty_table(sim.metrics_collector.clone());
     }
 }
 
@@ -221,11 +220,15 @@ impl KubernetriksSimulation {
         self.initialize_default_cluster();
 
         for (ts, event) in cluster_trace_events.into_iter() {
+            // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
+            if let Some(_) = event.downcast_ref::<CreateNodeRequest>() {
+                self.metrics_collector.borrow_mut().total_nodes_in_trace += 1;
+            }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
         for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
             // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
-            if let Some(create_pod_req) = event.downcast_ref::<CreatePodRequest>() {
+            if let Some(_) = event.downcast_ref::<CreatePodRequest>() {
                 self.metrics_collector.borrow_mut().total_pods_in_trace += 1;
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);

@@ -62,3 +62,9 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [ ] Симулировать время работы планирования пода в зависимости от размера нод, которые мы перебираем. Время планирования на одну ноду пока считать константнтым.
 - [x] Принимать &HashMap вместо Vec<&Node> в schedule one функции интерфейса
 - [ ] Поэксперементировать с конвертацией alibaba trace в generic для ускорения загрузки и парсинга трейса с диска
+
+- [ ] Сделать машиночитаемый формат сериализации метрик (json, etc)
+- [ ] Сделать отдельную очередь для бэкоффов для пода
+- [ ] Переименовать processed_pods в pods_terminated
+- [ ] При обновлении condition у pod/node выставлять last_transition_time равный времени происшествия события на непосредственной компоненте.
+- [ ] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency

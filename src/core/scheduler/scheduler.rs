@@ -1,15 +1,18 @@
 //! Implementation of scheduler component which is responsible for scheduling pods for nodes.
 
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::HashMap;
 use std::rc::Rc;
+
+use std::collections::BinaryHeap;
+use std::time::Duration;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
-use crate::core::common::{ObjectsInfo, SimComponentId};
+use crate::core::common::{ObjectsInfo, RuntimeResources, SimComponentId};
 use crate::core::events::{
-    AddNodeToCacheRequest, AssignPodToNodeRequest, PodFinishedRunning, PodScheduleRequest,
-    RunSchedulingCycle,
+    AddNodeToCacheRequest, AssignPodToNodeRequest, FlushUnschedulableQueueLeftover, PodFinishedRunning,
+    PodScheduleRequest, RunSchedulingCycle,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -20,6 +23,10 @@ use crate::metrics::collector::MetricsCollector;
 
 use crate::simulator::SimulationConfig;
 
+use crate::core::scheduler::queue::{
+    QueuedPodInfo, DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION, POD_FLUSH_INTERVAL
+};
+
 pub struct Scheduler {
     api_server: SimComponentId,
 
@@ -27,16 +34,19 @@ pub struct Scheduler {
     objects_cache: ObjectsInfo,
     scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
 
-    /// Queue of timestamps and pod names to schedule.
-    /// Pods as objects themselves are stored in objects_cache, timestamps reflects the time
-    /// when pod was pushed to the queue.
-    pod_queue: VecDeque<(f64, String)>,
+    pod_scheduling_time_model: Box<dyn PodSchedulingTimeModel>,
+    /// Sorted by timestamp of addition a queue contains information about a pod to schedule.
+    /// Firstly-added pod is assigned a timestamp of event PodScheduleRequest.
+    /// Pods from unschedulable queue are moved to active queue with the timestamp of last adding
+    /// to unschedulable queue.
+    action_queue: BinaryHeap<QueuedPodInfo>,
+    /// Map of pod names and their queue info which cannot be schedulable at the moment.
+    /// Moves to active queue either if DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION exceeded or 
+    /// event of interest (PodFinishedRunning, AddNodeToCache) occurred.
+    unschedulable_pods: HashMap<Rc<String>, QueuedPodInfo>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
-
-    pod_scheduling_time_model: Box<dyn PodSchedulingTimeModel>,
-
     metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
@@ -52,16 +62,18 @@ impl Scheduler {
             api_server,
             objects_cache: Default::default(),
             scheduler_algorithm,
-            pod_queue: Default::default(),
+            pod_scheduling_time_model: Box::new(ConstantTimePerNodeModel::default()),
+            action_queue: Default::default(),
+            unschedulable_pods: Default::default(),
             ctx,
             config,
-            pod_scheduling_time_model: Box::new(ConstantTimePerNodeModel::default()),
             metrics_collector,
         }
     }
 
     pub fn start(&mut self) {
         self.ctx.emit_self_now(RunSchedulingCycle {});
+        self.ctx.emit_self_now(FlushUnschedulableQueueLeftover {});
     }
 
     pub fn add_node(&mut self, node: Node) {
@@ -139,14 +151,63 @@ impl Scheduler {
             .schedule_one(pod, &self.objects_cache.nodes)
     }
 
+    fn move_pods_to_active_queue(&mut self, pod_names: Vec<Rc<String>>) {
+        for pod_name in pod_names.into_iter() {
+            let mut queue_pod_info = self.unschedulable_pods.remove(&pod_name).unwrap();
+            queue_pod_info.attempts += 1;
+            self.action_queue.push(queue_pod_info);
+        }
+    }
+
+    /// Flushes pods to the active queue which stays in unschedulable queue for too long.
+    fn flush_unschedulable_pods_leftover(&mut self, event_time: f64) {
+        let mut pods_to_move: Vec<Rc<String>> = vec![];
+        pods_to_move.reserve(self.unschedulable_pods.len());
+
+        for (pod_name, queued_pod_info) in self.unschedulable_pods.iter() {
+            let pod_stay_duration = Duration::from_secs_f64(event_time - queued_pod_info.timestamp);
+            if pod_stay_duration > DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION {
+                pods_to_move.push(pod_name.clone());
+            }
+        }
+
+        self.move_pods_to_active_queue(pods_to_move);
+
+        self.ctx.emit_self(FlushUnschedulableQueueLeftover{}, POD_FLUSH_INTERVAL.as_secs_f64());
+    }
+
+    /// Move pods from unschedulable to active queue which satisfy check.
+    /// On events of interest such as some resources on nodes are freed or new nodes are added.
+    /// Assuming `check` returns true if should move current pod.
+    /// Inside lambda's captured state (pod/node) resources decrease on amount of resources of pods
+    /// which are moved.
+    fn move_to_active_queue_if_sufficient_resources(&mut self, mut check: impl FnMut(&RuntimeResources) -> bool) {
+        let mut pods_to_move: Vec<Rc<String>> = vec![];
+        pods_to_move.reserve(self.unschedulable_pods.len());
+
+        for (pod_name, queued_pod_info) in self.unschedulable_pods.iter() {
+            if check(&self.objects_cache.pods.get(&*queued_pod_info.pod_name).unwrap().spec.resources.requests) {
+                pods_to_move.push(pod_name.clone());
+            }
+        }
+
+        self.move_pods_to_active_queue(pods_to_move);
+    }
+
     fn run_scheduling_cycle(&mut self, scheduling_cycle_event_time: f64) {
         let mut cycle_sim_duration = 0.0;
-        let mut unscheduled_queue: VecDeque<(f64, String)> = Default::default();
 
-        while let Some((ts, next_pod_name)) = self.pod_queue.pop_front() {
-            let pod = self.objects_cache.pods.get(&next_pod_name).unwrap();
+        log_debug!(
+            self.ctx,
+            "run scheduling cycle, active queue len={:?}, unschedulable queue len={:?}",
+            self.action_queue.len(),
+            self.unschedulable_pods.len()
+        );
 
-            let pod_queue_time = scheduling_cycle_event_time - ts + cycle_sim_duration;
+        while let Some(mut next_pod) = self.action_queue.pop() {
+            let pod_queue_time = scheduling_cycle_event_time - next_pod.initial_attempt_timestamp + cycle_sim_duration;
+
+            let pod = self.objects_cache.pods.get(&*next_pod.pod_name).unwrap();
             let pod_schedule_time = self.pod_scheduling_time_model.simulate_time(pod, &self.objects_cache.nodes);
             cycle_sim_duration += pod_schedule_time;
 
@@ -157,20 +218,21 @@ impl Scheduler {
                         log_debug!(
                             self.ctx,
                             "failed to schedule pod {:?}: {:?}",
-                            next_pod_name,
+                            next_pod.pod_name,
                             err
                         );
-                        unscheduled_queue.push_back((ts, next_pod_name));
+                        next_pod.timestamp = scheduling_cycle_event_time + cycle_sim_duration;
+                        self.unschedulable_pods.insert(next_pod.pod_name.clone(), next_pod);
                         continue;
                     }
                 };
 
-            self.reserve_node_resources(&next_pod_name, &assigned_node);
-            self.assign_node_to_pod(&next_pod_name, &assigned_node);
+            self.reserve_node_resources(&next_pod.pod_name, &assigned_node);
+            self.assign_node_to_pod(&next_pod.pod_name, &assigned_node);
 
             self.ctx.emit(
                 AssignPodToNodeRequest {
-                    pod_name: next_pod_name,
+                    pod_name: next_pod.pod_name.to_string(),
                     node_name: assigned_node,
                 },
                 self.api_server,
@@ -180,8 +242,6 @@ impl Scheduler {
             self.metrics_collector.borrow_mut().increment_pod_schedule_time(pod_schedule_time);
             self.metrics_collector.borrow_mut().increment_pod_queue_time(pod_queue_time);
         }
-
-        self.pod_queue = unscheduled_queue;
 
         let next_cycle_delay = f64::max(cycle_sim_duration, self.config.scheduling_cycle_interval);
         self.ctx.emit_self(RunSchedulingCycle {}, next_cycle_delay);
@@ -194,20 +254,55 @@ impl EventHandler for Scheduler {
             RunSchedulingCycle {} => {
                 self.run_scheduling_cycle(event.time);
             }
+            FlushUnschedulableQueueLeftover {} => {
+                self.flush_unschedulable_pods_leftover(event.time);
+            }
             AddNodeToCacheRequest { node } => {
+                let mut allocatable = node.status.allocatable.clone();
                 self.add_node(node);
+
+                let check = |requested_resources: &RuntimeResources| {
+                    if requested_resources.cpu <= allocatable.cpu
+                        && requested_resources.ram <= allocatable.ram
+                    {
+                        allocatable.cpu -= requested_resources.cpu;
+                        allocatable.ram -= requested_resources.ram;
+                        return false;
+                    }
+                    return true;
+                };
+                self.move_to_active_queue_if_sufficient_resources(check);
             }
             PodScheduleRequest { pod } => {
                 let pod_name = pod.metadata.name.clone();
-                self.pod_queue.push_back((event.time, pod_name));
                 self.add_pod(pod);
+
+                self.action_queue.push(QueuedPodInfo { 
+                    timestamp: event.time,
+                    attempts: 1,
+                    initial_attempt_timestamp: event.time,
+                    pod_name: Rc::new(pod_name),
+                });
             }
             PodFinishedRunning {
                 finish_time: _,
                 finish_result: _,
                 pod_name,
             } => {
+                let mut freed_resources = self.objects_cache.pods.get(&pod_name).unwrap().spec.resources.requests.clone();
                 self.release_node_resources(&pod_name);
+
+                let check = |requested_resources: &RuntimeResources| {
+                    if requested_resources.cpu <= freed_resources.cpu
+                        && requested_resources.ram <= freed_resources.ram
+                    {
+                        freed_resources.cpu -= requested_resources.cpu;
+                        freed_resources.ram -= requested_resources.ram;
+                        return true;
+                    }
+                    return false;
+                };
+                self.move_to_active_queue_if_sufficient_resources(check);
             }
         })
     }

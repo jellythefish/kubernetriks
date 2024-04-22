@@ -117,6 +117,10 @@ pub struct PodFinishedRunning {
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RunSchedulingCycle {}
 
+// Event from scheduler to itself to flush unschedulable queue leftover.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct FlushUnschedulableQueueLeftover {}
+
 // Expect event.data to be Box<Box<dyn SimulationEvent>> to downcast it first and then extract a real type.
 #[macro_export]
 macro_rules! cast_box {

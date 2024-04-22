@@ -100,17 +100,24 @@ pub struct RunUntilAllPodsAreFinishedCallbacks {
 impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if sim.sim.time() % 1000.0 == 0.0 {
-            let processed_pods = sim.metrics_collector.borrow().internal.processed_pods;
+            let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
             let total_pods_in_trace = sim.metrics_collector.borrow().total_pods_in_trace;
-            info!("Processed {} out of {} pods", processed_pods, total_pods_in_trace);
+            info!("Processed {} out of {} pods", terminated_pods, total_pods_in_trace);
 
-            return processed_pods < total_pods_in_trace
+            return terminated_pods < total_pods_in_trace
         }
         true
     }
 
     fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
         print_metrics(sim.metrics_collector.clone(), &sim.config.metrics_printer);
+
+        let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
+        let pods_succeeded = sim.metrics_collector.borrow().pods_succeeded;
+        let pods_unschedulable = sim.metrics_collector.borrow().pods_unschedulable;
+        let pods_failed = sim.metrics_collector.borrow().pods_failed;
+
+        assert_eq!(terminated_pods, pods_succeeded + pods_unschedulable + pods_failed);
     }
 }
 

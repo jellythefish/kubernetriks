@@ -34,6 +34,7 @@ pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>, o
     aggregated_table.add_row(row!["Total pods in trace", metrics.total_pods_in_trace]);
     aggregated_table.add_row(row!["Pods succeeded", metrics.pods_succeeded]);
     aggregated_table.add_row(row!["Pods unschedulable", metrics.pods_unschedulable]);
+    aggregated_table.add_row(row!["Pods failed", metrics.pods_failed]);
 
     let mut stats_table = Table::new();
     stats_table.add_row(row!["Metric", "Min", "Max", "Mean", "Variance"]);
@@ -46,10 +47,10 @@ pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>, o
     ]);
     stats_table.add_row(row![
         "Pod schedule time",
-        metrics.pod_schedule_time_stats.min(),
-        metrics.pod_schedule_time_stats.max(),
-        metrics.pod_schedule_time_stats.mean(),
-        metrics.pod_schedule_time_stats.population_variance()
+        metrics.pod_scheduling_algorithm_latency_stats.min(),
+        metrics.pod_scheduling_algorithm_latency_stats.max(),
+        metrics.pod_scheduling_algorithm_latency_stats.mean(),
+        metrics.pod_scheduling_algorithm_latency_stats.population_variance()
     ]);
     stats_table.add_row(row![
         "Pod queue time",
@@ -75,6 +76,7 @@ struct Counters {
     total_pods_in_trace: u64,
     pods_succeeded: u64,
     pods_unschedulable: u64,
+    pods_failed: u64,
 }
 
 #[derive(Serialize)]
@@ -102,6 +104,7 @@ pub fn print_metrics_as_json(collector: Rc<RefCell<MetricsCollector>>, output_fi
             total_pods_in_trace: metrics.total_pods_in_trace,
             pods_succeeded: metrics.pods_succeeded,
             pods_unschedulable: metrics.pods_unschedulable,
+            pods_failed: metrics.pods_failed,
         },
         timings: Timings{
             pod_duration: TimingsStats{
@@ -111,10 +114,10 @@ pub fn print_metrics_as_json(collector: Rc<RefCell<MetricsCollector>>, output_fi
                 variance: metrics.pod_duration_stats.population_variance(),
             },
             pod_schedule_time: TimingsStats{
-                min: metrics.pod_schedule_time_stats.min(),
-                max: metrics.pod_schedule_time_stats.max(),
-                mean: metrics.pod_schedule_time_stats.mean(),
-                variance: metrics.pod_schedule_time_stats.population_variance(),
+                min: metrics.pod_scheduling_algorithm_latency_stats.min(),
+                max: metrics.pod_scheduling_algorithm_latency_stats.max(),
+                mean: metrics.pod_scheduling_algorithm_latency_stats.mean(),
+                variance: metrics.pod_scheduling_algorithm_latency_stats.population_variance(),
             },
             pod_queue_time: TimingsStats{
                 min: metrics.pod_queue_time_stats.min(),

@@ -55,7 +55,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Убрать опцию node_pool_capacity (она позже будет заменена опцией max_autoscaler_cluster_size). А вместо этой опции вычислять размер пула из трейса следующим образом: проходится в цикле по событиям, если событие - создание ноды, то +1 к счетчику, если событие - удаление/падение ноды, то обновление максимума нод, затем вычитание -1 из счетчика. Размер нод пула будет равным этому максимуму + некоторая дельта.
 - [ ] Подумать над тем, как реализовать schedule_one (под опцией в конфиге), вызываемый на каждое событие от persistent_storage - PodFinishedRunning/AddNodeToCacheRequest/PodScheduleRequest
 
-- [ ] Печатать в simulation callbacks статистику или прогресс каждые n шагов, состояние кластера и тд
+- [x] Печатать в simulation callbacks статистику или прогресс каждые n шагов, состояние кластера и тд
 - [x] Переименовать get_max_simultaneously_existing_nodes_in_trace в понятное название, дать комментарий, что она делает
 - [x] Сделать MetricsCollector
 - [x] Отсортировать события в симуляторе в функции convert_to_simulator_events
@@ -65,7 +65,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 
 - [x] Сделать машиночитаемый формат сериализации метрик (json, etc)
 - [x] Сделать отдельную очередь для бэкоффов для пода
-- [ ] Переименовать processed_pods в pods_terminated
+- [x] Переименовать processed_pods в pods_terminated
 - [ ] При обновлении condition у pod/node выставлять last_transition_time равный времени происшествия события на непосредственной компоненте.
-- [ ] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency
+- [x] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency
 - [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов

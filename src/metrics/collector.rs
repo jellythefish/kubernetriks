@@ -45,11 +45,12 @@ impl EstimatorWrapper {
 
 #[derive(Default)]
 pub(crate) struct InternalMetrics {
-    /// The number of nodes that were processed. Increases with the progress of simulation.
+    /// The number of node creations that were processed. Increases with the progress of simulation.
     /// This counter does not include the nodes from default cluster.
     pub(crate) processed_nodes: u64,
-    /// The number of pods that were processed. Increases with the progress of simulation.
-    pub(crate) processed_pods: u64,
+    /// The number of pods that were terminated either with failure or success.
+    /// Increases with the progress of simulation.
+    pub(crate) terminated_pods: u64,
 }
 
 #[derive(Default)]
@@ -57,12 +58,15 @@ pub struct MetricsCollector {
     /// The number of created nodes in trace. Calculated before simulation starts.
     pub total_nodes_in_trace: u64,
     /// The number of created pods in trace. Calculated before simulation starts.
-    /// Equals to pods succeeded + pods unschedulable.
+    /// Equals to pods succeeded + pods unschedulable + pods failed.
     pub total_pods_in_trace: u64,
     /// The number of successfully finished pods.
     pub pods_succeeded: u64,
     /// The number of pods which could not be scheduled and started during the simulation.
+    /// Calculated at the stage of trace preprocessing.
     pub pods_unschedulable: u64,
+    /// The number of failed pods which started but eventually not finished due to some reasons.
+    pub pods_failed: u64,
 
     /// Estimations for the pod running duration.
     pub pod_duration_stats: EstimatorWrapper,
@@ -70,7 +74,7 @@ pub struct MetricsCollector {
     /// Estimations for the time a pod spent between it was popped from queue by scheduler
     /// and assigned a node. Considers only pods in one scheduling cycle which were successfully
     /// assigned a node.
-    pub pod_schedule_time_stats: EstimatorWrapper,
+    pub pod_scheduling_algorithm_latency_stats: EstimatorWrapper,
 
     /// Estimations for the time a pod spent between it was firstly pushed to the scheduling queue
     /// and lastly popped from it thus considering repushes due to insufficient resources
@@ -87,10 +91,11 @@ impl MetricsCollector {
             total_pods_in_trace: 0,
             pods_succeeded: 0,
             pods_unschedulable: 0,
+            pods_failed: 0,
             pod_duration_stats: EstimatorWrapper::new(),
-            pod_schedule_time_stats: EstimatorWrapper::new(),
+            pod_scheduling_algorithm_latency_stats: EstimatorWrapper::new(),
             pod_queue_time_stats: EstimatorWrapper::new(),
-            internal: InternalMetrics { processed_pods: 0, processed_nodes: 0 }
+            internal: InternalMetrics { processed_nodes: 0, terminated_pods: 0 }
         }
     }
 
@@ -99,7 +104,7 @@ impl MetricsCollector {
     }
 
     pub fn increment_pod_schedule_time(&mut self, value: f64) {
-        self.pod_schedule_time_stats.add(value);
+        self.pod_scheduling_algorithm_latency_stats.add(value);
     }
 
     pub fn increment_pod_queue_time(&mut self, value: f64) {

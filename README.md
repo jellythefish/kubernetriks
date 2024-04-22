@@ -66,6 +66,6 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Сделать машиночитаемый формат сериализации метрик (json, etc)
 - [x] Сделать отдельную очередь для бэкоффов для пода
 - [x] Переименовать processed_pods в pods_terminated
-- [ ] При обновлении condition у pod/node выставлять last_transition_time равный времени происшествия события на непосредственной компоненте.
+- [x] При обновлении condition у pod/node выставлять last_transition_time равный времени происшествия события на непосредственной компоненте.
 - [x] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency
 - [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов

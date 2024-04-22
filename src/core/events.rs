@@ -47,7 +47,7 @@ pub struct RemovePodRequest {
 // Event from api server to persistent storage to tell that node is created in cluster.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct NodeAddedToTheCluster {
-    pub event_time: f64,
+    pub add_time: f64,
     pub node_name: String,
 }
 
@@ -67,6 +67,7 @@ pub struct AddNodeToCacheRequest {
 // Might be from scheduler to api server, from api server to persistent storage.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct AssignPodToNodeRequest {
+    pub assign_time: f64,
     pub pod_name: String,
     pub node_name: String,
 }

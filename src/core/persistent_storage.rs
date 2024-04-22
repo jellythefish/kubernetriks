@@ -136,7 +136,7 @@ impl EventHandler for PersistentStorage {
                 );
             }
             NodeAddedToTheCluster {
-                event_time,
+                add_time,
                 node_name,
             } => {
                 self.storage_data
@@ -146,7 +146,7 @@ impl EventHandler for PersistentStorage {
                     .update_condition(
                         "True".to_string(),
                         NodeConditionType::NodeCreated,
-                        event_time,
+                        add_time,
                     );
                 // tell scheduler about new node in the cluster
                 let node = self.storage_data.nodes.get(&node_name).unwrap().clone();
@@ -164,6 +164,8 @@ impl EventHandler for PersistentStorage {
                 self.metrics_collector.borrow_mut().internal.processed_nodes += 1;
             }
             CreatePodRequest { mut pod } => {
+                // considering creation time as the time pod added to the persistent storage,
+                // because it is just an entry in hash map
                 pod.update_condition("True".to_string(), PodConditionType::PodCreated, event.time);
                 self.add_pod(pod.clone());
                 // send info about newly created pod to scheduler
@@ -174,6 +176,7 @@ impl EventHandler for PersistentStorage {
                 );
             }
             AssignPodToNodeRequest {
+                assign_time,
                 pod_name,
                 node_name,
             } => {
@@ -181,7 +184,7 @@ impl EventHandler for PersistentStorage {
                 pod.update_condition(
                     "True".to_string(),
                     PodConditionType::PodScheduled,
-                    event.time,
+                    assign_time,
                 );
                 pod.status.assigned_node = node_name.clone();
                 self.ctx.emit(

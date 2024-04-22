@@ -102,7 +102,7 @@ impl KubeApiServer {
 
         self.ctx.emit(
             NodeAddedToTheCluster {
-                event_time,
+                add_time: event_time,
                 node_name: node_name.to_string(),
             },
             self.persistent_storage,
@@ -142,12 +142,14 @@ impl EventHandler for KubeApiServer {
                 );
             }
             AssignPodToNodeRequest {
+                assign_time,
                 pod_name,
                 node_name,
             } => {
                 // Redirects to persistent storage
                 self.ctx.emit(
                     AssignPodToNodeRequest {
+                        assign_time,
                         pod_name,
                         node_name,
                     },

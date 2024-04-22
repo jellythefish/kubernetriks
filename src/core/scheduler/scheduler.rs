@@ -232,6 +232,7 @@ impl Scheduler {
 
             self.ctx.emit(
                 AssignPodToNodeRequest {
+                    assign_time: scheduling_cycle_event_time + cycle_sim_duration,
                     pod_name: next_pod.pod_name.to_string(),
                     node_name: assigned_node,
                 },

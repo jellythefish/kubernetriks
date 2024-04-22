@@ -1,12 +1,32 @@
-use std::{cell::RefCell, fs::File, rc::Rc};
+use std::{cell::RefCell, fs::File, io::Write, rc::Rc};
 use prettytable::{row, Table};
+use serde::{Deserialize, Serialize};
 
 use crate::metrics::collector::MetricsCollector;
 
-pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>) {
-    let metrics = collector.borrow();
+#[derive(Debug, Default, Deserialize, PartialEq)]
+pub enum OutputFormat {
+    #[default]
+    JSON,
+    PrettyTable,
+}
 
-    let mut metrics_file = File::create("metrics.txt").unwrap();
+#[derive(Debug, Default, Deserialize, PartialEq)]
+pub struct MetricsPrinterConfig {
+    format: OutputFormat,
+    output_file: std::path::PathBuf,
+}
+
+pub fn print_metrics(collector: Rc<RefCell<MetricsCollector>>, config: &MetricsPrinterConfig) {
+    match config.format {
+        OutputFormat::PrettyTable => print_metrics_as_pretty_table(collector, &config.output_file),
+        OutputFormat::JSON => print_metrics_as_json(collector, &config.output_file),
+    }
+}
+
+pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>, output_file: &std::path::PathBuf) {
+    let metrics = collector.borrow();
+    let mut metrics_file = File::create(output_file).unwrap();
 
     let mut aggregated_table = Table::new();
     aggregated_table.add_row(row!["Metric", "Count"]);
@@ -41,4 +61,70 @@ pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>) {
 
     let _ = aggregated_table.print(&mut metrics_file);
     let _ = stats_table.print(&mut metrics_file);
+}
+
+#[derive(Serialize)]
+struct MetricsJSON {
+    counters: Counters,
+    timings: Timings,
+}
+
+#[derive(Serialize)]
+struct Counters {
+    total_nodes_in_trace: u64,
+    total_pods_in_trace: u64,
+    pods_succeeded: u64,
+    pods_unschedulable: u64,
+}
+
+#[derive(Serialize)]
+struct Timings {
+    pod_duration: TimingsStats,
+    pod_schedule_time: TimingsStats,
+    pod_queue_time: TimingsStats,
+}
+
+#[derive(Serialize)]
+struct TimingsStats {
+    min: f64,
+    max: f64,
+    mean: f64,
+    variance: f64,
+}
+
+pub fn print_metrics_as_json(collector: Rc<RefCell<MetricsCollector>>, output_file: &std::path::PathBuf) {
+    let metrics = collector.borrow();
+    let mut metrics_file = File::create(output_file).unwrap();
+
+    let metrics = MetricsJSON{
+        counters: Counters{
+            total_nodes_in_trace: metrics.total_nodes_in_trace,
+            total_pods_in_trace: metrics.total_pods_in_trace,
+            pods_succeeded: metrics.pods_succeeded,
+            pods_unschedulable: metrics.pods_unschedulable,
+        },
+        timings: Timings{
+            pod_duration: TimingsStats{
+                min: metrics.pod_duration_stats.min(),
+                max: metrics.pod_duration_stats.max(),
+                mean: metrics.pod_duration_stats.mean(),
+                variance: metrics.pod_duration_stats.population_variance(),
+            },
+            pod_schedule_time: TimingsStats{
+                min: metrics.pod_schedule_time_stats.min(),
+                max: metrics.pod_schedule_time_stats.max(),
+                mean: metrics.pod_schedule_time_stats.mean(),
+                variance: metrics.pod_schedule_time_stats.population_variance(),
+            },
+            pod_queue_time: TimingsStats{
+                min: metrics.pod_queue_time_stats.min(),
+                max: metrics.pod_queue_time_stats.max(),
+                mean: metrics.pod_queue_time_stats.mean(),
+                variance: metrics.pod_queue_time_stats.population_variance(),
+            },
+        },
+    };
+
+    let serialized_json = serde_json::to_string_pretty(&metrics).unwrap();
+    metrics_file.write_all(serialized_json.as_bytes()).unwrap();
 }

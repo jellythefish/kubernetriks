@@ -22,7 +22,7 @@ use crate::core::scheduler::scheduler::Scheduler;
 
 use crate::metrics::collector::MetricsCollector;
 
-use crate::metrics::printer::print_metrics_as_pretty_table;
+use crate::metrics::printer::{print_metrics, MetricsPrinterConfig};
 use crate::trace::interface::Trace;
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -30,6 +30,7 @@ pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
     pub trace_config: Option<TraceConfig>,
+    pub metrics_printer: MetricsPrinterConfig,
     pub default_cluster: Option<Vec<NodeGroup>>,
     pub scheduling_cycle_interval: f64, // in seconds
     // Simulated network delays, as = api server, ps = persistent storage.
@@ -109,7 +110,7 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     }
 
     fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
-        print_metrics_as_pretty_table(sim.metrics_collector.clone());
+        print_metrics(sim.metrics_collector.clone(), &sim.config.metrics_printer);
     }
 }
 

@@ -58,6 +58,7 @@ pub fn default_test_simulation_config() -> SimulationConfig {
     SimulationConfig {
         sim_name: "test_kubernetriks".to_string(),
         seed: 123,
+        metrics_printer: Default::default(),
         trace_config: None,
         default_cluster: None,
         scheduling_cycle_interval: 10.0,

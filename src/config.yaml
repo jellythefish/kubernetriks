@@ -1,6 +1,10 @@
 sim_name: "kubernetriks"
 seed: 123
 
+metrics_printer:
+  format: !PrettyTable
+  output_file: /home/btkz/master/diploma/kubernetriks/metrics.txt
+
 trace_config:
   # generic_trace:
   #   workload_trace_path: src/data/generic_workload_trace_example.yaml

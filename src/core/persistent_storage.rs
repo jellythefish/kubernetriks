@@ -10,9 +10,10 @@ use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 use crate::core::common::ObjectsInfo;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AddNodeToCacheRequest, AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest,
-    CreateNodeResponse, CreatePodRequest, NodeAddedToTheCluster, PodFinishedRunning,
-    PodScheduleRequest, PodStartedRunning,
+    AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest,
+    CreateNodeResponse, CreatePodRequest, NodeAddedToCluster, PodFinishedRunning,
+    PodScheduleRequest, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse,
+    NodeRemovedFromCluster, RemoveNodeFromCache
 };
 use crate::metrics::collector::MetricsCollector;
 use crate::core::node::{Node, NodeConditionType};
@@ -20,7 +21,6 @@ use crate::core::pod::{Pod, PodConditionType};
 use crate::simulator::SimulationConfig;
 
 pub struct PersistentStorage {
-    // Identifier of persistent storage as a simulation component.
     api_server: SimComponentId,
     scheduler: SimComponentId,
 
@@ -128,14 +128,13 @@ impl EventHandler for PersistentStorage {
                 self.add_node(node);
                 self.ctx.emit(
                     CreateNodeResponse {
-                        created: true,
                         node_name,
                     },
                     self.api_server,
                     self.config.as_to_ps_network_delay,
                 );
             }
-            NodeAddedToTheCluster {
+            NodeAddedToCluster {
                 add_time,
                 node_name,
             } => {
@@ -151,7 +150,7 @@ impl EventHandler for PersistentStorage {
                 // tell scheduler about new node in the cluster
                 let node = self.storage_data.nodes.get(&node_name).unwrap().clone();
                 self.ctx.emit(
-                    AddNodeToCacheRequest { node },
+                    AddNodeToCache { node },
                     self.scheduler,
                     self.config.ps_to_sched_network_delay,
                 );
@@ -189,6 +188,7 @@ impl EventHandler for PersistentStorage {
                 pod.status.assigned_node = node_name.clone();
                 self.ctx.emit(
                     AssignPodToNodeResponse {
+                        assigned: true,
                         pod_name,
                         pod_duration: pod.spec.running_duration,
                         node_name,
@@ -226,6 +226,30 @@ impl EventHandler for PersistentStorage {
 
                 // TODO: temporary (may be refactored) function for checking running results
                 // self.print_running_info(pod_name);
+            }
+            RemoveNodeRequest { node_name } => {
+                self.storage_data.nodes.remove(&node_name).unwrap();
+                self.ctx.emit(
+                    RemoveNodeResponse {
+                        node_name
+                    },
+                    self.api_server,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            NodeRemovedFromCluster {
+                removal_time,
+                node_name
+            } => {
+                log_debug!(self.ctx, "Node {} removed from cluster at time: {}", node_name, removal_time);
+
+                // Redirects to scheduler for pod rescheduling. Scheduler knows which pods to
+                // reschedule. 
+                self.ctx.emit(
+                    RemoveNodeFromCache { node_name },
+                    self.scheduler,
+                    self.config.ps_to_sched_network_delay,
+                );
             }
         })
     }

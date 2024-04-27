@@ -6,7 +6,10 @@ use std::rc::Rc;
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
 use crate::core::common::SimComponentId;
-use crate::core::events::{BindPodToNodeRequest, PodFinishedRunning, PodStartedRunning};
+use crate::core::events::{
+    BindPodToNodeRequest, NodeRemovedFromCluster, PodFinishedRunning, PodStartedRunning,
+    RemoveNodeRequest
+};
 use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
@@ -17,6 +20,9 @@ pub struct NodeComponent {
     // Initialized later when the node component is actually allocated from node pool.
     // Sets to None when the node gets back to node pool.
     pub runtime: Option<NodeRuntime>,
+
+    /// Flag to check that node is being removed so cannot accept any pod occasionally.
+    pub removed: bool,
 
     metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
@@ -32,6 +38,7 @@ impl NodeComponent {
         Self {
             ctx,
             runtime: None,
+            removed: false,
             metrics_collector,
         }
     }
@@ -50,6 +57,23 @@ impl NodeComponent {
 
     pub fn context_name(&self) -> &str {
         &self.ctx.name()
+    }
+
+    /// This method cancels events `PodFinishedRunning` which were submitted to the simulation queue
+    /// and which delay is >= cancellation_time.
+    /// This method is not cheap and we assume that node removals and pod cancellations happen not
+    /// too often as pod creations and running. Thus, we iterate through the whole queue of
+    /// simulation events with callback returning true if event's time 
+    /// occurrence >= cancellation_time to cancel.
+    fn cancel_running_pods(&mut self, cancellation_time: f64) {
+        self.ctx.cancel_events(|event| {
+            if let Some(running_pod) = event.data.downcast_ref::<PodFinishedRunning>() {
+                if running_pod.finish_time >= cancellation_time {
+                    return true
+                }
+            }
+            return false
+        });
     }
 
     pub fn simulate_pod_runtime(&mut self, event_time: f64, pod_name: String, pod_duration: f64) {
@@ -80,6 +104,7 @@ impl EventHandler for NodeComponent {
                 pod_duration,
                 node_name,
             } => {
+                assert!(!self.removed, "Pod is assigned on node which is being removed, looks like a bug.");
                 assert_eq!(
                     node_name,
                     self.node_name(),
@@ -102,6 +127,24 @@ impl EventHandler for NodeComponent {
                         .unwrap()
                         .config
                         .as_to_node_network_delay,
+                );
+            }
+            RemoveNodeRequest {
+                node_name
+            } => {
+                self.removed = true;
+                assert_eq!(node_name, self.node_name(), "Trying to remove other node than self: {:?} vs {:?}", node_name, self.node_name());
+                // Here we should cancel all events which have been already submitted to simulation
+                // queue as running events as we terminate.
+                self.cancel_running_pods(event.time);
+
+                self.ctx.emit(
+                    NodeRemovedFromCluster {
+                        removal_time: event.time,
+                        node_name
+                    },
+                    self.runtime.as_ref().unwrap().api_server,
+                    self.runtime.as_ref().unwrap().config.as_to_node_network_delay,
                 );
             }
         });

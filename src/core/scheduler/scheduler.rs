@@ -1,7 +1,7 @@
 //! Implementation of scheduler component which is responsible for scheduling pods for nodes.
 
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use std::collections::BinaryHeap;
@@ -11,8 +11,8 @@ use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
 use crate::core::common::{ObjectsInfo, RuntimeResources, SimComponentId};
 use crate::core::events::{
-    AddNodeToCacheRequest, AssignPodToNodeRequest, FlushUnschedulableQueueLeftover, PodFinishedRunning,
-    PodScheduleRequest, RunSchedulingCycle,
+    AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, FlushUnschedulableQueueLeftover,
+    PodFinishedRunning, PodScheduleRequest, RemoveNodeFromCache, RunSchedulingCycle
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -32,6 +32,9 @@ pub struct Scheduler {
 
     /// Cache which is updated based on events from persistent storage
     objects_cache: ObjectsInfo,
+    /// Map from node name to pods that were assigned to that node
+    assignments: HashMap<String, HashSet<String>>,
+
     scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
 
     pod_scheduling_time_model: Box<dyn PodSchedulingTimeModel>,
@@ -61,6 +64,7 @@ impl Scheduler {
         Self {
             api_server,
             objects_cache: Default::default(),
+            assignments: Default::default(),
             scheduler_algorithm,
             pod_scheduling_time_model: Box::new(ConstantTimePerNodeModel::default()),
             action_queue: Default::default(),
@@ -119,6 +123,13 @@ impl Scheduler {
     }
 
     fn assign_node_to_pod(&mut self, pod_name: &str, node_name: &str) {
+        match self.assignments.get_mut(node_name) {
+            Some(assigned_pods) => { assigned_pods.insert(pod_name.to_string()); },
+            None => {
+                self.assignments.insert(node_name.to_string(), HashSet::from([pod_name.to_string()]));
+            },
+        };
+
         self.objects_cache
             .pods
             .get_mut(pod_name)
@@ -135,15 +146,17 @@ impl Scheduler {
     }
 
     fn release_node_resources(&mut self, pod_name: &str) {
-        let pod = self.objects_cache.pods.get(pod_name).unwrap();
+        let pod = self.objects_cache.pods.remove(pod_name).unwrap();
         let node = self
             .objects_cache
             .nodes
             .get_mut(&pod.status.assigned_node)
             .unwrap();
+
+        self.assignments.get_mut(&node.metadata.name).unwrap().remove(pod_name);
+
         node.status.allocatable.cpu += pod.spec.resources.requests.cpu;
         node.status.allocatable.ram += pod.spec.resources.requests.ram;
-        self.objects_cache.pods.remove(pod_name);
     }
 
     fn schedule_one(&self, pod: &Pod) -> Result<String, ScheduleError> {
@@ -240,12 +253,36 @@ impl Scheduler {
                 cycle_sim_duration + self.config.sched_to_as_network_delay,
             );
 
-            self.metrics_collector.borrow_mut().increment_pod_schedule_time(pod_schedule_time);
+            self.metrics_collector.borrow_mut().increment_pod_scheduling_algorithm_latency(pod_schedule_time);
             self.metrics_collector.borrow_mut().increment_pod_queue_time(pod_queue_time);
         }
 
         let next_cycle_delay = f64::max(cycle_sim_duration, self.config.scheduling_cycle_interval);
         self.ctx.emit_self(RunSchedulingCycle {}, next_cycle_delay);
+    }
+
+    fn reschedule_pod(&mut self, pod_name: String, event_time: f64) {
+        self.objects_cache
+            .pods
+            .get_mut(&pod_name)
+            .unwrap()
+            .status
+            .assigned_node = Default::default();
+
+        self.action_queue.push(QueuedPodInfo { 
+            timestamp: event_time,
+            attempts: 1,
+            initial_attempt_timestamp: event_time,
+            pod_name: Rc::new(pod_name),
+        });
+    }
+
+    fn reschedule_unfinished_pods(&mut self, node_name: &str, event_time: f64) {
+        let unfinished_pod_names = self.assignments.remove(node_name).unwrap();
+        log_debug!(self.ctx, "Rescheduling unfinished pods which were assigned previously on node {:?}: {:?}", node_name, unfinished_pod_names);
+        for pod_name in unfinished_pod_names.into_iter() {
+            self.reschedule_pod(pod_name, event_time);
+        }
     }
 }
 
@@ -258,7 +295,7 @@ impl EventHandler for Scheduler {
             FlushUnschedulableQueueLeftover {} => {
                 self.flush_unschedulable_pods_leftover(event.time);
             }
-            AddNodeToCacheRequest { node } => {
+            AddNodeToCache { node } => {
                 let mut allocatable = node.status.allocatable.clone();
                 self.add_node(node);
 
@@ -285,6 +322,15 @@ impl EventHandler for Scheduler {
                     pod_name: Rc::new(pod_name),
                 });
             }
+            AssignPodToNodeResponse {
+                assigned,
+                pod_name,
+                ..
+            } => {
+                if !assigned {
+                    self.reschedule_pod(pod_name, event.time);
+                }
+            }
             PodFinishedRunning {
                 finish_time: _,
                 finish_result: _,
@@ -304,6 +350,12 @@ impl EventHandler for Scheduler {
                     return false;
                 };
                 self.move_to_active_queue_if_sufficient_resources(check);
+            }
+            RemoveNodeFromCache {
+                node_name
+            } => {
+                self.objects_cache.nodes.remove(&node_name).unwrap();
+                self.reschedule_unfinished_pods(&node_name, event.time);
             }
         })
     }

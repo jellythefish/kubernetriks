@@ -103,7 +103,7 @@ impl MetricsCollector {
         self.pod_duration_stats.add(value);
     }
 
-    pub fn increment_pod_schedule_time(&mut self, value: f64) {
+    pub fn increment_pod_scheduling_algorithm_latency(&mut self, value: f64) {
         self.pod_scheduling_algorithm_latency_stats.add(value);
     }
 

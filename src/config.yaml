@@ -17,10 +17,10 @@ trace_config:
 default_cluster:
 - node_template:
     metadata:
-      name: super_node_256cpu_512gb
+      name: super_node_1024cpu_512gb
     status:
       capacity:
-        cpu: 256000
+        cpu: 1024000
         ram: 549755813888
 - node_count: 10
   node_template:
@@ -28,7 +28,7 @@ default_cluster:
       name: default_128cpu_256gb_node
     status:
       capacity:
-        cpu: 64000
+        cpu: 128000
         ram: 274877906944
 - node_count: 20
   node_template:

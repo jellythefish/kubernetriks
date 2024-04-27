@@ -40,8 +40,8 @@ pub struct GenericClusterTrace {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct ClusterEvent {
-    timestamp: f64, // in seconds with fractional part
-    event_type: ClusterEventType,
+    pub timestamp: f64, // in seconds with fractional part
+    pub event_type: ClusterEventType,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

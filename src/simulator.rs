@@ -30,7 +30,7 @@ pub struct SimulationConfig {
     pub sim_name: String,
     pub seed: u64,
     pub trace_config: Option<TraceConfig>,
-    pub metrics_printer: MetricsPrinterConfig,
+    pub metrics_printer: Option<MetricsPrinterConfig>,
     pub default_cluster: Option<Vec<NodeGroup>>,
     pub scheduling_cycle_interval: f64, // in seconds
     // Simulated network delays, as = api server, ps = persistent storage.
@@ -110,7 +110,9 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     }
 
     fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
-        print_metrics(sim.metrics_collector.clone(), &sim.config.metrics_printer);
+        if !sim.config.metrics_printer.is_none() {
+            print_metrics(sim.metrics_collector.clone(), sim.config.metrics_printer.as_ref().unwrap());
+        };
 
         let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
         let pods_succeeded = sim.metrics_collector.borrow().pods_succeeded;
@@ -161,6 +163,7 @@ impl KubernetriksSimulation {
 
         let api_server = Rc::new(RefCell::new(KubeApiServer::new(
             persistent_storage_context.id(),
+            scheduler_context.id(),
             kube_api_server_context,
             config.clone(),
             metrics_collector.clone(),
@@ -241,6 +244,8 @@ impl KubernetriksSimulation {
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
+
+        self.scheduler.borrow_mut().start();
     }
 
     pub fn add_node(&mut self, mut node: Node) {
@@ -321,8 +326,6 @@ impl KubernetriksSimulation {
     }
 
     pub fn run_with_callbacks(&mut self, mut callbacks: Box<dyn SimulationCallbacks>) {
-        self.scheduler.borrow_mut().start();
-
         callbacks.on_simulation_start(self);
 
         let t = Instant::now();

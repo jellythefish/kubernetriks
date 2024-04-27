@@ -12,7 +12,20 @@ events:
           capacity:
             cpu: 16000
             ram: 17179869184
-- timestamp: 5000
+- timestamp: 600
   event_type:
     !RemoveNode
       node_name: node_21
+- timestamp: 601
+  event_type:
+    !CreateNode
+      node:
+        metadata:
+          name: node_22
+          labels:
+            storage_type: ssd
+            proc_type: intel
+        status:
+          capacity:
+            cpu: 16000
+            ram: 17179869184

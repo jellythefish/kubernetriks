@@ -5,21 +5,8 @@ use dslab_kubernetriks::simulator::KubernetriksSimulation;
 
 use dslab_kubernetriks::test_util::helpers::{
     check_count_of_nodes_in_components_equals_to,
-    check_expected_node_is_equal_to_nodes_in_components,
+    check_expected_node_is_equal_to_nodes_in_components, default_test_simulation_config,
 };
-
-fn get_default_config_yaml() -> &'static str {
-    r#"
-    sim_name: "kubernetriks"
-    seed: 123
-    node_pool_capacity: 10
-    scheduling_cycle_interval: 10.0
-    as_to_ps_network_delay: 0.05
-    ps_to_sched_network_delay: 0.089
-    sched_to_as_network_delay: 0.023
-    as_to_node_network_delay: 0.152
-    "#
-}
 
 fn make_default_node(name: String, cpu: u32, ram: u64) -> Node {
     let mut node = Node::new(name, cpu, ram);
@@ -29,9 +16,7 @@ fn make_default_node(name: String, cpu: u32, ram: u64) -> Node {
 
 #[test]
 fn test_config_default_cluster_is_none() {
-    let mut kube_sim = KubernetriksSimulation::new(Rc::new(
-        serde_yaml::from_str(get_default_config_yaml()).unwrap(),
-    ));
+    let mut kube_sim = KubernetriksSimulation::new(Rc::new(default_test_simulation_config(None)));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(0, &mut kube_sim);
@@ -39,8 +24,7 @@ fn test_config_default_cluster_is_none() {
 
 #[test]
 fn test_config_default_cluster_with_no_name_prefix() {
-    let mut config_yaml = get_default_config_yaml().to_string();
-    config_yaml.push_str(
+    let config = default_test_simulation_config(Some(
         r#"
     default_cluster:
     - node_count: 10
@@ -60,9 +44,9 @@ fn test_config_default_cluster_with_no_name_prefix() {
               cpu: 24000
               ram: 18589934592
     "#,
-    );
+    ));
     let mut kube_sim =
-        KubernetriksSimulation::new(Rc::new(serde_yaml::from_str(&config_yaml).unwrap()));
+        KubernetriksSimulation::new(Rc::new(config));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(30, &kube_sim);
@@ -87,8 +71,7 @@ fn test_config_default_cluster_with_no_name_prefix() {
 
 #[test]
 fn test_config_default_cluster_no_node_count() {
-    let mut config_yaml = get_default_config_yaml().to_string();
-    config_yaml.push_str(
+    let config = default_test_simulation_config(Some(
         r#"
     default_cluster:
     - node_template:
@@ -114,10 +97,10 @@ fn test_config_default_cluster_no_node_count() {
             cpu: 8000
             ram: 185899345
     "#,
-    );
+    ));
 
     let mut kube_sim =
-        KubernetriksSimulation::new(Rc::new(serde_yaml::from_str(&config_yaml).unwrap()));
+        KubernetriksSimulation::new(Rc::new(config));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);
@@ -137,8 +120,7 @@ fn test_config_default_cluster_no_node_count() {
 
 #[test]
 fn test_config_default_cluster_has_name_prefix() {
-    let mut config_yaml = get_default_config_yaml().to_string();
-    config_yaml.push_str(
+    let config = default_test_simulation_config(Some(
         r#"
     default_cluster:
     - node_count: 2
@@ -165,10 +147,10 @@ fn test_config_default_cluster_has_name_prefix() {
             cpu: 4000
             ram: 185899345
     "#,
-    );
+    ));
 
     let mut kube_sim =
-        KubernetriksSimulation::new(Rc::new(serde_yaml::from_str(&config_yaml).unwrap()));
+        KubernetriksSimulation::new(Rc::new(config));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);

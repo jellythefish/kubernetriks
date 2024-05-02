@@ -20,6 +20,7 @@ erased-serde = "0.3"
 clap = { version = "4.5.0", features = ["derive"] }
 env_logger = "0.11.2"
 log = "0.4.21"
+file-rotate = "0.7.5"
 lazy_static = "1.4.0"
 
 average = "0.15.0"

@@ -59,7 +59,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Переименовать get_max_simultaneously_existing_nodes_in_trace в понятное название, дать комментарий, что она делает
 - [x] Сделать MetricsCollector
 - [x] Отсортировать события в симуляторе в функции convert_to_simulator_events
-- [ ] Симулировать время работы планирования пода в зависимости от размера нод, которые мы перебираем. Время планирования на одну ноду пока считать константнтым.
+- [x] Симулировать время работы планирования пода в зависимости от размера нод, которые мы перебираем. Время планирования на одну ноду пока считать константнтым.
 - [x] Принимать &HashMap вместо Vec<&Node> в schedule one функции интерфейса
 - [ ] Поэксперементировать с конвертацией alibaba trace в generic для ускорения загрузки и парсинга трейса с диска
 
@@ -69,3 +69,5 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] При обновлении condition у pod/node выставлять last_transition_time равный времени происшествия события на непосредственной компоненте.
 - [x] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency
 - [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов
+- [ ] ? Сделать ограничение количества подов на ноде, которое по умолчанию - не ограничено
+- [ ] Вычислять размер пула учитываем размер нод груп в автоскейлере

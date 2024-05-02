@@ -10,10 +10,12 @@ use crate::core::events::{
     BindPodToNodeRequest, NodeRemovedFromCluster, PodFinishedRunning, PodStartedRunning,
     RemoveNodeRequest
 };
-use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
-use crate::simulator::SimulationConfig;
+
+use crate::config::SimulationConfig;
+
+use crate::metrics::collector::MetricsCollector;
 
 pub struct NodeComponent {
     ctx: SimulationContext,
@@ -59,16 +61,16 @@ impl NodeComponent {
         &self.ctx.name()
     }
 
-    /// This method cancels events `PodFinishedRunning` which were submitted to the simulation queue
-    /// and which delay is >= cancellation_time.
+    /// This method cancels events `PodFinishedRunning` of a current node which were submitted to
+    /// the simulation queue and which delay is >= cancellation_time.
     /// This method is not cheap and we assume that node removals and pod cancellations happen not
     /// too often as pod creations and running. Thus, we iterate through the whole queue of
-    /// simulation events with callback returning true if event's time 
-    /// occurrence >= cancellation_time to cancel.
+    /// simulation events with callback returning `true` if should cancel event.
     fn cancel_running_pods(&mut self, cancellation_time: f64) {
+        let current_node_name = &self.runtime.as_ref().unwrap().node.metadata.name;
         self.ctx.cancel_events(|event| {
             if let Some(running_pod) = event.data.downcast_ref::<PodFinishedRunning>() {
-                if running_pod.finish_time >= cancellation_time {
+                if running_pod.finish_time >= cancellation_time && running_pod.node_name == *current_node_name {
                     return true
                 }
             }
@@ -87,6 +89,7 @@ impl NodeComponent {
         self.ctx.emit(
             PodFinishedRunning {
                 pod_name,
+                node_name: self.runtime.as_ref().unwrap().node.metadata.name.clone(),
                 finish_time: event_time + pod_duration,
                 finish_result: PodConditionType::PodSucceeded,
             },

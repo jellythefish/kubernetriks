@@ -11,20 +11,21 @@ use dslab_core::{Event, EventHandler, SimulationContext};
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest, CreateNodeRequest,
-    CreateNodeResponse, CreatePodRequest, NodeAddedToCluster, NodeFailed, NodeRemovedFromCluster,
-    PodFinishedRunning, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse, RemovePodRequest
+    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest, ClusterAutoscalerRequest,
+    ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
+    NodeAddedToCluster, NodeFailed, NodeRemovedFromCluster, PodFinishedRunning, PodNotScheduled,
+    PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse, RemovePodRequest
 };
 use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
 use crate::core::node_component_pool::NodeComponentPool;
 
-use crate::simulator::SimulationConfig;
+use crate::config::SimulationConfig;
 
 pub struct KubeApiServer {
     persistent_storage: SimComponentId,
-    scheduler: SimComponentId,
+    auto_scaler: Option<SimComponentId>,
 
     pub ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -41,14 +42,14 @@ pub struct KubeApiServer {
 impl KubeApiServer {
     pub fn new(
         persistent_storage_id: SimComponentId,
-        scheduler_id: SimComponentId,
+        auto_scaler_id: Option<SimComponentId>,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
         metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         Self {
             persistent_storage: persistent_storage_id,
-            scheduler: scheduler_id,
+            auto_scaler: auto_scaler_id,
             ctx,
             config,
             node_pool: Default::default(),
@@ -146,17 +147,9 @@ impl EventHandler for KubeApiServer {
                 node_name,
             } => {
                 if self.pending_node_removal_requests.contains(&node_name) || !self.created_nodes.contains_key(&node_name) {
-                    // Node is being removing or already removed - send back response with failure to scheduler
-                    self.ctx.emit(
-                        AssignPodToNodeResponse {
-                            assigned: false,
-                            pod_name,
-                            pod_duration: 0.0,
-                            node_name
-                        },
-                        self.scheduler,
-                        self.config.sched_to_as_network_delay,
-                    );
+                    // Node is being removing or already removed - do nothing
+                    // Scheduler will later reschedule this pod upon receiving RemoveNodeFromCache
+                    // event
                     return
                 }
                 // Redirect to persistent storage
@@ -171,7 +164,6 @@ impl EventHandler for KubeApiServer {
                 );
             }
             AssignPodToNodeResponse {
-                assigned: _,
                 pod_name,
                 pod_duration,
                 node_name,
@@ -186,6 +178,20 @@ impl EventHandler for KubeApiServer {
                     },
                     node_component.borrow().id(),
                     self.config.as_to_node_network_delay,
+                );
+            }
+            PodNotScheduled {
+                not_scheduled_time,
+                pod_name,
+            } => {
+                // Redirect to persistent storage
+                self.ctx.emit(
+                    PodNotScheduled {
+                        not_scheduled_time,
+                        pod_name,
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
                 );
             }
             PodStartedRunning {
@@ -203,18 +209,20 @@ impl EventHandler for KubeApiServer {
                 );
             }
             PodFinishedRunning {
+                pod_name,
+                node_name,
                 finish_time,
                 finish_result,
-                pod_name,
             } => {
                 self.metrics_collector.borrow_mut().pods_succeeded += 1;
                 self.metrics_collector.borrow_mut().internal.terminated_pods += 1;
                 // Redirect to persistent storage
                 self.ctx.emit(
                     PodFinishedRunning {
+                        pod_name,
+                        node_name,
                         finish_time,
                         finish_result,
-                        pod_name,
                     },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
@@ -256,6 +264,28 @@ impl EventHandler for KubeApiServer {
                     },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay
+                );
+            }
+            ClusterAutoscalerRequest {} => {
+                // Redirect to persistent storage
+                self.ctx.emit(
+                    ClusterAutoscalerRequest{},
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            ClusterAutoscalerResponse {
+                scale_up,
+                scale_down,
+            } => {
+                // Redirect to persistent storage
+                self.ctx.emit(
+                    ClusterAutoscalerResponse{
+                        scale_up,
+                        scale_down,
+                    },
+                    self.auto_scaler.unwrap(),
+                    self.config.as_to_ca_network_delay,
                 );
             }
             NodeFailed { .. } => {}

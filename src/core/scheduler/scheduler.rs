@@ -5,14 +5,13 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use std::collections::BinaryHeap;
-use std::time::Duration;
 
-use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
+use dslab_core::{cast, log_debug, log_trace, Event, EventHandler, SimulationContext};
 
 use crate::core::common::{ObjectsInfo, RuntimeResources, SimComponentId};
 use crate::core::events::{
-    AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, FlushUnschedulableQueueLeftover,
-    PodFinishedRunning, PodScheduleRequest, RemoveNodeFromCache, RunSchedulingCycle
+    AddNodeToCache, AssignPodToNodeRequest, FlushUnschedulableQueueLeftover, PodFinishedRunning,
+    PodNotScheduled, PodScheduleRequest, RemoveNodeFromCache, RunSchedulingCycle
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -21,7 +20,7 @@ use crate::core::scheduler::model::{ConstantTimePerNodeModel, PodSchedulingTimeM
 
 use crate::metrics::collector::MetricsCollector;
 
-use crate::simulator::SimulationConfig;
+use crate::config::SimulationConfig;
 
 use crate::core::scheduler::queue::{
     QueuedPodInfo, DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION, POD_FLUSH_INTERVAL
@@ -145,21 +144,19 @@ impl Scheduler {
         );
     }
 
-    fn release_node_resources(&mut self, pod_name: &str) {
-        let pod = self.objects_cache.pods.remove(pod_name).unwrap();
+    fn release_node_resources(&mut self, pod: &Pod) {
         let node = self
             .objects_cache
             .nodes
             .get_mut(&pod.status.assigned_node)
             .unwrap();
 
-        self.assignments.get_mut(&node.metadata.name).unwrap().remove(pod_name);
-
         node.status.allocatable.cpu += pod.spec.resources.requests.cpu;
         node.status.allocatable.ram += pod.spec.resources.requests.ram;
     }
 
     fn schedule_one(&self, pod: &Pod) -> Result<String, ScheduleError> {
+        log_trace!(self.ctx, "Considering {} nodes for scheduling", self.objects_cache.nodes.len());
         self.scheduler_algorithm
             .schedule_one(pod, &self.objects_cache.nodes)
     }
@@ -178,7 +175,7 @@ impl Scheduler {
         pods_to_move.reserve(self.unschedulable_pods.len());
 
         for (pod_name, queued_pod_info) in self.unschedulable_pods.iter() {
-            let pod_stay_duration = Duration::from_secs_f64(event_time - queued_pod_info.timestamp);
+            let pod_stay_duration = event_time - queued_pod_info.timestamp;
             if pod_stay_duration > DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION {
                 pods_to_move.push(pod_name.clone());
             }
@@ -186,7 +183,7 @@ impl Scheduler {
 
         self.move_pods_to_active_queue(pods_to_move);
 
-        self.ctx.emit_self(FlushUnschedulableQueueLeftover{}, POD_FLUSH_INTERVAL.as_secs_f64());
+        self.ctx.emit_self(FlushUnschedulableQueueLeftover{}, POD_FLUSH_INTERVAL);
     }
 
     /// Move pods from unschedulable to active queue which satisfy check.
@@ -228,7 +225,7 @@ impl Scheduler {
                 match self.schedule_one(pod) {
                     Ok(assigned_node) => assigned_node,
                     Err(err) => {
-                        log_debug!(
+                        log_trace!(
                             self.ctx,
                             "failed to schedule pod {:?}: {:?}",
                             next_pod.pod_name,
@@ -236,6 +233,14 @@ impl Scheduler {
                         );
                         next_pod.timestamp = scheduling_cycle_event_time + cycle_sim_duration;
                         self.unschedulable_pods.insert(next_pod.pod_name.clone(), next_pod);
+                        self.ctx.emit(
+                            PodNotScheduled{
+                                not_scheduled_time: scheduling_cycle_event_time + cycle_sim_duration,
+                                pod_name: pod.metadata.name.clone()
+                            },
+                            self.api_server,
+                            self.config.sched_to_as_network_delay,
+                        );
                         continue;
                     }
                 };
@@ -278,10 +283,11 @@ impl Scheduler {
     }
 
     fn reschedule_unfinished_pods(&mut self, node_name: &str, event_time: f64) {
-        let unfinished_pod_names = self.assignments.remove(node_name).unwrap();
-        log_debug!(self.ctx, "Rescheduling unfinished pods which were assigned previously on node {:?}: {:?}", node_name, unfinished_pod_names);
-        for pod_name in unfinished_pod_names.into_iter() {
-            self.reschedule_pod(pod_name, event_time);
+        if let Some(unfinished_pod_names) = self.assignments.remove(node_name) {
+            log_debug!(self.ctx, "Rescheduling unfinished pods which were assigned previously on node {:?}: {:?}", node_name, unfinished_pod_names);
+            for pod_name in unfinished_pod_names.into_iter() {
+                self.reschedule_pod(pod_name, event_time);
+            }
         }
     }
 }
@@ -322,22 +328,16 @@ impl EventHandler for Scheduler {
                     pod_name: Rc::new(pod_name),
                 });
             }
-            AssignPodToNodeResponse {
-                assigned,
+            PodFinishedRunning {
                 pod_name,
+                node_name,
                 ..
             } => {
-                if !assigned {
-                    self.reschedule_pod(pod_name, event.time);
-                }
-            }
-            PodFinishedRunning {
-                finish_time: _,
-                finish_result: _,
-                pod_name,
-            } => {
-                let mut freed_resources = self.objects_cache.pods.get(&pod_name).unwrap().spec.resources.requests.clone();
-                self.release_node_resources(&pod_name);
+                let pod = self.objects_cache.pods.remove(&pod_name).unwrap();
+                let mut freed_resources = pod.spec.resources.requests.clone();
+
+                self.assignments.get_mut(&node_name).unwrap().remove(&pod_name);
+                self.release_node_resources(&pod);
 
                 let check = |requested_resources: &RuntimeResources| {
                     if requested_resources.cpu <= freed_resources.cpu
@@ -387,7 +387,7 @@ mod tests {
                 config: default_kube_scheduler_config(),
             }),
             fake_sim.create_context("scheduler"),
-            Rc::new(default_test_simulation_config()),
+            Rc::new(default_test_simulation_config(None)),
             Rc::new(RefCell::new(MetricsCollector::new())),
         )
     }

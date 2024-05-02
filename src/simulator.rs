@@ -5,9 +5,10 @@ use std::cmp::max;
 use std::time::Instant;
 use std::{cell::RefCell, rc::Rc};
 
-use serde::Deserialize;
-
 use dslab_core::simulation::Simulation;
+
+use crate::autoscaler::cluster_autoscaler::ClusterAutoscaler;
+use crate::config::SimulationConfig;
 
 use crate::core::api_server::KubeApiServer;
 use crate::core::common::SimulationEvent;
@@ -21,54 +22,9 @@ use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, Kube
 use crate::core::scheduler::scheduler::Scheduler;
 
 use crate::metrics::collector::MetricsCollector;
+use crate::metrics::printer::print_metrics;
 
-use crate::metrics::printer::{print_metrics, MetricsPrinterConfig};
 use crate::trace::interface::Trace;
-
-#[derive(Debug, Deserialize, PartialEq)]
-pub struct SimulationConfig {
-    pub sim_name: String,
-    pub seed: u64,
-    pub trace_config: Option<TraceConfig>,
-    pub metrics_printer: Option<MetricsPrinterConfig>,
-    pub default_cluster: Option<Vec<NodeGroup>>,
-    pub scheduling_cycle_interval: f64, // in seconds
-    // Simulated network delays, as = api server, ps = persistent storage.
-    // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
-    pub as_to_ps_network_delay: f64,
-    pub ps_to_sched_network_delay: f64,
-    pub sched_to_as_network_delay: f64,
-    pub as_to_node_network_delay: f64,
-}
-#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
-pub struct AlibabaWorkloadTraceV2017Paths {
-    pub batch_instance_trace_path: String,
-    pub batch_task_trace_path: String,
-}
-
-#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
-pub struct GenericTracePaths {
-    pub workload_trace_path: String,
-    pub cluster_trace_path: String,
-}
-
-#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
-pub struct TraceConfig {
-    // should be one of, not both
-    pub alibaba_cluster_trace_v2017: Option<AlibabaWorkloadTraceV2017Paths>,
-    pub generic_trace: Option<GenericTracePaths>,
-}
-
-#[derive(Clone, Default, Debug, Deserialize, PartialEq)]
-pub struct NodeGroup {
-    // If node count is not none and node's metadata has name, then it's taken as a prefix of all nodes
-    // in a group.
-    // If node count is none or 1 and node's metadata has name, then it's a single node and its name is set
-    // to metadata name.
-    // If metadata has got no name, then prefix default_node(_<idx>)? is used.
-    pub node_count: Option<u64>,
-    pub node_template: Node,
-}
 
 pub struct KubernetriksSimulation {
     config: Rc<SimulationConfig>,
@@ -77,6 +33,8 @@ pub struct KubernetriksSimulation {
     pub api_server: Rc<RefCell<KubeApiServer>>,
     pub persistent_storage: Rc<RefCell<PersistentStorage>>,
     pub scheduler: Rc<RefCell<Scheduler>>,
+
+    pub cluster_autoscaler: Option<Rc<RefCell<ClusterAutoscaler>>>,
 
     pub metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
@@ -161,9 +119,25 @@ impl KubernetriksSimulation {
         let persistent_storage_context = sim.create_context(persistent_storage_component_name);
         let scheduler_context = sim.create_context(scheduler_component_name);
 
+        let mut cluster_autoscaler = None;
+        let mut cluster_autoscaler_id = None;
+
+        if config.cluster_autoscaler.enabled {
+            let cluster_auto_scaler_component_name = "cluster_autoscaler";
+            let cluster_autoscaler_ctx = sim.create_context(cluster_auto_scaler_component_name);
+            cluster_autoscaler = Some(Rc::new(RefCell::new(ClusterAutoscaler::new(
+                kube_api_server_context.id(),
+                cluster_autoscaler_ctx,
+                config.clone(),
+                metrics_collector.clone(),
+            ))));
+            cluster_autoscaler_id = Some(
+                sim.add_handler(cluster_auto_scaler_component_name, cluster_autoscaler.as_ref().unwrap().clone()));
+        }
+
         let api_server = Rc::new(RefCell::new(KubeApiServer::new(
             persistent_storage_context.id(),
-            scheduler_context.id(),
+            cluster_autoscaler_id,
             kube_api_server_context,
             config.clone(),
             metrics_collector.clone(),
@@ -202,6 +176,7 @@ impl KubernetriksSimulation {
             persistent_storage,
             scheduler,
             metrics_collector,
+            cluster_autoscaler,
         }
     }
 
@@ -246,6 +221,12 @@ impl KubernetriksSimulation {
         }
 
         self.scheduler.borrow_mut().start();
+
+        if self.config.cluster_autoscaler.enabled {
+            self.cluster_autoscaler.as_mut().unwrap().borrow_mut().start();
+        } else {
+            info!("Cluster autoscaler is disabled");
+        }
     }
 
     pub fn add_node(&mut self, mut node: Node) {

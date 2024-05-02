@@ -6,6 +6,8 @@ use dslab_kubernetriks_derive::IsSimulationEvent;
 
 use serde::Serialize;
 
+use crate::autoscaler::cluster_autoscaler::{ScaleDownInfo, ScaleUpInfo};
+
 use crate::core::node::Node;
 use crate::core::pod::{Pod, PodConditionType};
 
@@ -111,10 +113,17 @@ pub struct AssignPodToNodeRequest {
 /// Also used as event from api server to scheduler to tell about assignment error in `assigned` flag.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct AssignPodToNodeResponse {
-    pub assigned: bool,
     pub pod_name: String,
     pub pod_duration: f64,
     pub node_name: String,
+}
+
+/// Event from scheduler -> api server -> persistent storage to tell that pod cannot be scheduled
+/// temporary.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct PodNotScheduled {
+    pub not_scheduled_time: f64,
+    pub pod_name: String,
 }
 
 // Event from api server to node cluster to tell that new pod can be started (bind).
@@ -141,20 +150,36 @@ pub struct PodStartedRunning {
     pub start_time: f64,
 }
 
-// Event from node cluster to self to simulate pod running, also from node cluster to api server
-// and from api server to persistent storage to tell that pod is finished.
+// Event from node component->api server->persistent storage to tell that pod is finished.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodFinishedRunning {
     pub pod_name: String,
+    pub node_name: String,
     pub finish_time: f64,
     pub finish_result: PodConditionType, // either PodSucceeded or PodFailed
 }
 
-// Event from scheduler to itself to run pod scheduling cycle.
+/// Event from scheduler to itself to run pod scheduling cycle.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RunSchedulingCycle {}
 
-// Event from scheduler to itself to flush unschedulable queue leftover.
+/// Event from cluster autoscaler to itself to simulate working interval.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RunClusterAutoscalerCycle {}
+
+/// Event from cluster autoscaler->api server->persistent storage to find out what autoscaler
+/// should do: scale up or scale down.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct ClusterAutoscalerRequest {}
+
+/// Event from persistent storage->api server->cluster autoscaler about corresponding info to request.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct ClusterAutoscalerResponse {
+    pub scale_up: Option<ScaleUpInfo>,
+    pub scale_down: Option<ScaleDownInfo>,
+}
+
+/// Event from scheduler to itself to flush unschedulable queue leftover.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct FlushUnschedulableQueueLeftover {}
 

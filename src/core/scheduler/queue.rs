@@ -1,14 +1,14 @@
 //! Definitions for helper structs used in scheduler queues.
 
-use std::{cmp::Ordering, rc::Rc, time::Duration};
+use std::{cmp::Ordering, rc::Rc};
 
-/// Default value for the maximum time a pod can stay in unschedulablePods. If a pod stays in
+/// Default value (secs) for the maximum time a pod can stay in unschedulablePods. If a pod stays in
 /// unschedulablePods for longer than this value, no matter resources update events happened or not,
 /// the pod will be moved from unschedulablePods to backoffQ or activeQ.
-pub const DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION: Duration = Duration::from_secs(5 * 60);
+pub const DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION: f64 = 5.0 * 60.0;
 
-/// Value for the running cycle to flush pods that stay for too long. 
-pub const POD_FLUSH_INTERVAL: Duration = Duration::from_secs(30);
+/// Value (secs) for the running cycle to flush pods that stay for too long. 
+pub const POD_FLUSH_INTERVAL: f64 = 30.0;
 
 #[derive(Clone)]
 pub struct QueuedPodInfo {

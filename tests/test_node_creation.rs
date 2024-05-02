@@ -2,8 +2,10 @@ use std::rc::Rc;
 use std::vec;
 
 use dslab_kubernetriks::core::node::Node;
-use dslab_kubernetriks::simulator::{KubernetriksSimulation, NodeGroup, SimulationConfig};
+use dslab_kubernetriks::simulator::KubernetriksSimulation;
 use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
+
+use dslab_kubernetriks::config::{NodeGroup, SimulationConfig};
 
 use dslab_kubernetriks::test_util::helpers::{
     check_count_of_nodes_in_components_equals_to, check_expected_node_appeared_in_components,
@@ -16,7 +18,7 @@ fn test_node_creation_from_trace_and_default_cluster() {
     let node1 = Node::new("my_node_1".to_string(), 16000, 8589934592);
     let node2 = Node::new("trace_node_25".to_string(), 16000, 17179869184);
 
-    let mut config: SimulationConfig = default_test_simulation_config();
+    let mut config: SimulationConfig = default_test_simulation_config(None);
     config.default_cluster = Some(vec![NodeGroup {
         node_count: Some(1),
         node_template: node1.clone(),

@@ -2,12 +2,15 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::{env, vec};
 
+use env_logger::Target;
+use file_rotate::{FileRotate, ContentLimit, suffix::AppendCount, compression::Compression};
+
 use clap::Parser;
 use log::info;
 
-use dslab_kubernetriks::simulator::{
-    KubernetriksSimulation, RunUntilAllPodsAreFinishedCallbacks, SimulationConfig,
-};
+use dslab_kubernetriks::simulator::{KubernetriksSimulation, RunUntilAllPodsAreFinishedCallbacks};
+use dslab_kubernetriks::config::SimulationConfig;
+
 use dslab_kubernetriks::trace::alibaba_cluster_trace_v2017::workload::AlibabaWorkloadTraceV2017;
 use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
 use dslab_kubernetriks::trace::interface::Trace;
@@ -19,22 +22,35 @@ struct Args {
 }
 
 fn main() {
-    // log level INFO by default
+    let args = Args::parse();
+
+    let config_yaml =
+        std::fs::read_to_string(&args.config_file).expect("could not read config file");
+    let config = Rc::new(serde_yaml::from_str::<SimulationConfig>(&config_yaml).unwrap());
+
     let mut env_logger_builder = env_logger::builder();
     if env::var("RUST_LOG").is_err() {
+        // log level INFO by default
         env_logger_builder.filter_level(log::LevelFilter::Info);
     }
-    env_logger_builder.init();
 
-    let args = Args::parse();
+    if let Some(log_filepath) = &config.logs_filepath {
+        env_logger_builder.target(Target::Pipe(Box::new(FileRotate::new(
+            log_filepath.clone(),
+            AppendCount::new(50),
+            ContentLimit::Bytes(104857600),
+            Compression::None,
+            #[cfg(unix)]
+            None,
+        ))));
+    }
+
+    env_logger_builder.init();
 
     info!(
         "Path to config file: {:?}",
         args.config_file.canonicalize().unwrap()
     );
-    let config_yaml =
-        std::fs::read_to_string(&args.config_file).expect("could not read config file");
-    let config = Rc::new(serde_yaml::from_str::<SimulationConfig>(&config_yaml).unwrap());
 
     let mut cluster_trace: Box<dyn Trace>;
     let mut workload_trace: Box<dyn Trace>;

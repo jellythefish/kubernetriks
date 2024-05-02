@@ -1,5 +1,8 @@
 use crate::core::node::Node;
-use crate::simulator::{KubernetriksSimulation, SimulationConfig};
+
+use crate::simulator::KubernetriksSimulation;
+
+use crate::config::SimulationConfig;
 
 pub fn check_expected_node_is_equal_to_nodes_in_components(
     expected_node: &Node,
@@ -54,17 +57,22 @@ pub fn check_expected_node_appeared_in_components(
     kube_sim.scheduler.borrow().get_node(node_name);
 }
 
-pub fn default_test_simulation_config() -> SimulationConfig {
-    SimulationConfig {
-        sim_name: "test_kubernetriks".to_string(),
-        seed: 123,
-        metrics_printer: Default::default(),
-        trace_config: None,
-        default_cluster: None,
-        scheduling_cycle_interval: 10.0,
-        as_to_ps_network_delay: 0.050,
-        ps_to_sched_network_delay: 0.010,
-        sched_to_as_network_delay: 0.020,
-        as_to_node_network_delay: 0.150,
+pub fn default_test_simulation_config(with_suffix: Option<&str>) -> SimulationConfig {
+    let mut default = r#"
+    sim_name: "test_kubernetriks"
+    seed: 123
+    node_pool_capacity: 10
+    scheduling_cycle_interval: 10.0
+    as_to_ps_network_delay: 0.050
+    ps_to_sched_network_delay: 0.010
+    sched_to_as_network_delay: 0.020
+    as_to_node_network_delay: 0.150
+    as_to_ca_network_delay: 0.30
+    "#.to_string();
+
+    if !with_suffix.is_none() {
+        default.push_str(with_suffix.unwrap());
     }
+
+    serde_yaml::from_str::<SimulationConfig>(&default).unwrap()
 }

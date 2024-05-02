@@ -20,7 +20,7 @@ use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::node_component::{NodeComponent, NodeRuntime};
 
-use crate::simulator::SimulationConfig;
+use crate::config::SimulationConfig;
 
 #[derive(Default)]
 pub struct NodeComponentPool {
@@ -123,7 +123,7 @@ mod tests {
             node_pool.allocate_component(
                 Node::new("node".to_string(), 0, 0),
                 0,
-                Rc::new(default_test_simulation_config()),
+                Rc::new(default_test_simulation_config(None)),
             );
         }
     }
@@ -146,7 +146,7 @@ mod tests {
         let node_component = node_pool.allocate_component(
             node.clone(),
             0,
-            Rc::new(default_test_simulation_config()),
+            Rc::new(default_test_simulation_config(None)),
         );
         assert_eq!(node_pool.pool.len(), 0);
         assert_eq!(node, node_component.borrow().runtime.as_ref().unwrap().node);

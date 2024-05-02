@@ -3,13 +3,13 @@ use std::rc::Rc;
 use std::{env, vec};
 
 use env_logger::Target;
-use file_rotate::{FileRotate, ContentLimit, suffix::AppendCount, compression::Compression};
+use file_rotate::{compression::Compression, suffix::AppendCount, ContentLimit, FileRotate};
 
 use clap::Parser;
 use log::info;
 
-use dslab_kubernetriks::simulator::{KubernetriksSimulation, RunUntilAllPodsAreFinishedCallbacks};
 use dslab_kubernetriks::config::SimulationConfig;
+use dslab_kubernetriks::simulator::{KubernetriksSimulation, RunUntilAllPodsAreFinishedCallbacks};
 
 use dslab_kubernetriks::trace::alibaba_cluster_trace_v2017::workload::AlibabaWorkloadTraceV2017;
 use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
@@ -112,6 +112,5 @@ fn main() {
     let mut kubernetriks_simulation = KubernetriksSimulation::new(config);
     kubernetriks_simulation.initialize(cluster_trace.as_mut(), workload_trace.as_mut());
     info!("Running simulation...");
-    kubernetriks_simulation
-        .run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks{}));
+    kubernetriks_simulation.run_with_callbacks(Box::new(RunUntilAllPodsAreFinishedCallbacks {}));
 }

@@ -7,20 +7,20 @@ use std::{cmp::Ordering, rc::Rc};
 /// the pod will be moved from unschedulablePods to backoffQ or activeQ.
 pub const DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION: f64 = 5.0 * 60.0;
 
-/// Value (secs) for the running cycle to flush pods that stay for too long. 
+/// Value (secs) for the running cycle to flush pods that stay for too long.
 pub const POD_FLUSH_INTERVAL: f64 = 30.0;
 
 #[derive(Clone)]
 pub struct QueuedPodInfo {
     /// The time pod added to the scheduling queue.
     pub timestamp: f64,
-	/// Number of schedule attempts before successfully scheduled.
-	/// It's used to record the # attempts metric.
+    /// Number of schedule attempts before successfully scheduled.
+    /// It's used to record the # attempts metric.
     pub attempts: usize,
-	/// The time when the pod is added to the queue for the first time. The pod may be added
-	/// back to the queue multiple times before it's successfully scheduled.
-	/// It shouldn't be updated once initialized. It's used to record the e2e scheduling
-	/// latency for a pod.
+    /// The time when the pod is added to the queue for the first time. The pod may be added
+    /// back to the queue multiple times before it's successfully scheduled.
+    /// It shouldn't be updated once initialized. It's used to record the e2e scheduling
+    /// latency for a pod.
     pub initial_attempt_timestamp: f64,
     /// Reference to a name of a pod which object is stored in scheduler's objects_cache
     pub pod_name: Rc<String>,
@@ -44,7 +44,7 @@ impl PartialEq for QueuedPodInfo {
     }
 }
 
-impl Eq for QueuedPodInfo { }
+impl Eq for QueuedPodInfo {}
 
 #[cfg(test)]
 mod tests {
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn test_queue_pod_info_order() {
         let mut queue = BinaryHeap::<QueuedPodInfo>::new();
-        let mut queue_pod_info = QueuedPodInfo{
+        let mut queue_pod_info = QueuedPodInfo {
             timestamp: 1.0,
             attempts: 1,
             initial_attempt_timestamp: 1.0,

@@ -76,7 +76,7 @@ impl KubeScheduler {
         }
 
         if nodes.len() == 0 {
-            return Err(ScheduleError::NoNodesInCluster)
+            return Err(ScheduleError::NoNodesInCluster);
         }
 
         let default_scheduler_name = "default_scheduler".to_string();

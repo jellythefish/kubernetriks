@@ -11,7 +11,7 @@ use crate::config::SimulationConfig;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
     ClusterAutoscalerRequest, ClusterAutoscalerResponse, CreateNodeRequest, RemoveNodeRequest,
-    RunClusterAutoscalerCycle
+    RunClusterAutoscalerCycle,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -88,7 +88,7 @@ pub struct ScaleUpInfo {
 
 /// Information from persistent storage which contains current state of all nodes in the
 /// cluster (`nodes`), map of pod names and pod objects that were bind to autoscaled nodes
-/// (`pods_on_autoscaled_nodes`) and state of current assignments which is a map of node names to 
+/// (`pods_on_autoscaled_nodes`) and state of current assignments which is a map of node names to
 /// a set of pod names (`assignments`).
 #[derive(Serialize, Clone)]
 pub struct ScaleDownInfo {
@@ -102,22 +102,33 @@ impl ClusterAutoscaler {
         api_server: SimComponentId,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
-        metrics_collector: Rc<RefCell<MetricsCollector>>
+        metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         let mut state: HashMap<String, NodeGroup> = Default::default();
         for node_group in config.cluster_autoscaler.node_groups.iter() {
             assert!(!node_group.node_template.metadata.name.is_empty());
             let mut node_template = node_group.node_template.clone();
             node_template.status.allocatable = node_template.status.capacity.clone();
-            node_template.metadata.labels.insert("origin".to_string(), CLUSTER_AUTOSCALER_ORIGIN_LABEL.to_string());
-            node_template.metadata.labels.insert("node_group".to_string(), node_group.node_template.metadata.name.clone());
-            let group = NodeGroup{
+            node_template.metadata.labels.insert(
+                "origin".to_string(),
+                CLUSTER_AUTOSCALER_ORIGIN_LABEL.to_string(),
+            );
+            node_template.metadata.labels.insert(
+                "node_group".to_string(),
+                node_group.node_template.metadata.name.clone(),
+            );
+            let group = NodeGroup {
                 max_count: node_group.max_count,
                 current_count: 0,
                 total_allocated: 0,
                 node_template,
             };
-            assert!(state.insert(node_group.node_template.metadata.name.clone(), group).is_none(), "unique node group name should be used");
+            assert!(
+                state
+                    .insert(node_group.node_template.metadata.name.clone(), group)
+                    .is_none(),
+                "unique node group name should be used"
+            );
         }
 
         Self {
@@ -126,12 +137,16 @@ impl ClusterAutoscaler {
             ctx,
             config,
             metrics_collector,
-            state
+            state,
         }
     }
 
     pub fn start(&mut self) {
-        log_info!(self.ctx, "Cluster autoscaler started running every {} seconds", self.config.cluster_autoscaler.scan_interval);
+        log_info!(
+            self.ctx,
+            "Cluster autoscaler started running every {} seconds",
+            self.config.cluster_autoscaler.scan_interval
+        );
         self.ctx.emit_self_now(RunClusterAutoscalerCycle {});
     }
 
@@ -151,7 +166,7 @@ impl ClusterAutoscaler {
     fn run_cluster_autoscaler_cycle(&mut self, event_time: f64) {
         self.last_cycle_time = event_time;
         self.ctx.emit(
-            ClusterAutoscalerRequest{},
+            ClusterAutoscalerRequest {},
             self.api_server,
             self.config.as_to_ca_network_delay,
         );
@@ -160,8 +175,8 @@ impl ClusterAutoscaler {
     }
 
     fn node_fits_pod(pod: &Pod, node: &Node) -> bool {
-        pod.spec.resources.requests.cpu <= node.status.allocatable.cpu &&
-        pod.spec.resources.requests.ram <= node.status.allocatable.ram
+        pod.spec.resources.requests.cpu <= node.status.allocatable.cpu
+            && pod.spec.resources.requests.ram <= node.status.allocatable.ram
     }
 
     /// Searches through node group templates to find fitting one and returns a node of this template.
@@ -175,7 +190,8 @@ impl ClusterAutoscaler {
                 node_group.total_allocated += 1;
 
                 let mut node = node_group.node_template.clone();
-                node.metadata.name = format!("{}_{}", node.metadata.name, node_group.total_allocated);
+                node.metadata.name =
+                    format!("{}_{}", node.metadata.name, node_group.total_allocated);
                 node.status.allocatable = node.status.capacity.clone();
 
                 return Some(node);
@@ -189,18 +205,20 @@ impl ClusterAutoscaler {
             if Self::node_fits_pod(&pod, node) {
                 node.status.allocatable.cpu -= pod.spec.resources.requests.cpu;
                 node.status.allocatable.ram -= pod.spec.resources.requests.ram;
-                return true
+                return true;
             }
         }
-        return false
+        return false;
     }
 
     /// Calculates utilization of a node, defined as maximum of cpu and memory.
     /// Per resource utilization is the sum of requests for it divided by allocatable.
     /// Returns whether the node is underutilized based on max resource.
     fn is_under_threshold_utilization(&self, node: &Node) -> bool {
-        let cpu_utilization = (node.status.capacity.cpu - node.status.allocatable.cpu) as f64 / node.status.capacity.cpu as f64;
-        let ram_utilization = (node.status.capacity.ram - node.status.allocatable.ram) as f64 / node.status.capacity.ram as f64;
+        let cpu_utilization = (node.status.capacity.cpu - node.status.allocatable.cpu) as f64
+            / node.status.capacity.cpu as f64;
+        let ram_utilization = (node.status.capacity.ram - node.status.allocatable.ram) as f64
+            / node.status.capacity.ram as f64;
 
         let utilization: f64;
         if cpu_utilization > ram_utilization {
@@ -209,14 +227,22 @@ impl ClusterAutoscaler {
             utilization = ram_utilization;
         }
 
-        return utilization < self.config.cluster_autoscaler.scale_down_utilization_threshold
+        return utilization
+            < self
+                .config
+                .cluster_autoscaler
+                .scale_down_utilization_threshold;
     }
 
     /// Returns `true` if every pod on node with index `current_node_idx` in vector `nodes` can be
     /// placed on any other node from `nodes`.
     /// If `true` then modifies allocatable of nodes to decrease available resources, otherwise
     /// leaves nodes' allocatable unchanged.
-    fn all_pods_can_be_moved_to_other_nodes(pods: &Vec<&Pod>, nodes: &mut Vec<Node>, current_node_idx: usize) -> bool {
+    fn all_pods_can_be_moved_to_other_nodes(
+        pods: &Vec<&Pod>,
+        nodes: &mut Vec<Node>,
+        current_node_idx: usize,
+    ) -> bool {
         if pods.is_empty() {
             return true;
         }
@@ -228,7 +254,7 @@ impl ClusterAutoscaler {
             for (node_idx, node) in nodes.iter_mut().enumerate() {
                 // Skipping node which pods we are processing currently.
                 if node_idx == current_node_idx {
-                    continue
+                    continue;
                 }
 
                 if Self::node_fits_pod(pod, node) {
@@ -252,7 +278,10 @@ impl ClusterAutoscaler {
 
         // Quick check for quota not to do useless node group search.
         if self.over_quota_for_all_groups() {
-            log_debug!(self.ctx, "All node groups are scaled to their maximum node count");
+            log_debug!(
+                self.ctx,
+                "All node groups are scaled to their maximum node count"
+            );
             return;
         }
 
@@ -267,7 +296,12 @@ impl ClusterAutoscaler {
                 not_scaled_up += 1;
             }
         }
-        log_debug!(self.ctx, "Failed to scale up a node for {:?} pods out of {:?}", not_scaled_up, total_unscheduled);
+        log_debug!(
+            self.ctx,
+            "Failed to scale up a node for {:?} pods out of {:?}",
+            not_scaled_up,
+            total_unscheduled
+        );
 
         for mut node in allocated_nodes.into_iter() {
             // Restoring as we might decrease higher.
@@ -275,9 +309,7 @@ impl ClusterAutoscaler {
 
             log_debug!(self.ctx, "Scaling up new node {:?}", node);
             self.ctx.emit(
-                CreateNodeRequest{
-                    node
-                },
+                CreateNodeRequest { node },
                 self.api_server,
                 self.config.as_to_ca_network_delay,
             );
@@ -291,25 +323,35 @@ impl ClusterAutoscaler {
         node_indices_to_remove.reserve(info.nodes.len());
 
         for idx in 0..info.nodes.len() {
-            log_debug!(self.ctx, "Observing node {:?} for scaling down", info.nodes[idx]);
+            log_debug!(
+                self.ctx,
+                "Observing node {:?} for scaling down",
+                info.nodes[idx]
+            );
 
             let origin = info.nodes[idx].metadata.labels.get("origin");
             if origin.is_none() || origin.unwrap() != CLUSTER_AUTOSCALER_ORIGIN_LABEL {
-                continue
+                continue;
             }
 
             if !self.is_under_threshold_utilization(&info.nodes[idx]) {
-                continue
+                continue;
             }
 
             if let Some(assigned_pods) = info.assignments.get(&info.nodes[idx].metadata.name) {
-                let pods_on_node = assigned_pods.iter().map(
-                    |pod_name| info.pods_on_autoscaled_nodes.get(pod_name).unwrap() 
-                ).collect::<Vec<&Pod>>();
+                let pods_on_node = assigned_pods
+                    .iter()
+                    .map(|pod_name| info.pods_on_autoscaled_nodes.get(pod_name).unwrap())
+                    .collect::<Vec<&Pod>>();
 
-                if !Self::all_pods_can_be_moved_to_other_nodes(&pods_on_node, &mut info.nodes, idx) {
-                    log_debug!(self.ctx, "Cannot scale down node {:?} as not all pods can be moved to other nodes", &info.nodes[idx].metadata.name);
-                    continue
+                if !Self::all_pods_can_be_moved_to_other_nodes(&pods_on_node, &mut info.nodes, idx)
+                {
+                    log_debug!(
+                        self.ctx,
+                        "Cannot scale down node {:?} as not all pods can be moved to other nodes",
+                        &info.nodes[idx].metadata.name
+                    );
+                    continue;
                 }
             }
 
@@ -318,13 +360,16 @@ impl ClusterAutoscaler {
 
         for idx in node_indices_to_remove.into_iter() {
             let node = &info.nodes[idx];
-            let node_group_state = self.state.get_mut(node.metadata.labels.get("node_group").unwrap()).unwrap();
+            let node_group_state = self
+                .state
+                .get_mut(node.metadata.labels.get("node_group").unwrap())
+                .unwrap();
             node_group_state.current_count -= 1;
 
             log_debug!(self.ctx, "Scaling down node {:?}", &node.metadata.name);
             self.ctx.emit(
-                RemoveNodeRequest{
-                    node_name: node.metadata.name.clone()
+                RemoveNodeRequest {
+                    node_name: node.metadata.name.clone(),
                 },
                 self.api_server,
                 self.config.as_to_ca_network_delay,
@@ -346,14 +391,20 @@ impl Default for ClusterAutoscalerConfig {
     }
 }
 
-fn enabled_default() -> bool { false } // disabled by default
-fn scan_interval_default() -> f64 { 10.0 } // 10 seconds
-fn scale_down_utilization_threshold_default() -> f64 { 0.5 }
+fn enabled_default() -> bool {
+    false
+} // disabled by default
+fn scan_interval_default() -> f64 {
+    10.0
+} // 10 seconds
+fn scale_down_utilization_threshold_default() -> f64 {
+    0.5
+}
 
 impl EventHandler for ClusterAutoscaler {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
-            RunClusterAutoscalerCycle { } => {
+            RunClusterAutoscalerCycle {} => {
                 self.run_cluster_autoscaler_cycle(event.time);
             }
             ClusterAutoscalerResponse {
@@ -367,11 +418,12 @@ impl EventHandler for ClusterAutoscaler {
                 }
 
                 let mut delay = self.config.cluster_autoscaler.scan_interval;
-                if event.time - self.last_cycle_time > self.config.cluster_autoscaler.scan_interval {
+                if event.time - self.last_cycle_time > self.config.cluster_autoscaler.scan_interval
+                {
                     // schedule now as response waiting took longer than scan interval
                     delay = 0.0;
                 }
-                self.ctx.emit_self(RunClusterAutoscalerCycle{}, delay);
+                self.ctx.emit_self(RunClusterAutoscalerCycle {}, delay);
             }
         })
     }

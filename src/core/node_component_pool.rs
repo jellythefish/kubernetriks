@@ -16,9 +16,9 @@ use std::rc::Rc;
 use dslab_core::Simulation;
 
 use crate::core::common::SimComponentId;
-use crate::metrics::collector::MetricsCollector;
 use crate::core::node::Node;
 use crate::core::node_component::{NodeComponent, NodeRuntime};
+use crate::metrics::collector::MetricsCollector;
 
 use crate::config::SimulationConfig;
 

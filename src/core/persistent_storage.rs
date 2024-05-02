@@ -2,21 +2,23 @@
 //! In k8s etcd plays this role, in our simulator it is a component which implements simple
 //! in-memory key-value storage.
 
-use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
+use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
-use crate::autoscaler::cluster_autoscaler::{ScaleUpInfo, ScaleDownInfo, CLUSTER_AUTOSCALER_ORIGIN_LABEL};
+use crate::autoscaler::cluster_autoscaler::{
+    ScaleDownInfo, ScaleUpInfo, CLUSTER_AUTOSCALER_ORIGIN_LABEL,
+};
 
-use crate::core::common::{SimComponentId, ObjectsInfo};
+use crate::core::common::{ObjectsInfo, SimComponentId};
 use crate::core::events::{
-    AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, CreateNodeRequest,
-    CreateNodeResponse, CreatePodRequest, NodeAddedToCluster, PodFinishedRunning,
-    PodScheduleRequest, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse,
-    NodeRemovedFromCluster, RemoveNodeFromCache, ClusterAutoscalerRequest, ClusterAutoscalerResponse,
-    PodNotScheduled,
+    AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, ClusterAutoscalerRequest,
+    ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
+    NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning, PodNotScheduled,
+    PodScheduleRequest, PodStartedRunning, RemoveNodeFromCache, RemoveNodeRequest,
+    RemoveNodeResponse,
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
@@ -76,7 +78,8 @@ impl PersistentStorage {
                 node_name
             );
         }
-        self.assignments.insert(node_name.clone(), HashSet::default());
+        self.assignments
+            .insert(node_name.clone(), HashSet::default());
     }
 
     pub fn add_pod(&mut self, pod: Pod) {
@@ -131,15 +134,15 @@ impl PersistentStorage {
     }
 
     fn send_scale_up_info(&self) {
-        let unscheduled_pods = self.unscheduled_pods_cache.iter().map(
-            |pod_name| self.storage_data.pods.get(pod_name).unwrap().clone()
-        ).collect::<Vec<Pod>>();
+        let unscheduled_pods = self
+            .unscheduled_pods_cache
+            .iter()
+            .map(|pod_name| self.storage_data.pods.get(pod_name).unwrap().clone())
+            .collect::<Vec<Pod>>();
 
         self.ctx.emit(
             ClusterAutoscalerResponse {
-                scale_up: Some(ScaleUpInfo {
-                    unscheduled_pods
-                }),
+                scale_up: Some(ScaleUpInfo { unscheduled_pods }),
                 scale_down: None,
             },
             self.api_server,
@@ -154,7 +157,7 @@ impl PersistentStorage {
         for node in nodes.iter() {
             let origin = node.metadata.labels.get("origin");
             if origin.is_none() || origin.unwrap() != CLUSTER_AUTOSCALER_ORIGIN_LABEL {
-                continue
+                continue;
             }
 
             for pod_name in self.assignments.get(&node.metadata.name).unwrap() {
@@ -170,7 +173,7 @@ impl PersistentStorage {
                     pods_on_autoscaled_nodes,
                     nodes,
                     assignments: self.assignments.clone(),
-                })
+                }),
             },
             self.api_server,
             self.config.as_to_ps_network_delay,
@@ -185,9 +188,7 @@ impl EventHandler for PersistentStorage {
                 let node_name = node.metadata.name.clone();
                 self.add_node(node);
                 self.ctx.emit(
-                    CreateNodeResponse {
-                        node_name,
-                    },
+                    CreateNodeResponse { node_name },
                     self.api_server,
                     self.config.as_to_ps_network_delay,
                 );
@@ -200,11 +201,7 @@ impl EventHandler for PersistentStorage {
                     .nodes
                     .get_mut(&node_name)
                     .unwrap()
-                    .update_condition(
-                        "True".to_string(),
-                        NodeConditionType::NodeCreated,
-                        add_time,
-                    );
+                    .update_condition("True".to_string(), NodeConditionType::NodeCreated, add_time);
                 // tell scheduler about new node in the cluster
                 let node = self.storage_data.nodes.get(&node_name).unwrap().clone();
                 self.ctx.emit(
@@ -250,7 +247,10 @@ impl EventHandler for PersistentStorage {
                 node.status.allocatable.cpu -= pod.spec.resources.requests.cpu;
                 node.status.allocatable.ram -= pod.spec.resources.requests.ram;
 
-                self.assignments.get_mut(&node_name).unwrap().insert(pod_name.clone());
+                self.assignments
+                    .get_mut(&node_name)
+                    .unwrap()
+                    .insert(pod_name.clone());
 
                 self.ctx.emit(
                     AssignPodToNodeResponse {
@@ -268,7 +268,11 @@ impl EventHandler for PersistentStorage {
             } => {
                 // Need to update pod status for autoscaler.
                 let pod = self.storage_data.pods.get_mut(&pod_name).unwrap();
-                pod.update_condition("False".to_string(), PodConditionType::PodScheduled, not_scheduled_time);
+                pod.update_condition(
+                    "False".to_string(),
+                    PodConditionType::PodScheduled,
+                    not_scheduled_time,
+                );
                 self.unscheduled_pods_cache.insert(pod_name.clone());
             }
             PodStartedRunning {
@@ -295,7 +299,8 @@ impl EventHandler for PersistentStorage {
                 }
 
                 // Same is true for assignments also.
-                if let Some(node_assignments) = self.assignments.get_mut(&pod.status.assigned_node) {
+                if let Some(node_assignments) = self.assignments.get_mut(&pod.status.assigned_node)
+                {
                     node_assignments.remove(&pod_name);
                 }
 
@@ -310,7 +315,9 @@ impl EventHandler for PersistentStorage {
                     self.config.ps_to_sched_network_delay,
                 );
 
-                self.metrics_collector.borrow_mut().increment_pod_duration(pod.spec.running_duration);
+                self.metrics_collector
+                    .borrow_mut()
+                    .increment_pod_duration(pod.spec.running_duration);
                 self.succeeded_pods.insert(pod_name, pod);
 
                 // TODO: temporary (may be refactored) function for checking running results
@@ -321,21 +328,24 @@ impl EventHandler for PersistentStorage {
                 self.assignments.remove(&node_name).unwrap();
 
                 self.ctx.emit(
-                    RemoveNodeResponse {
-                        node_name
-                    },
+                    RemoveNodeResponse { node_name },
                     self.api_server,
                     self.config.as_to_ps_network_delay,
                 );
             }
             NodeRemovedFromCluster {
                 removal_time,
-                node_name
+                node_name,
             } => {
-                log_debug!(self.ctx, "Node {} removed from cluster at time: {}", node_name, removal_time);
+                log_debug!(
+                    self.ctx,
+                    "Node {} removed from cluster at time: {}",
+                    node_name,
+                    removal_time
+                );
 
                 // Redirects to scheduler for pod rescheduling. Scheduler knows which pods to
-                // reschedule. 
+                // reschedule.
                 self.ctx.emit(
                     RemoveNodeFromCache { node_name },
                     self.scheduler,
@@ -345,7 +355,7 @@ impl EventHandler for PersistentStorage {
             ClusterAutoscalerRequest {} => {
                 if self.unscheduled_pods_cache.len() == 0 {
                     self.send_scale_down_info();
-                    return
+                    return;
                 }
 
                 self.send_scale_up_info();

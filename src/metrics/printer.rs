@@ -1,6 +1,6 @@
-use std::{cell::RefCell, fs::File, io::Write, rc::Rc};
 use prettytable::{row, Table};
 use serde::{Deserialize, Serialize};
+use std::{cell::RefCell, fs::File, io::Write, rc::Rc};
 
 use crate::metrics::collector::MetricsCollector;
 
@@ -24,7 +24,10 @@ pub fn print_metrics(collector: Rc<RefCell<MetricsCollector>>, config: &MetricsP
     }
 }
 
-pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>, output_file: &std::path::PathBuf) {
+pub fn print_metrics_as_pretty_table(
+    collector: Rc<RefCell<MetricsCollector>>,
+    output_file: &std::path::PathBuf,
+) {
     let metrics = collector.borrow();
     let mut metrics_file = File::create(output_file).unwrap();
 
@@ -36,7 +39,10 @@ pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>, o
     aggregated_table.add_row(row!["Pods unschedulable", metrics.pods_unschedulable]);
     aggregated_table.add_row(row!["Pods failed", metrics.pods_failed]);
     aggregated_table.add_row(row!["Total scaled up nodes", metrics.total_scaled_up_nodes]);
-    aggregated_table.add_row(row!["Total scaled down nodes", metrics.total_scaled_down_nodes]);
+    aggregated_table.add_row(row![
+        "Total scaled down nodes",
+        metrics.total_scaled_down_nodes
+    ]);
 
     let mut stats_table = Table::new();
     stats_table.add_row(row!["Metric", "Min", "Max", "Mean", "Variance"]);
@@ -52,7 +58,9 @@ pub fn print_metrics_as_pretty_table(collector: Rc<RefCell<MetricsCollector>>, o
         metrics.pod_scheduling_algorithm_latency_stats.min(),
         metrics.pod_scheduling_algorithm_latency_stats.max(),
         metrics.pod_scheduling_algorithm_latency_stats.mean(),
-        metrics.pod_scheduling_algorithm_latency_stats.population_variance()
+        metrics
+            .pod_scheduling_algorithm_latency_stats
+            .population_variance()
     ]);
     stats_table.add_row(row![
         "Pod queue time",
@@ -98,12 +106,15 @@ struct TimingsStats {
     variance: f64,
 }
 
-pub fn print_metrics_as_json(collector: Rc<RefCell<MetricsCollector>>, output_file: &std::path::PathBuf) {
+pub fn print_metrics_as_json(
+    collector: Rc<RefCell<MetricsCollector>>,
+    output_file: &std::path::PathBuf,
+) {
     let metrics = collector.borrow();
     let mut metrics_file = File::create(output_file).unwrap();
 
-    let metrics = MetricsJSON{
-        counters: Counters{
+    let metrics = MetricsJSON {
+        counters: Counters {
             total_nodes_in_trace: metrics.total_nodes_in_trace,
             total_pods_in_trace: metrics.total_pods_in_trace,
             pods_succeeded: metrics.pods_succeeded,
@@ -112,20 +123,22 @@ pub fn print_metrics_as_json(collector: Rc<RefCell<MetricsCollector>>, output_fi
             total_scaled_up_nodes: metrics.total_scaled_up_nodes,
             total_scaled_down_nodes: metrics.total_scaled_down_nodes,
         },
-        timings: Timings{
-            pod_duration: TimingsStats{
+        timings: Timings {
+            pod_duration: TimingsStats {
                 min: metrics.pod_duration_stats.min(),
                 max: metrics.pod_duration_stats.max(),
                 mean: metrics.pod_duration_stats.mean(),
                 variance: metrics.pod_duration_stats.population_variance(),
             },
-            pod_schedule_time: TimingsStats{
+            pod_schedule_time: TimingsStats {
                 min: metrics.pod_scheduling_algorithm_latency_stats.min(),
                 max: metrics.pod_scheduling_algorithm_latency_stats.max(),
                 mean: metrics.pod_scheduling_algorithm_latency_stats.mean(),
-                variance: metrics.pod_scheduling_algorithm_latency_stats.population_variance(),
+                variance: metrics
+                    .pod_scheduling_algorithm_latency_stats
+                    .population_variance(),
             },
-            pod_queue_time: TimingsStats{
+            pod_queue_time: TimingsStats {
                 min: metrics.pod_queue_time_stats.min(),
                 max: metrics.pod_queue_time_stats.max(),
                 mean: metrics.pod_queue_time_stats.mean(),

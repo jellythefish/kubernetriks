@@ -13,12 +13,14 @@ concatenate!(
 
 #[derive(Default)]
 pub struct EstimatorWrapper {
-    estimator: Estimator
+    estimator: Estimator,
 }
 
 impl EstimatorWrapper {
     pub fn new() -> Self {
-        Self { estimator: Estimator::new() }
+        Self {
+            estimator: Estimator::new(),
+        }
     }
 
     pub fn add(&mut self, value: f64) {
@@ -32,7 +34,7 @@ impl EstimatorWrapper {
     pub fn max(&self) -> f64 {
         self.estimator.max()
     }
-    
+
     pub fn mean(&self) -> f64 {
         self.estimator.mean()
     }
@@ -41,7 +43,6 @@ impl EstimatorWrapper {
         self.estimator.population_variance()
     }
 }
-
 
 #[derive(Default)]
 pub(crate) struct InternalMetrics {
@@ -83,9 +84,9 @@ pub struct MetricsCollector {
 
     // Auto scaler metrics
     /// Total number of scaled up nodes
-    pub total_scaled_up_nodes: u64, 
+    pub total_scaled_up_nodes: u64,
     /// Total number of scaled down nodes
-    pub total_scaled_down_nodes: u64, 
+    pub total_scaled_down_nodes: u64,
 
     pub(crate) internal: InternalMetrics,
 }
@@ -103,7 +104,10 @@ impl MetricsCollector {
             pod_queue_time_stats: EstimatorWrapper::new(),
             total_scaled_up_nodes: 0,
             total_scaled_down_nodes: 0,
-            internal: InternalMetrics { processed_nodes: 0, terminated_pods: 0 }
+            internal: InternalMetrics {
+                processed_nodes: 0,
+                terminated_pods: 0,
+            },
         }
     }
 

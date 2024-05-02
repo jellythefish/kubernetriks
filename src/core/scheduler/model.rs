@@ -9,12 +9,14 @@ pub trait PodSchedulingTimeModel {
 }
 
 pub struct ConstantTimePerNodeModel {
-    constant_time_per_node: f64
+    constant_time_per_node: f64,
 }
 
 impl Default for ConstantTimePerNodeModel {
     fn default() -> Self {
-        Self { constant_time_per_node: 0.000001 } // 1 us
+        Self {
+            constant_time_per_node: 0.000001,
+        } // 1 us
     }
 }
 

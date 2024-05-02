@@ -45,8 +45,7 @@ fn test_config_default_cluster_with_no_name_prefix() {
               ram: 18589934592
     "#,
     ));
-    let mut kube_sim =
-        KubernetriksSimulation::new(Rc::new(config));
+    let mut kube_sim = KubernetriksSimulation::new(Rc::new(config));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(30, &kube_sim);
@@ -99,8 +98,7 @@ fn test_config_default_cluster_no_node_count() {
     "#,
     ));
 
-    let mut kube_sim =
-        KubernetriksSimulation::new(Rc::new(config));
+    let mut kube_sim = KubernetriksSimulation::new(Rc::new(config));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);
@@ -149,8 +147,7 @@ fn test_config_default_cluster_has_name_prefix() {
     "#,
     ));
 
-    let mut kube_sim =
-        KubernetriksSimulation::new(Rc::new(config));
+    let mut kube_sim = KubernetriksSimulation::new(Rc::new(config));
     kube_sim.initialize_default_cluster();
 
     check_count_of_nodes_in_components_equals_to(4, &kube_sim);

@@ -52,24 +52,29 @@ pub trait SimulationCallbacks {
     fn on_simulation_finish(&mut self, _sim: &mut KubernetriksSimulation) {}
 }
 
-pub struct RunUntilAllPodsAreFinishedCallbacks {
-}
+pub struct RunUntilAllPodsAreFinishedCallbacks {}
 
 impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if sim.sim.time() % 1000.0 == 0.0 {
             let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
             let total_pods_in_trace = sim.metrics_collector.borrow().total_pods_in_trace;
-            info!("Processed {} out of {} pods", terminated_pods, total_pods_in_trace);
+            info!(
+                "Processed {} out of {} pods",
+                terminated_pods, total_pods_in_trace
+            );
 
-            return terminated_pods < total_pods_in_trace
+            return terminated_pods < total_pods_in_trace;
         }
         true
     }
 
     fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
         if !sim.config.metrics_printer.is_none() {
-            print_metrics(sim.metrics_collector.clone(), sim.config.metrics_printer.as_ref().unwrap());
+            print_metrics(
+                sim.metrics_collector.clone(),
+                sim.config.metrics_printer.as_ref().unwrap(),
+            );
         };
 
         let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
@@ -77,7 +82,10 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
         let pods_unschedulable = sim.metrics_collector.borrow().pods_unschedulable;
         let pods_failed = sim.metrics_collector.borrow().pods_failed;
 
-        assert_eq!(terminated_pods, pods_succeeded + pods_unschedulable + pods_failed);
+        assert_eq!(
+            terminated_pods,
+            pods_succeeded + pods_unschedulable + pods_failed
+        );
     }
 }
 
@@ -131,8 +139,10 @@ impl KubernetriksSimulation {
                 config.clone(),
                 metrics_collector.clone(),
             ))));
-            cluster_autoscaler_id = Some(
-                sim.add_handler(cluster_auto_scaler_component_name, cluster_autoscaler.as_ref().unwrap().clone()));
+            cluster_autoscaler_id = Some(sim.add_handler(
+                cluster_auto_scaler_component_name,
+                cluster_autoscaler.as_ref().unwrap().clone(),
+            ));
         }
 
         let api_server = Rc::new(RefCell::new(KubeApiServer::new(
@@ -223,7 +233,11 @@ impl KubernetriksSimulation {
         self.scheduler.borrow_mut().start();
 
         if self.config.cluster_autoscaler.enabled {
-            self.cluster_autoscaler.as_mut().unwrap().borrow_mut().start();
+            self.cluster_autoscaler
+                .as_mut()
+                .unwrap()
+                .borrow_mut()
+                .start();
         } else {
             info!("Cluster autoscaler is disabled");
         }

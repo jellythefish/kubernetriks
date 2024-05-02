@@ -41,7 +41,7 @@ pub struct NodeAddedToCluster {
 
 /// Event from client or cluster autoscaler to api server to tell that node should be removed from
 /// a cluster due to general reasons such as scaling down or maintenance. Api server redirects this
-/// event to persistent storage 
+/// event to persistent storage
 /// Does not reflect node failures.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RemoveNodeRequest {

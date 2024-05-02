@@ -8,7 +8,7 @@ use dslab_core::{cast, Event, EventHandler, SimulationContext};
 use crate::core::common::SimComponentId;
 use crate::core::events::{
     BindPodToNodeRequest, NodeRemovedFromCluster, PodFinishedRunning, PodStartedRunning,
-    RemoveNodeRequest
+    RemoveNodeRequest,
 };
 use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
@@ -70,11 +70,13 @@ impl NodeComponent {
         let current_node_name = &self.runtime.as_ref().unwrap().node.metadata.name;
         self.ctx.cancel_events(|event| {
             if let Some(running_pod) = event.data.downcast_ref::<PodFinishedRunning>() {
-                if running_pod.finish_time >= cancellation_time && running_pod.node_name == *current_node_name {
-                    return true
+                if running_pod.finish_time >= cancellation_time
+                    && running_pod.node_name == *current_node_name
+                {
+                    return true;
                 }
             }
-            return false
+            return false;
         });
     }
 
@@ -107,7 +109,10 @@ impl EventHandler for NodeComponent {
                 pod_duration,
                 node_name,
             } => {
-                assert!(!self.removed, "Pod is assigned on node which is being removed, looks like a bug.");
+                assert!(
+                    !self.removed,
+                    "Pod is assigned on node which is being removed, looks like a bug."
+                );
                 assert_eq!(
                     node_name,
                     self.node_name(),
@@ -132,11 +137,15 @@ impl EventHandler for NodeComponent {
                         .as_to_node_network_delay,
                 );
             }
-            RemoveNodeRequest {
-                node_name
-            } => {
+            RemoveNodeRequest { node_name } => {
                 self.removed = true;
-                assert_eq!(node_name, self.node_name(), "Trying to remove other node than self: {:?} vs {:?}", node_name, self.node_name());
+                assert_eq!(
+                    node_name,
+                    self.node_name(),
+                    "Trying to remove other node than self: {:?} vs {:?}",
+                    node_name,
+                    self.node_name()
+                );
                 // Here we should cancel all events which have been already submitted to simulation
                 // queue as running events as we terminate.
                 self.cancel_running_pods(event.time);
@@ -144,10 +153,14 @@ impl EventHandler for NodeComponent {
                 self.ctx.emit(
                     NodeRemovedFromCluster {
                         removal_time: event.time,
-                        node_name
+                        node_name,
                     },
                     self.runtime.as_ref().unwrap().api_server,
-                    self.runtime.as_ref().unwrap().config.as_to_node_network_delay,
+                    self.runtime
+                        .as_ref()
+                        .unwrap()
+                        .config
+                        .as_to_node_network_delay,
                 );
             }
         });

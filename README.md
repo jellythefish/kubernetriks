@@ -70,7 +70,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency
 - [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов
 - [ ] ? Сделать ограничение количества подов на ноде, которое по умолчанию - не ограничено
-- [ ] Вычислять размер пула учитываем размер нод груп в автоскейлере
+- [x] Вычислять размер пула с учетом размеров нод груп в автоскейлере
 
 - [ ] Вычислять метрики: время работы ноды x кол-во cpu - процессорное время + получаем суммарное время со всех нод. Также для памяти - cpu seconds/memory seconds
 - [ ] Улучшить интерфейс cluster autoscaler-a: + сделать из ClusterAutoscalerResponse enum?

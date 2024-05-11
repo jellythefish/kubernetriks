@@ -202,8 +202,13 @@ impl KubernetriksSimulation {
         assert_eq!(self.sim.time(), 0.0);
 
         let cluster_trace_events = cluster_trace.convert_to_simulator_events();
-        let max_nodes = max_nodes_in_trace(&cluster_trace_events);
-        info!("Node pool capacity={:?} (from trace)", max_nodes);
+        let trace_max_nodes = max_nodes_in_trace(&cluster_trace_events);
+        let mut autoscaler_max_nodes = 0usize;
+        if self.config.cluster_autoscaler.enabled {
+            autoscaler_max_nodes = self.cluster_autoscaler.as_ref().unwrap().borrow().max_nodes();
+        }
+        let max_nodes = trace_max_nodes + autoscaler_max_nodes;
+        info!("Node pool capacity={:?} ({:?} from trace and {:?} from cluster autoscaler)", max_nodes, trace_max_nodes, autoscaler_max_nodes);
 
         self.api_server
             .borrow_mut()

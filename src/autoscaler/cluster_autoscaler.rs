@@ -150,6 +150,14 @@ impl ClusterAutoscaler {
         self.ctx.emit_self_now(RunClusterAutoscalerCycle {});
     }
 
+    pub fn max_nodes(&self) -> usize {
+        let mut total_max_nodes = 0;
+        for node_group in self.state.values() {
+            total_max_nodes += node_group.max_count;
+        }
+        total_max_nodes as usize
+    }
+
     pub fn over_quota_for_all_groups(&self) -> bool {
         for group in self.state.values() {
             if group.current_count < group.max_count {

@@ -71,3 +71,14 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов
 - [ ] ? Сделать ограничение количества подов на ноде, которое по умолчанию - не ограничено
 - [ ] Вычислять размер пула учитываем размер нод груп в автоскейлере
+
+- [ ] Вычислять метрики: время работы ноды x кол-во cpu - процессорное время + получаем суммарное время со всех нод. Также для памяти - cpu seconds/memory seconds
+- [ ] Улучшить интерфейс cluster autoscaler-a: + сделать из ClusterAutoscalerResponse enum?
+```
+// interface: trait ScaleUpAlgorithm 
+// fn autoscale(&mut self, info: Info) -> Vec<Action> Action=Create/Remove node request
+// leave default behaviour as k8s does
+// flag for cluster autoscaler request to request only needed information
+```
+- [ ] Подумать над тем, как сделать приоритеты в перемещении подов из unschedulable queue в hashmap (BTreeMap?)
+- [ ] Убрать недетерминированность с помощью замены HashMap на BTreeMap

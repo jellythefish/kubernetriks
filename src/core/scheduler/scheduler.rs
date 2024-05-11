@@ -3,7 +3,6 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
-
 use std::collections::BinaryHeap;
 
 use dslab_core::{cast, log_debug, log_trace, Event, EventHandler, SimulationContext};
@@ -23,7 +22,8 @@ use crate::metrics::collector::MetricsCollector;
 use crate::config::SimulationConfig;
 
 use crate::core::scheduler::queue::{
-    QueuedPodInfo, DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION, POD_FLUSH_INTERVAL,
+    QueuedPodInfo, UnschedulablePodKey, DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION,
+    POD_FLUSH_INTERVAL,
 };
 
 pub struct Scheduler {
@@ -45,7 +45,7 @@ pub struct Scheduler {
     /// Map of pod names and their queue info which cannot be schedulable at the moment.
     /// Moves to active queue either if DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION exceeded or
     /// event of interest (PodFinishedRunning, AddNodeToCache) occurred.
-    unschedulable_pods: BTreeMap<Rc<String>, QueuedPodInfo>,
+    unschedulable_pods: BTreeMap<UnschedulablePodKey, QueuedPodInfo>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -168,9 +168,9 @@ impl Scheduler {
             .schedule_one(pod, &self.objects_cache.nodes)
     }
 
-    fn move_pods_to_active_queue(&mut self, pod_names: Vec<Rc<String>>) {
-        for pod_name in pod_names.into_iter() {
-            let mut queue_pod_info = self.unschedulable_pods.remove(&pod_name).unwrap();
+    fn move_pods_to_active_queue(&mut self, unscheduled_pods: Vec<UnschedulablePodKey>) {
+        for key in unscheduled_pods.into_iter() {
+            let mut queue_pod_info = self.unschedulable_pods.remove(&key).unwrap();
             queue_pod_info.attempts += 1;
             self.action_queue.push(queue_pod_info);
         }
@@ -178,13 +178,13 @@ impl Scheduler {
 
     /// Flushes pods to the active queue which stays in unschedulable queue for too long.
     fn flush_unschedulable_pods_leftover(&mut self, event_time: f64) {
-        let mut pods_to_move: Vec<Rc<String>> = vec![];
+        let mut pods_to_move: Vec<UnschedulablePodKey> = vec![];
         pods_to_move.reserve(self.unschedulable_pods.len());
 
-        for (pod_name, queued_pod_info) in self.unschedulable_pods.iter() {
+        for (key, queued_pod_info) in self.unschedulable_pods.iter() {
             let pod_stay_duration = event_time - queued_pod_info.timestamp;
             if pod_stay_duration > DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION {
-                pods_to_move.push(pod_name.clone());
+                pods_to_move.push(key.clone());
             }
         }
 
@@ -203,10 +203,10 @@ impl Scheduler {
         &mut self,
         mut check: impl FnMut(&RuntimeResources) -> bool,
     ) {
-        let mut pods_to_move: Vec<Rc<String>> = vec![];
+        let mut pods_to_move: Vec<UnschedulablePodKey> = vec![];
         pods_to_move.reserve(self.unschedulable_pods.len());
 
-        for (pod_name, queued_pod_info) in self.unschedulable_pods.iter() {
+        for (key, queued_pod_info) in self.unschedulable_pods.iter() {
             if check(
                 &self
                     .objects_cache
@@ -217,7 +217,7 @@ impl Scheduler {
                     .resources
                     .requests,
             ) {
-                pods_to_move.push(pod_name.clone());
+                pods_to_move.push(key.clone());
             }
         }
 
@@ -254,8 +254,13 @@ impl Scheduler {
                         err
                     );
                     next_pod.timestamp = scheduling_cycle_event_time + cycle_sim_duration;
-                    self.unschedulable_pods
-                        .insert(next_pod.pod_name.clone(), next_pod);
+                    self.unschedulable_pods.insert(
+                        UnschedulablePodKey{
+                            pod_name: next_pod.pod_name.clone(),
+                            insert_timestamp: next_pod.timestamp
+                        },
+                        next_pod,
+                    );
                     self.ctx.emit(
                         PodNotScheduled {
                             not_scheduled_time: scheduling_cycle_event_time + cycle_sim_duration,

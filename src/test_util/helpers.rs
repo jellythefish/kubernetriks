@@ -77,3 +77,9 @@ pub fn default_test_simulation_config(with_suffix: Option<&str>) -> SimulationCo
 
     serde_yaml::from_str::<SimulationConfig>(&default).unwrap()
 }
+
+pub fn init_logger() {
+    let mut env_logger_builder = env_logger::builder();
+    env_logger_builder.filter_level(log::LevelFilter::Trace);
+    env_logger_builder.init();
+}

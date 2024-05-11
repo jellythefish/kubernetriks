@@ -1,11 +1,11 @@
 //! Models which simulates the time of pod scheduling based on different parameters.
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::core::{node::Node, pod::Pod};
 
 pub trait PodSchedulingTimeModel {
-    fn simulate_time(&self, pod: &Pod, nodes: &HashMap<String, Node>) -> f64;
+    fn simulate_time(&self, pod: &Pod, nodes: &BTreeMap<String, Node>) -> f64;
 }
 
 pub struct ConstantTimePerNodeModel {
@@ -21,7 +21,7 @@ impl Default for ConstantTimePerNodeModel {
 }
 
 impl PodSchedulingTimeModel for ConstantTimePerNodeModel {
-    fn simulate_time(&self, _pod: &Pod, nodes: &HashMap<String, Node>) -> f64 {
+    fn simulate_time(&self, _pod: &Pod, nodes: &BTreeMap<String, Node>) -> f64 {
         self.constant_time_per_node * nodes.len() as f64
     }
 }

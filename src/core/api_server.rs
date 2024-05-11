@@ -229,7 +229,7 @@ impl EventHandler for KubeApiServer {
             RemoveNodeRequest { node_name } => {
                 self.pending_node_removal_requests.insert(node_name.clone());
                 // Redirects to persistent storage first to persist removal request
-                self.ctx.emit_ordered(
+                self.ctx.emit(
                     RemoveNodeRequest { node_name },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
@@ -239,7 +239,7 @@ impl EventHandler for KubeApiServer {
                 // Info about removal is persisted, send message to node component to terminate
                 // as it's being removed.
                 let node_component = self.created_nodes.get(&node_name).unwrap();
-                self.ctx.emit_ordered(
+                self.ctx.emit(
                     RemoveNodeRequest { node_name },
                     node_component.borrow().id(),
                     self.config.as_to_node_network_delay,
@@ -254,7 +254,7 @@ impl EventHandler for KubeApiServer {
                 self.pending_node_removal_requests.remove(&node_name);
 
                 // Redirect to persistent storage
-                self.ctx.emit_ordered(
+                self.ctx.emit(
                     NodeRemovedFromCluster {
                         removal_time,
                         node_name: node_name.to_string(),

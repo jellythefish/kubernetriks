@@ -81,4 +81,4 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 // flag for cluster autoscaler request to request only needed information
 ```
 - [ ] Подумать над тем, как сделать приоритеты в перемещении подов из unschedulable queue в hashmap (BTreeMap?)
-- [ ] Убрать недетерминированность с помощью замены HashMap на BTreeMap
+- [x] Убрать недетерминированность с помощью замены HashMap на BTreeMap

@@ -1,10 +1,11 @@
 //! Implements cluster autoscaler based on node resources utilization.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, log_info, Event, EventHandler, SimulationContext};
+
 use serde::{Deserialize, Serialize};
 
 use crate::config::SimulationConfig;
@@ -45,7 +46,7 @@ pub struct ClusterAutoscaler {
     last_cycle_time: f64,
 
     /// Represents how much nodes were scaled up for each node group.
-    state: HashMap<String, NodeGroup>,
+    state: BTreeMap<String, NodeGroup>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -94,7 +95,7 @@ pub struct ScaleUpInfo {
 pub struct ScaleDownInfo {
     pub nodes: Vec<Node>,
     pub pods_on_autoscaled_nodes: HashMap<String, Pod>,
-    pub assignments: HashMap<String, HashSet<String>>,
+    pub assignments: HashMap<String, BTreeSet<String>>,
 }
 
 impl ClusterAutoscaler {
@@ -104,7 +105,7 @@ impl ClusterAutoscaler {
         config: Rc<SimulationConfig>,
         metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
-        let mut state: HashMap<String, NodeGroup> = Default::default();
+        let mut state: BTreeMap<String, NodeGroup> = Default::default();
         for node_group in config.cluster_autoscaler.node_groups.iter() {
             assert!(!node_group.node_template.metadata.name.is_empty());
             let mut node_template = node_group.node_template.clone();

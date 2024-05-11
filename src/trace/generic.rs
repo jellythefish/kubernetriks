@@ -18,13 +18,13 @@ use crate::trace::interface::Trace;
 /// events GenericTrace implements Trace.
 #[derive(Default, Debug, Deserialize, PartialEq)]
 pub struct GenericWorkloadTrace {
-    events: Vec<WorkloadEvent>,
+    pub events: Vec<WorkloadEvent>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct WorkloadEvent {
-    timestamp: f64, // in seconds with fractional part
-    event_type: WorkloadEventType,
+    pub timestamp: f64, // in seconds with fractional part
+    pub event_type: WorkloadEventType,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]

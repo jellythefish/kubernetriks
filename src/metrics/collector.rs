@@ -11,9 +11,19 @@ concatenate!(
     [Variance, population_variance]
 );
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct EstimatorWrapper {
     estimator: Estimator,
+}
+
+impl std::fmt::Debug for Estimator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Estimator")
+            .field("min", &self.min)
+            .field("max", &self.max)
+            .field("mean", &self.mean)
+            .field("population_variance", &self.population_variance).finish()
+    }
 }
 
 impl EstimatorWrapper {
@@ -41,6 +51,15 @@ impl EstimatorWrapper {
 
     pub fn population_variance(&self) -> f64 {
         self.estimator.population_variance()
+    }
+}
+
+impl PartialEq for EstimatorWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.min() == other.min() &&
+        self.max() == other.max() &&
+        self.mean() == other.mean() &&
+        self.population_variance() == other.population_variance()
     }
 }
 

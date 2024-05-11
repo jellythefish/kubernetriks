@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use downcast_rs::impl_downcast;
 use dyn_clone::clone_trait_object;
@@ -51,7 +51,7 @@ pub struct RuntimeResources {
 #[derive(Default)]
 pub struct ObjectsInfo {
     // State about current nodes of a cluster: <Node name, Node>
-    pub nodes: HashMap<String, Node>,
+    pub nodes: BTreeMap<String, Node>,
     // State about current pods of a cluster: <Pod name, Pod>
-    pub pods: HashMap<String, Pod>,
+    pub pods: BTreeMap<String, Pod>,
 }

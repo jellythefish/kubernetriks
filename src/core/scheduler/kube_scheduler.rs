@@ -1,7 +1,7 @@
 //! Implementation of kube-scheduler component which is responsible for scheduling pods for nodes.
 
 use std::borrow::Borrow;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -68,7 +68,7 @@ impl KubeScheduler {
     fn schedule_one(
         &self,
         pod: &Pod,
-        nodes: &HashMap<String, Node>,
+        nodes: &BTreeMap<String, Node>,
     ) -> Result<String, ScheduleError> {
         let requested_resources = &pod.spec.resources.requests;
         if requested_resources.cpu == 0 && requested_resources.ram == 0 {
@@ -110,7 +110,7 @@ impl KubeScheduler {
             return Err(ScheduleError::NoSufficientResources);
         }
 
-        let mut node_scores: HashMap<&str, (&Node, f64)> = Default::default();
+        let mut node_scores: BTreeMap<&str, (&Node, f64)> = Default::default();
 
         for scorer in self
             .config
@@ -156,7 +156,7 @@ impl PodSchedulingAlgorithm for KubeScheduler {
     fn schedule_one(
         &self,
         pod: &Pod,
-        nodes: &HashMap<String, Node>,
+        nodes: &BTreeMap<String, Node>,
     ) -> Result<String, ScheduleError> {
         KubeScheduler::schedule_one(self, pod, nodes)
     }

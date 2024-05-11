@@ -3,7 +3,7 @@
 //! in-memory key-value storage.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
@@ -33,11 +33,11 @@ pub struct PersistentStorage {
 
     storage_data: ObjectsInfo,
     /// Map of node name and pod names which were assigned to that node.
-    assignments: HashMap<String, HashSet<String>>,
     /// Pods that finished running successfully. Transferred from `storage_data` upon finish.
+    assignments: HashMap<String, BTreeSet<String>>,
     pub succeeded_pods: HashMap<String, Pod>,
 
-    unscheduled_pods_cache: HashSet<String>,
+    unscheduled_pods_cache: BTreeSet<String>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -79,7 +79,7 @@ impl PersistentStorage {
             );
         }
         self.assignments
-            .insert(node_name.clone(), HashSet::default());
+            .insert(node_name.clone(), BTreeSet::default());
     }
 
     pub fn add_pod(&mut self, pod: Pod) {
@@ -170,8 +170,8 @@ impl PersistentStorage {
             ClusterAutoscalerResponse {
                 scale_up: None,
                 scale_down: Some(ScaleDownInfo {
-                    pods_on_autoscaled_nodes,
                     nodes,
+                    pods_on_autoscaled_nodes,
                     assignments: self.assignments.clone(),
                 }),
             },

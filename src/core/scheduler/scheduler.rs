@@ -1,7 +1,7 @@
 //! Implementation of scheduler component which is responsible for scheduling pods for nodes.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 
 use std::collections::BinaryHeap;
@@ -32,7 +32,7 @@ pub struct Scheduler {
     /// Cache which is updated based on events from persistent storage
     objects_cache: ObjectsInfo,
     /// Map from node name to pods that were assigned to that node
-    assignments: HashMap<String, HashSet<String>>,
+    assignments: HashMap<String, BTreeSet<String>>,
 
     scheduler_algorithm: Box<dyn PodSchedulingAlgorithm>,
 
@@ -45,7 +45,7 @@ pub struct Scheduler {
     /// Map of pod names and their queue info which cannot be schedulable at the moment.
     /// Moves to active queue either if DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION exceeded or
     /// event of interest (PodFinishedRunning, AddNodeToCache) occurred.
-    unschedulable_pods: HashMap<Rc<String>, QueuedPodInfo>,
+    unschedulable_pods: BTreeMap<Rc<String>, QueuedPodInfo>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -128,7 +128,7 @@ impl Scheduler {
             }
             None => {
                 self.assignments
-                    .insert(node_name.to_string(), HashSet::from([pod_name.to_string()]));
+                    .insert(node_name.to_string(), BTreeSet::from([pod_name.to_string()]));
             }
         };
 

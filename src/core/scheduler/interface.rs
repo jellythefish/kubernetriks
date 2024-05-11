@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -18,6 +18,6 @@ pub trait PodSchedulingAlgorithm {
     fn schedule_one(
         &self,
         pod: &Pod,
-        nodes: &HashMap<String, Node>,
+        nodes: &BTreeMap<String, Node>,
     ) -> Result<String, ScheduleError>;
 }

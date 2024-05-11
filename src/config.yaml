@@ -9,23 +9,24 @@ metrics_printer:
 
 cluster_autoscaler:
   enabled: true
-  node_groups:
-    - max_count: 50
-      node_template:
-        metadata:
-          name: autoscaler_128cpu_256gb_node
-        status:
-          capacity:
-            cpu: 128000
-            ram: 274877906944
-    - max_count: 100
-      node_template:
-        metadata:
-          name: autoscaler_64cpu_128gb_node
-        status:
-          capacity:
-            cpu: 64000
-            ram: 137438953472
+  kube_cluster_autoscaler:
+    node_groups:
+      - max_count: 50
+        node_template:
+          metadata:
+            name: autoscaler_128cpu_256gb_node
+          status:
+            capacity:
+              cpu: 128000
+              ram: 274877906944
+      - max_count: 100
+        node_template:
+          metadata:
+            name: autoscaler_64cpu_128gb_node
+          status:
+            capacity:
+              cpu: 64000
+              ram: 137438953472
 
 trace_config:
   # generic_trace:

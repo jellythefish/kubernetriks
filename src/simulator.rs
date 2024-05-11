@@ -8,6 +8,7 @@ use std::{cell::RefCell, rc::Rc};
 use dslab_core::simulation::Simulation;
 
 use crate::autoscaler::cluster_autoscaler::ClusterAutoscaler;
+use crate::autoscaler::kube_cluster_autoscaler::KubeClusterAutoscaler;
 use crate::config::SimulationConfig;
 
 use crate::core::api_server::KubeApiServer;
@@ -132,9 +133,15 @@ impl KubernetriksSimulation {
 
         if config.cluster_autoscaler.enabled {
             let cluster_auto_scaler_component_name = "cluster_autoscaler";
+            let kube_cluster_auto_scaler_component_name = "kube_cluster_autoscaler";
             let cluster_autoscaler_ctx = sim.create_context(cluster_auto_scaler_component_name);
+            let kube_cluster_autoscaler_ctx = sim.create_context(kube_cluster_auto_scaler_component_name);
             cluster_autoscaler = Some(Rc::new(RefCell::new(ClusterAutoscaler::new(
                 kube_api_server_context.id(),
+                Box::new(KubeClusterAutoscaler::new(
+                    config.clone(),
+                    kube_cluster_autoscaler_ctx,
+                )),
                 cluster_autoscaler_ctx,
                 config.clone(),
                 metrics_collector.clone(),

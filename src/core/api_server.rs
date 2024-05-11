@@ -263,10 +263,12 @@ impl EventHandler for KubeApiServer {
                     self.config.as_to_ps_network_delay,
                 );
             }
-            ClusterAutoscalerRequest {} => {
+            ClusterAutoscalerRequest {
+                request_type
+            } => {
                 // Redirect to persistent storage
                 self.ctx.emit(
-                    ClusterAutoscalerRequest {},
+                    ClusterAutoscalerRequest { request_type },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
                 );

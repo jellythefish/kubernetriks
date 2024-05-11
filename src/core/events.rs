@@ -6,8 +6,7 @@ use dslab_kubernetriks_derive::IsSimulationEvent;
 
 use serde::Serialize;
 
-use crate::autoscaler::cluster_autoscaler::{ScaleDownInfo, ScaleUpInfo};
-
+use crate::autoscaler::interface::{AutoscaleInfoRequestType, ScaleDownInfo, ScaleUpInfo};
 use crate::core::node::Node;
 use crate::core::pod::{Pod, PodConditionType};
 
@@ -167,10 +166,12 @@ pub struct RunSchedulingCycle {}
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RunClusterAutoscalerCycle {}
 
-/// Event from cluster autoscaler->api server->persistent storage to find out what autoscaler
-/// should do: scale up or scale down.
+/// Event from cluster autoscaler->api server->persistent storage to find out information
+/// which cluster autoscaler needs (described in `AutoscaleInfoRequestType` enum)
 #[derive(Serialize, Clone, IsSimulationEvent)]
-pub struct ClusterAutoscalerRequest {}
+pub struct ClusterAutoscalerRequest {
+    pub request_type: AutoscaleInfoRequestType,
+}
 
 /// Event from persistent storage->api server->cluster autoscaler about corresponding info to request.
 #[derive(Serialize, Clone, IsSimulationEvent)]

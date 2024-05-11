@@ -8,9 +8,10 @@ use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
-use crate::autoscaler::cluster_autoscaler::{
-    ScaleDownInfo, ScaleUpInfo, CLUSTER_AUTOSCALER_ORIGIN_LABEL,
+use crate::autoscaler::interface::{
+    ScaleDownInfo, ScaleUpInfo, AutoscaleInfoRequestType,
 };
+use crate::autoscaler::kube_cluster_autoscaler::CLUSTER_AUTOSCALER_ORIGIN_LABEL;
 
 use crate::core::common::{ObjectsInfo, SimComponentId};
 use crate::core::events::{
@@ -133,24 +134,17 @@ impl PersistentStorage {
         );
     }
 
-    fn send_scale_up_info(&self) {
+    fn scale_up_info(&self) -> ScaleUpInfo {
         let unscheduled_pods = self
             .unscheduled_pods_cache
             .iter()
             .map(|pod_name| self.storage_data.pods.get(pod_name).unwrap().clone())
             .collect::<Vec<Pod>>();
 
-        self.ctx.emit(
-            ClusterAutoscalerResponse {
-                scale_up: Some(ScaleUpInfo { unscheduled_pods }),
-                scale_down: None,
-            },
-            self.api_server,
-            self.config.as_to_ps_network_delay,
-        );
+        ScaleUpInfo { unscheduled_pods }
     }
 
-    fn send_scale_down_info(&self) {
+    fn scale_down_info(&self) -> ScaleDownInfo {
         let nodes: Vec<Node> = self.storage_data.nodes.values().cloned().collect();
         let mut pods_on_autoscaled_nodes: HashMap<String, Pod> = Default::default();
 
@@ -166,18 +160,11 @@ impl PersistentStorage {
             }
         }
 
-        self.ctx.emit(
-            ClusterAutoscalerResponse {
-                scale_up: None,
-                scale_down: Some(ScaleDownInfo {
-                    nodes,
-                    pods_on_autoscaled_nodes,
-                    assignments: self.assignments.clone(),
-                }),
-            },
-            self.api_server,
-            self.config.as_to_ps_network_delay,
-        );
+        ScaleDownInfo {
+            nodes,
+            pods_on_autoscaled_nodes,
+            assignments: self.assignments.clone(),
+        }
     }
 }
 
@@ -352,13 +339,35 @@ impl EventHandler for PersistentStorage {
                     self.config.ps_to_sched_network_delay,
                 );
             }
-            ClusterAutoscalerRequest {} => {
-                if self.unscheduled_pods_cache.len() == 0 {
-                    self.send_scale_down_info();
-                    return;
+            ClusterAutoscalerRequest {
+                request_type
+            } => {
+                let mut response = ClusterAutoscalerResponse{
+                    scale_up: None,
+                    scale_down: None
+                };
+
+                match request_type {
+                    AutoscaleInfoRequestType::Auto => {
+                        if self.unscheduled_pods_cache.len() == 0 {
+                            response.scale_down = Some(self.scale_down_info());
+                        } else {
+                            response.scale_up = Some(self.scale_up_info());
+                        }
+                    },
+                    AutoscaleInfoRequestType::ScaleUpOnly => {
+                        response.scale_up = Some(self.scale_up_info());
+                    },
+                    AutoscaleInfoRequestType::ScaleDownOnly => {
+                        response.scale_down = Some(self.scale_down_info());
+                    },
+                    AutoscaleInfoRequestType::Both => {
+                        response.scale_up = Some(self.scale_up_info());
+                        response.scale_down = Some(self.scale_down_info());
+                    },
                 }
 
-                self.send_scale_up_info();
+                self.ctx.emit(response, self.api_server, self.config.as_to_ps_network_delay);
             }
         })
     }

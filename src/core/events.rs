@@ -10,13 +10,6 @@ use crate::autoscaler::interface::{AutoscaleInfoRequestType, ScaleDownInfo, Scal
 use crate::core::node::Node;
 use crate::core::pod::{Pod, PodConditionType};
 
-// K8s supports two two main ways to have Nodes added to the API server:
-// 1) The kubelet on a node self-registers to the control plane.
-// 2) A user manually adds a Node object.
-//
-// In our simulator we implement the second approach considering that instead of a user we have node
-// creation events in the node trace.
-
 /// Event from client to api server with request to create node. Api server redirects this request
 /// firstly to persistent storage and on response creates a node.
 #[derive(Serialize, Clone, IsSimulationEvent)]
@@ -47,42 +40,68 @@ pub struct RemoveNodeRequest {
     pub node_name: String,
 }
 
-/// Event from api server to persistent storage to tell that node is removed from the cluster.
+/// Event from persistent storage to api server telling that information about requested node has
+/// been persisted, so api server can remove a node.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RemoveNodeResponse {
     pub node_name: String,
 }
 
-/// Event from persistent storage to api server telling that information about requested node has
-/// been persisted, so api server can remove a node.
+/// Event from api server to persistent storage to tell that node is removed from the cluster.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct NodeRemovedFromCluster {
     pub removal_time: f64,
     pub node_name: String,
 }
 
-/// Event from persistent storage to scheduler to tell that node is removed from cluster.
-/// So all pods that run on that node should be rescheduled.
+/// Event from persistent storage to scheduler to tell that node is removed from cluster and scheduler
+/// should update its cache.
+/// All pods that run on that node would be rescheduled.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RemoveNodeFromCache {
     pub node_name: String,
 }
 
-/// Event from node component to api server that node has failed. Such event implements mechanism
-/// to monitor node failures instead of standalone node health monitor component for simplicity.
-/// All pods that ran on this node should be rescheduled.
-#[derive(Serialize, Clone, IsSimulationEvent)]
-pub struct NodeFailed {
-    pub node_name: String,
-}
-
+/// Event from client or pod autoscaler to api server with request to create a pod. Api server
+/// redirects this request to persistent storage and persistent storage sends schedule request
+/// to scheduler.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct CreatePodRequest {
     pub pod: Pod,
 }
 
+/// Event from client or pod autoscaler->api server to terminate pod due to general reasons such as
+/// scaling down or terminating pods with infinite running duration (long running services).
+/// Pod finishes its execution on node or is removed from scheduling queues. Api server redirects
+/// this event to persistent storage.
+/// Does not reflect pod failures.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RemovePodRequest {
+    pub pod_name: String,
+}
+
+/// Event from persistent storage to api server telling that information about requested pod has
+/// been persisted. If some node was assigned to pod, then terminate pod on the node.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RemovePodResponse {
+    pub assigned_node: Option<String>,
+    pub pod_name: String,
+}
+
+/// Event from api server to persistent storage to tell that pod is removed from the node.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct PodRemovedFromNode {
+    /// Flag that is true if pod was removed from node via node removal or pod remove request
+    /// and false if pod was not removed due to finished running earlier.
+    pub removed: bool,
+    pub removal_time: f64,
+    pub pod_name: String,
+}
+
+/// Event from persistent storage to scheduler to tell that pod is removed from persistent storage
+/// and probably node. So pod should be removed from scheduler cache from queues or from assignments.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RemovePodFromCache {
     pub pod_name: String,
 }
 

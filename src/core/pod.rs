@@ -36,6 +36,8 @@ pub enum PodConditionType {
     // All containers in the pod have terminated and at least one container has terminated
     // in failure.
     PodFailed,
+    // Pod is manually (with event request) removed from a node, terminating all its running containers.
+    PodRemoved,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]

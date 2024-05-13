@@ -73,7 +73,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Вычислять размер пула с учетом размеров нод груп в автоскейлере
 
 - [ ] Вычислять метрики: время работы ноды x кол-во cpu - процессорное время + получаем суммарное время со всех нод. Также для памяти - cpu seconds/memory seconds
-- [ ] Улучшить интерфейс cluster autoscaler-a: + сделать из ClusterAutoscalerResponse enum?
+- [x] Улучшить интерфейс cluster autoscaler-a: + сделать из ClusterAutoscalerResponse enum?
 ```
 // interface: trait ScaleUpAlgorithm 
 // fn autoscale(&mut self, info: Info) -> Vec<Action> Action=Create/Remove node request
@@ -82,3 +82,4 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 ```
 - [x] Подумать над тем, как сделать приоритеты в перемещении подов из unschedulable queue в hashmap (BTreeMap?)
 - [x] Убрать недетерминированность с помощью замены HashMap на BTreeMap
+- [ ] Моделирование отказов?

@@ -38,6 +38,7 @@ pub fn print_metrics_as_pretty_table(
     aggregated_table.add_row(row!["Pods succeeded", metrics.pods_succeeded]);
     aggregated_table.add_row(row!["Pods unschedulable", metrics.pods_unschedulable]);
     aggregated_table.add_row(row!["Pods failed", metrics.pods_failed]);
+    aggregated_table.add_row(row!["Pods removed", metrics.pods_removed]);
     aggregated_table.add_row(row!["Total scaled up nodes", metrics.total_scaled_up_nodes]);
     aggregated_table.add_row(row![
         "Total scaled down nodes",
@@ -87,6 +88,7 @@ struct Counters {
     pods_succeeded: u64,
     pods_unschedulable: u64,
     pods_failed: u64,
+    pods_removed: u64,
     total_scaled_up_nodes: u64,
     total_scaled_down_nodes: u64,
 }
@@ -120,6 +122,7 @@ pub fn print_metrics_as_json(
             pods_succeeded: metrics.pods_succeeded,
             pods_unschedulable: metrics.pods_unschedulable,
             pods_failed: metrics.pods_failed,
+            pods_removed: metrics.pods_removed,
             total_scaled_up_nodes: metrics.total_scaled_up_nodes,
             total_scaled_down_nodes: metrics.total_scaled_down_nodes,
         },

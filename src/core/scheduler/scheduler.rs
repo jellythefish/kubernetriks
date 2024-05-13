@@ -10,7 +10,7 @@ use dslab_core::{cast, log_debug, log_trace, Event, EventHandler, SimulationCont
 use crate::core::common::{ObjectsInfo, RuntimeResources, SimComponentId};
 use crate::core::events::{
     AddNodeToCache, AssignPodToNodeRequest, FlushUnschedulableQueueLeftover, PodFinishedRunning,
-    PodNotScheduled, PodScheduleRequest, RemoveNodeFromCache, RunSchedulingCycle,
+    PodNotScheduled, PodScheduleRequest, RemoveNodeFromCache, RemovePodFromCache, RunSchedulingCycle
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -42,10 +42,10 @@ pub struct Scheduler {
     /// Pods from unschedulable queue are moved to active queue with the timestamp of last adding
     /// to unschedulable queue.
     action_queue: BinaryHeap<QueuedPodInfo>,
-    /// Map of pod names and their queue info which cannot be schedulable at the moment.
+    /// Map of pod keys and their queue info which cannot be schedulable at the moment.
     /// Moves to active queue either if DEFAULT_POD_MAX_IN_UNSCHEDULABLE_PODS_DURATION exceeded or
     /// event of interest (PodFinishedRunning, AddNodeToCache) occurred.
-    unschedulable_pods: BTreeMap<UnschedulablePodKey, QueuedPodInfo>,
+    pub unschedulable_pods: BTreeMap<UnschedulablePodKey, QueuedPodInfo>,
 
     ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -170,6 +170,11 @@ impl Scheduler {
 
     fn move_pods_to_active_queue(&mut self, unscheduled_pods: Vec<UnschedulablePodKey>) {
         for key in unscheduled_pods.into_iter() {
+            // Check whether pod was removed from RemovePodFromCache event
+            if !self.objects_cache.pods.contains_key(&key.pod_name as &str) {
+                continue
+            }
+
             let mut queue_pod_info = self.unschedulable_pods.remove(&key).unwrap();
             queue_pod_info.attempts += 1;
             self.action_queue.push(queue_pod_info);
@@ -235,6 +240,11 @@ impl Scheduler {
         );
 
         while let Some(mut next_pod) = self.action_queue.pop() {
+            // Check whether pod was removed from RemovePodFromCache event
+            if !self.objects_cache.pods.contains_key(&next_pod.pod_name as &str) {
+                continue
+            }
+
             let pod_queue_time = scheduling_cycle_event_time - next_pod.initial_attempt_timestamp
                 + cycle_sim_duration;
 
@@ -327,6 +337,21 @@ impl Scheduler {
             }
         }
     }
+
+    fn move_to_active_due_to_pod_freed_resources(&mut self, freed: RuntimeResources) {
+        let mut freed_resources = freed;
+        let check = |requested_resources: &RuntimeResources| {
+            if requested_resources.cpu <= freed_resources.cpu
+                && requested_resources.ram <= freed_resources.ram
+            {
+                freed_resources.cpu -= requested_resources.cpu;
+                freed_resources.ram -= requested_resources.ram;
+                return true;
+            }
+            return false;
+        };
+        self.move_to_active_queue_if_sufficient_resources(check);
+    }
 }
 
 impl EventHandler for Scheduler {
@@ -371,7 +396,6 @@ impl EventHandler for Scheduler {
                 ..
             } => {
                 let pod = self.objects_cache.pods.remove(&pod_name).unwrap();
-                let mut freed_resources = pod.spec.resources.requests.clone();
 
                 self.assignments
                     .get_mut(&node_name)
@@ -379,21 +403,32 @@ impl EventHandler for Scheduler {
                     .remove(&pod_name);
                 self.release_node_resources(&pod);
 
-                let check = |requested_resources: &RuntimeResources| {
-                    if requested_resources.cpu <= freed_resources.cpu
-                        && requested_resources.ram <= freed_resources.ram
-                    {
-                        freed_resources.cpu -= requested_resources.cpu;
-                        freed_resources.ram -= requested_resources.ram;
-                        return true;
-                    }
-                    return false;
-                };
-                self.move_to_active_queue_if_sufficient_resources(check);
+                self.move_to_active_due_to_pod_freed_resources(pod.spec.resources.requests.clone());
             }
             RemoveNodeFromCache { node_name } => {
                 self.objects_cache.nodes.remove(&node_name).unwrap();
                 self.reschedule_unfinished_pods(&node_name, event.time);
+            }
+            RemovePodFromCache { pod_name } => {
+                // Remove request might come after finish request. So we check whether pod is still
+                // in objects cache. If it's finished earlier than it's removed from cache.
+                if let Some(pod) = self.objects_cache.pods.remove(&pod_name) {
+                    // Pod is still not finished - should clean up info about it.
+                    let assigned_node_name = &pod.status.assigned_node;
+                    // Releasing resources is optional as we could receive remove node request earlier
+                    // then remove pod request. In remove request handling we remove node from cache.
+                    // So if assigned node name is not empty then this node is still alive, need to
+                    // cleanup information.
+                    if !assigned_node_name.is_empty() {
+                        self.release_node_resources(&pod);
+                        self.assignments.get_mut(assigned_node_name).unwrap().remove(&pod_name);
+
+                        self.move_to_active_due_to_pod_freed_resources(pod.spec.resources.requests.clone());
+                    }
+                    // Otherwise, pod is in one of scheduling queues. So when we process popping 
+                    // from queue - just skip it with the help of checking existence in objects cache.
+                }
+                // Otherwise, already finished - do nothing.
             }
         })
     }

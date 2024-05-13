@@ -79,13 +79,15 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
         };
 
         let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
+
         let pods_succeeded = sim.metrics_collector.borrow().pods_succeeded;
         let pods_unschedulable = sim.metrics_collector.borrow().pods_unschedulable;
         let pods_failed = sim.metrics_collector.borrow().pods_failed;
+        let pods_removed = sim.metrics_collector.borrow().pods_removed;
 
         assert_eq!(
             terminated_pods,
-            pods_succeeded + pods_unschedulable + pods_failed
+            pods_succeeded + pods_unschedulable + pods_failed + pods_removed
         );
     }
 }

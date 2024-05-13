@@ -18,8 +18,8 @@ use crate::core::events::{
     AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, ClusterAutoscalerRequest,
     ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
     NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning, PodNotScheduled,
-    PodScheduleRequest, PodStartedRunning, RemoveNodeFromCache, RemoveNodeRequest,
-    RemoveNodeResponse,
+    PodRemovedFromNode, PodScheduleRequest, PodStartedRunning, RemoveNodeFromCache,
+    RemoveNodeRequest, RemoveNodeResponse, RemovePodFromCache, RemovePodRequest, RemovePodResponse
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
@@ -166,6 +166,21 @@ impl PersistentStorage {
             assignments: self.assignments.clone(),
         }
     }
+
+    /// Release node resources which pod has taken and remove pod from assignments.
+    /// It is is optional as we could persist remove node request earlier then pod could finish or
+    /// removed. In remove request handling we remove node from storage.
+    fn clean_up_pod_info(&mut self, pod: &Pod) {
+        if let Some(node) = self.storage_data.nodes.get_mut(&pod.status.assigned_node) {
+            node.status.allocatable.cpu += pod.spec.resources.requests.cpu;
+            node.status.allocatable.ram += pod.spec.resources.requests.ram;
+        }
+
+        if let Some(node_assignments) = self.assignments.get_mut(&pod.status.assigned_node)
+        {
+            node_assignments.remove(&pod.metadata.name);
+        }
+    }
 }
 
 impl EventHandler for PersistentStorage {
@@ -275,20 +290,18 @@ impl EventHandler for PersistentStorage {
                 finish_time,
                 finish_result,
             } => {
-                let (pod_name, mut pod) = self.storage_data.pods.remove_entry(&pod_name).unwrap();
-                pod.update_condition("True".to_string(), finish_result.clone(), finish_time);
+                // Remove request may come earlier and remove pod from storage, so we check if
+                // it's still in there, update condition and clean up information.
+                if self.storage_data.pods.contains_key(&pod_name) {
+                    let (pod_name, mut pod) = self.storage_data.pods.remove_entry(&pod_name).unwrap();
+                    pod.update_condition("True".to_string(), finish_result.clone(), finish_time);
+    
+                    self.clean_up_pod_info(&pod);    
 
-                // Releasing resources is optional as we could persist remove node request earlier
-                // then pod could finish. In remove request handling we remove node from storage.
-                if let Some(node) = self.storage_data.nodes.get_mut(&pod.status.assigned_node) {
-                    node.status.allocatable.cpu += pod.spec.resources.requests.cpu;
-                    node.status.allocatable.ram += pod.spec.resources.requests.ram;
-                }
-
-                // Same is true for assignments also.
-                if let Some(node_assignments) = self.assignments.get_mut(&pod.status.assigned_node)
-                {
-                    node_assignments.remove(&pod_name);
+                    self.metrics_collector
+                        .borrow_mut()
+                        .increment_pod_duration(pod.spec.running_duration);
+                    self.succeeded_pods.insert(pod_name, pod);
                 }
 
                 self.ctx.emit(
@@ -301,11 +314,6 @@ impl EventHandler for PersistentStorage {
                     self.scheduler,
                     self.config.ps_to_sched_network_delay,
                 );
-
-                self.metrics_collector
-                    .borrow_mut()
-                    .increment_pod_duration(pod.spec.running_duration);
-                self.succeeded_pods.insert(pod_name, pod);
 
                 // TODO: temporary (may be refactored) function for checking running results
                 // self.print_running_info(pod_name);
@@ -368,6 +376,70 @@ impl EventHandler for PersistentStorage {
                 }
 
                 self.ctx.emit(response, self.api_server, self.config.as_to_ps_network_delay);
+            }
+            RemovePodRequest { pod_name } => {
+                if !self.storage_data.pods.contains_key(&pod_name) {
+                    // pod has already been removed or finished running - do nothing
+                    self.ctx.emit(
+                        RemovePodResponse { assigned_node: None, pod_name },
+                        self.api_server,
+                        self.config.as_to_ps_network_delay,
+                    );
+                    return;
+                }
+
+                let mut pod = self.storage_data.pods.remove(&pod_name).unwrap();
+                pod.update_condition("True".to_string(), PodConditionType::PodRemoved, event.time);
+
+                let assigned_node_name = pod.status.assigned_node.clone();
+                let mut assigned_node = None;
+
+                if !assigned_node_name.is_empty() {
+                    // If we have already assigned a node, we should release node resources and
+                    // remove pod from assignments.
+                    self.clean_up_pod_info(&pod);
+                    assigned_node = Some(assigned_node_name);
+                } else {
+                    // Otherwise, pod has not been assigned, meaning that it is probably still in
+                    // scheduling queues. So we can directly send request to scheduler to update its
+                    // cache as well as response to api server.
+                    self.ctx.emit(
+                        RemovePodFromCache{ pod_name: pod_name.clone() },
+                        self.scheduler,
+                        self.config.ps_to_sched_network_delay
+                    );
+                }
+
+                self.ctx.emit(
+                    RemovePodResponse { assigned_node, pod_name },
+                    self.api_server,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            PodRemovedFromNode { removed, removal_time, pod_name } => {
+                if !removed {
+                    log_debug!(
+                        self.ctx,
+                        "Pod {} was not removed as it finished running earlier than remove request",
+                        pod_name,
+                    );
+                    return;
+                }
+
+                log_debug!(
+                    self.ctx,
+                    "Pod {} removed from node at time: {}",
+                    pod_name,
+                    removal_time
+                );
+
+                // Pod is removed from a node, so tell scheduler to remove it from cache
+                // (queue or assignments) too.
+                self.ctx.emit(
+                    RemovePodFromCache{ pod_name },
+                    self.scheduler,
+                    self.config.ps_to_sched_network_delay
+                );
             }
         })
     }

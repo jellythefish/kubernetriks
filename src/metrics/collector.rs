@@ -64,13 +64,14 @@ impl PartialEq for EstimatorWrapper {
 }
 
 #[derive(Default)]
-pub(crate) struct InternalMetrics {
+pub struct InternalMetrics {
     /// The number of node creations that were processed. Increases with the progress of simulation.
     /// This counter does not include the nodes from default cluster.
-    pub(crate) processed_nodes: u64,
+    pub processed_nodes: u64,
     /// The number of pods that were terminated either with failure or success.
     /// Increases with the progress of simulation.
-    pub(crate) terminated_pods: u64,
+    /// Equals to pods succeeded + pods unschedulable + pods failed + pods removed.
+    pub terminated_pods: u64,
 }
 
 #[derive(Default)]
@@ -78,7 +79,6 @@ pub struct MetricsCollector {
     /// The number of created nodes in trace. Calculated before simulation starts.
     pub total_nodes_in_trace: u64,
     /// The number of created pods in trace. Calculated before simulation starts.
-    /// Equals to pods succeeded + pods unschedulable + pods failed.
     pub total_pods_in_trace: u64,
     /// The number of successfully finished pods.
     pub pods_succeeded: u64,
@@ -87,6 +87,8 @@ pub struct MetricsCollector {
     pub pods_unschedulable: u64,
     /// The number of failed pods which started but eventually not finished due to some reasons.
     pub pods_failed: u64,
+    /// The number of removed pods due to the events in the trace.
+    pub pods_removed: u64,
 
     /// Estimations for the pod running duration.
     pub pod_duration_stats: EstimatorWrapper,
@@ -107,7 +109,7 @@ pub struct MetricsCollector {
     /// Total number of scaled down nodes
     pub total_scaled_down_nodes: u64,
 
-    pub(crate) internal: InternalMetrics,
+    pub internal: InternalMetrics,
 }
 
 impl MetricsCollector {
@@ -118,6 +120,7 @@ impl MetricsCollector {
             pods_succeeded: 0,
             pods_unschedulable: 0,
             pods_failed: 0,
+            pods_removed: 0,
             pod_duration_stats: EstimatorWrapper::new(),
             pod_scheduling_algorithm_latency_stats: EstimatorWrapper::new(),
             pod_queue_time_stats: EstimatorWrapper::new(),

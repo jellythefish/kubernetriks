@@ -11,10 +11,11 @@ use dslab_core::{Event, EventHandler, SimulationContext};
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest,
-    ClusterAutoscalerRequest, ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse,
-    CreatePodRequest, NodeAddedToCluster, NodeFailed, NodeRemovedFromCluster, PodFinishedRunning,
-    PodNotScheduled, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse, RemovePodRequest,
+    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest, ClusterAutoscalerRequest,
+    ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
+    NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning, PodNotScheduled,
+    PodRemovedFromNode, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse,
+    RemovePodRequest, RemovePodResponse
 };
 use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
@@ -33,6 +34,7 @@ pub struct KubeApiServer {
     node_pool: NodeComponentPool,
     pending_node_creation_requests: HashMap<String, Node>,
     pending_node_removal_requests: HashSet<String>,
+    pending_pod_removal_requests: HashSet<String>,
     // Mapping from node name to it's component
     created_nodes: HashMap<String, Rc<RefCell<NodeComponent>>>,
 
@@ -55,6 +57,7 @@ impl KubeApiServer {
             node_pool: Default::default(),
             pending_node_creation_requests: Default::default(),
             pending_node_removal_requests: Default::default(),
+            pending_pod_removal_requests: Default::default(),
             created_nodes: Default::default(),
             metrics_collector,
         }
@@ -142,6 +145,8 @@ impl EventHandler for KubeApiServer {
                 pod_name,
                 node_name,
             } => {
+                // We could receive assign request from scheduler when the removal of pod or node 
+                // is in progress - should check it.
                 if self.pending_node_removal_requests.contains(&node_name)
                     || !self.created_nodes.contains_key(&node_name)
                 {
@@ -150,7 +155,12 @@ impl EventHandler for KubeApiServer {
                     // event
                     return;
                 }
-                // Redirect to persistent storage
+                if self.pending_pod_removal_requests.contains(&pod_name) {
+                    // Similarly for cases when pod is being removed - do nothing
+                    // Scheduler will find out about removal later from persistent storage
+                    return;
+                }
+                // Otherwise, redirect to persistent storage
                 self.ctx.emit(
                     AssignPodToNodeRequest {
                         assign_time,
@@ -212,8 +222,8 @@ impl EventHandler for KubeApiServer {
                 finish_time,
                 finish_result,
             } => {
-                self.metrics_collector.borrow_mut().pods_succeeded += 1;
                 self.metrics_collector.borrow_mut().internal.terminated_pods += 1;
+                self.metrics_collector.borrow_mut().pods_succeeded += 1;
                 // Redirect to persistent storage
                 self.ctx.emit(
                     PodFinishedRunning {
@@ -277,7 +287,7 @@ impl EventHandler for KubeApiServer {
                 scale_up,
                 scale_down,
             } => {
-                // Redirect to persistent storage
+                // Redirect to auto scaler
                 self.ctx.emit(
                     ClusterAutoscalerResponse {
                         scale_up,
@@ -287,8 +297,53 @@ impl EventHandler for KubeApiServer {
                     self.config.as_to_ca_network_delay,
                 );
             }
-            NodeFailed { .. } => {}
-            RemovePodRequest { .. } => {}
+            RemovePodRequest { pod_name } => {
+                self.pending_node_removal_requests.insert(pod_name.clone());
+                // Redirect to persistent storage
+                self.ctx.emit(
+                    RemovePodRequest {
+                        pod_name
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
+            RemovePodResponse { assigned_node, pod_name } => {
+                if assigned_node.is_some() {
+                    // If some node was assigned we should terminate pod first and wait for response
+                    // from node component about removal in `PodRemovedFromNode` event.
+                    let node_component = self.created_nodes.get(&assigned_node.unwrap()).unwrap();
+                    self.ctx.emit(
+                        RemovePodRequest { pod_name },
+                        node_component.borrow().id(),
+                        self.config.as_to_node_network_delay
+                    );
+                } else {
+                    // Otherwise, pod is not executing on any node - just finish with removing from
+                    // pending.
+                    self.pending_pod_removal_requests.remove(&pod_name);
+                }
+            }
+            PodRemovedFromNode { removed, removal_time, pod_name } => {
+                self.pending_pod_removal_requests.remove(&pod_name);
+
+                if removed {
+                    // removed with our request or node removal - consider it terminated
+                    self.metrics_collector.borrow_mut().internal.terminated_pods += 1;
+                    self.metrics_collector.borrow_mut().pods_removed += 1;
+                }
+
+                // Redirect to persistent storage
+                self.ctx.emit(
+                    PodRemovedFromNode {
+                        removed,
+                        removal_time,
+                        pod_name,
+                    },
+                    self.persistent_storage,
+                    self.config.as_to_ps_network_delay,
+                );
+            }
         })
     }
 }

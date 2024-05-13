@@ -11,11 +11,11 @@ use dslab_core::{Event, EventHandler, SimulationContext};
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
-    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest, ClusterAutoscalerRequest,
-    ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
-    NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning, PodNotScheduled,
-    PodRemovedFromNode, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse,
-    RemovePodRequest, RemovePodResponse
+    AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest,
+    ClusterAutoscalerRequest, ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse,
+    CreatePodRequest, NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning,
+    PodNotScheduled, PodRemovedFromNode, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse,
+    RemovePodRequest, RemovePodResponse,
 };
 use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
@@ -145,7 +145,7 @@ impl EventHandler for KubeApiServer {
                 pod_name,
                 node_name,
             } => {
-                // We could receive assign request from scheduler when the removal of pod or node 
+                // We could receive assign request from scheduler when the removal of pod or node
                 // is in progress - should check it.
                 if self.pending_node_removal_requests.contains(&node_name)
                     || !self.created_nodes.contains_key(&node_name)
@@ -273,9 +273,7 @@ impl EventHandler for KubeApiServer {
                     self.config.as_to_ps_network_delay,
                 );
             }
-            ClusterAutoscalerRequest {
-                request_type
-            } => {
+            ClusterAutoscalerRequest { request_type } => {
                 // Redirect to persistent storage
                 self.ctx.emit(
                     ClusterAutoscalerRequest { request_type },
@@ -301,14 +299,15 @@ impl EventHandler for KubeApiServer {
                 self.pending_node_removal_requests.insert(pod_name.clone());
                 // Redirect to persistent storage
                 self.ctx.emit(
-                    RemovePodRequest {
-                        pod_name
-                    },
+                    RemovePodRequest { pod_name },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
                 );
             }
-            RemovePodResponse { assigned_node, pod_name } => {
+            RemovePodResponse {
+                assigned_node,
+                pod_name,
+            } => {
                 if assigned_node.is_some() {
                     // If some node was assigned we should terminate pod first and wait for response
                     // from node component about removal in `PodRemovedFromNode` event.
@@ -316,7 +315,7 @@ impl EventHandler for KubeApiServer {
                     self.ctx.emit(
                         RemovePodRequest { pod_name },
                         node_component.borrow().id(),
-                        self.config.as_to_node_network_delay
+                        self.config.as_to_node_network_delay,
                     );
                 } else {
                     // Otherwise, pod is not executing on any node - just finish with removing from
@@ -324,7 +323,11 @@ impl EventHandler for KubeApiServer {
                     self.pending_pod_removal_requests.remove(&pod_name);
                 }
             }
-            PodRemovedFromNode { removed, removal_time, pod_name } => {
+            PodRemovedFromNode {
+                removed,
+                removal_time,
+                pod_name,
+            } => {
                 self.pending_pod_removal_requests.remove(&pod_name);
 
                 if removed {

@@ -1,16 +1,17 @@
 //! Implementation of scheduler component which is responsible for scheduling pods for nodes.
 
 use std::cell::RefCell;
+use std::collections::BinaryHeap;
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
-use std::collections::BinaryHeap;
 
 use dslab_core::{cast, log_debug, log_trace, Event, EventHandler, SimulationContext};
 
 use crate::core::common::{ObjectsInfo, RuntimeResources, SimComponentId};
 use crate::core::events::{
     AddNodeToCache, AssignPodToNodeRequest, FlushUnschedulableQueueLeftover, PodFinishedRunning,
-    PodNotScheduled, PodScheduleRequest, RemoveNodeFromCache, RemovePodFromCache, RunSchedulingCycle
+    PodNotScheduled, PodScheduleRequest, RemoveNodeFromCache, RemovePodFromCache,
+    RunSchedulingCycle,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -127,8 +128,10 @@ impl Scheduler {
                 assigned_pods.insert(pod_name.to_string());
             }
             None => {
-                self.assignments
-                    .insert(node_name.to_string(), BTreeSet::from([pod_name.to_string()]));
+                self.assignments.insert(
+                    node_name.to_string(),
+                    BTreeSet::from([pod_name.to_string()]),
+                );
             }
         };
 
@@ -172,7 +175,7 @@ impl Scheduler {
         for key in unscheduled_pods.into_iter() {
             // Check whether pod was removed from RemovePodFromCache event
             if !self.objects_cache.pods.contains_key(&key.pod_name as &str) {
-                continue
+                continue;
             }
 
             let mut queue_pod_info = self.unschedulable_pods.remove(&key).unwrap();
@@ -241,8 +244,12 @@ impl Scheduler {
 
         while let Some(mut next_pod) = self.action_queue.pop() {
             // Check whether pod was removed from RemovePodFromCache event
-            if !self.objects_cache.pods.contains_key(&next_pod.pod_name as &str) {
-                continue
+            if !self
+                .objects_cache
+                .pods
+                .contains_key(&next_pod.pod_name as &str)
+            {
+                continue;
             }
 
             let pod_queue_time = scheduling_cycle_event_time - next_pod.initial_attempt_timestamp
@@ -265,9 +272,9 @@ impl Scheduler {
                     );
                     next_pod.timestamp = scheduling_cycle_event_time + cycle_sim_duration;
                     self.unschedulable_pods.insert(
-                        UnschedulablePodKey{
+                        UnschedulablePodKey {
                             pod_name: next_pod.pod_name.clone(),
-                            insert_timestamp: next_pod.timestamp
+                            insert_timestamp: next_pod.timestamp,
                         },
                         next_pod,
                     );
@@ -421,11 +428,16 @@ impl EventHandler for Scheduler {
                     // cleanup information.
                     if !assigned_node_name.is_empty() {
                         self.release_node_resources(&pod);
-                        self.assignments.get_mut(assigned_node_name).unwrap().remove(&pod_name);
+                        self.assignments
+                            .get_mut(assigned_node_name)
+                            .unwrap()
+                            .remove(&pod_name);
 
-                        self.move_to_active_due_to_pod_freed_resources(pod.spec.resources.requests.clone());
+                        self.move_to_active_due_to_pod_freed_resources(
+                            pod.spec.resources.requests.clone(),
+                        );
                     }
-                    // Otherwise, pod is in one of scheduling queues. So when we process popping 
+                    // Otherwise, pod is in one of scheduling queues. So when we process popping
                     // from queue - just skip it with the help of checking existence in objects cache.
                 }
                 // Otherwise, already finished - do nothing.

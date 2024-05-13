@@ -137,7 +137,8 @@ impl KubernetriksSimulation {
             let cluster_auto_scaler_component_name = "cluster_autoscaler";
             let kube_cluster_auto_scaler_component_name = "kube_cluster_autoscaler";
             let cluster_autoscaler_ctx = sim.create_context(cluster_auto_scaler_component_name);
-            let kube_cluster_autoscaler_ctx = sim.create_context(kube_cluster_auto_scaler_component_name);
+            let kube_cluster_autoscaler_ctx =
+                sim.create_context(kube_cluster_auto_scaler_component_name);
             cluster_autoscaler = Some(Rc::new(RefCell::new(ClusterAutoscaler::new(
                 kube_api_server_context.id(),
                 Box::new(KubeClusterAutoscaler::new(
@@ -214,10 +215,18 @@ impl KubernetriksSimulation {
         let trace_max_nodes = max_nodes_in_trace(&cluster_trace_events);
         let mut autoscaler_max_nodes = 0usize;
         if self.config.cluster_autoscaler.enabled {
-            autoscaler_max_nodes = self.cluster_autoscaler.as_ref().unwrap().borrow().max_nodes();
+            autoscaler_max_nodes = self
+                .cluster_autoscaler
+                .as_ref()
+                .unwrap()
+                .borrow()
+                .max_nodes();
         }
         let max_nodes = trace_max_nodes + autoscaler_max_nodes;
-        info!("Node pool capacity={:?} ({:?} from trace and {:?} from cluster autoscaler)", max_nodes, trace_max_nodes, autoscaler_max_nodes);
+        info!(
+            "Node pool capacity={:?} ({:?} from trace and {:?} from cluster autoscaler)",
+            max_nodes, trace_max_nodes, autoscaler_max_nodes
+        );
 
         self.api_server
             .borrow_mut()

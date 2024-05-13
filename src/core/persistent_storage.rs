@@ -8,9 +8,7 @@ use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
-use crate::autoscaler::interface::{
-    ScaleDownInfo, ScaleUpInfo, AutoscaleInfoRequestType,
-};
+use crate::autoscaler::interface::{AutoscaleInfoRequestType, ScaleDownInfo, ScaleUpInfo};
 use crate::autoscaler::kube_cluster_autoscaler::CLUSTER_AUTOSCALER_ORIGIN_LABEL;
 
 use crate::core::common::{ObjectsInfo, SimComponentId};
@@ -19,7 +17,7 @@ use crate::core::events::{
     ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
     NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning, PodNotScheduled,
     PodRemovedFromNode, PodScheduleRequest, PodStartedRunning, RemoveNodeFromCache,
-    RemoveNodeRequest, RemoveNodeResponse, RemovePodFromCache, RemovePodRequest, RemovePodResponse
+    RemoveNodeRequest, RemoveNodeResponse, RemovePodFromCache, RemovePodRequest, RemovePodResponse,
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
@@ -176,8 +174,7 @@ impl PersistentStorage {
             node.status.allocatable.ram += pod.spec.resources.requests.ram;
         }
 
-        if let Some(node_assignments) = self.assignments.get_mut(&pod.status.assigned_node)
-        {
+        if let Some(node_assignments) = self.assignments.get_mut(&pod.status.assigned_node) {
             node_assignments.remove(&pod.metadata.name);
         }
     }
@@ -293,10 +290,11 @@ impl EventHandler for PersistentStorage {
                 // Remove request may come earlier and remove pod from storage, so we check if
                 // it's still in there, update condition and clean up information.
                 if self.storage_data.pods.contains_key(&pod_name) {
-                    let (pod_name, mut pod) = self.storage_data.pods.remove_entry(&pod_name).unwrap();
+                    let (pod_name, mut pod) =
+                        self.storage_data.pods.remove_entry(&pod_name).unwrap();
                     pod.update_condition("True".to_string(), finish_result.clone(), finish_time);
-    
-                    self.clean_up_pod_info(&pod);    
+
+                    self.clean_up_pod_info(&pod);
 
                     self.metrics_collector
                         .borrow_mut()
@@ -347,12 +345,10 @@ impl EventHandler for PersistentStorage {
                     self.config.ps_to_sched_network_delay,
                 );
             }
-            ClusterAutoscalerRequest {
-                request_type
-            } => {
-                let mut response = ClusterAutoscalerResponse{
+            ClusterAutoscalerRequest { request_type } => {
+                let mut response = ClusterAutoscalerResponse {
                     scale_up: None,
-                    scale_down: None
+                    scale_down: None,
                 };
 
                 match request_type {
@@ -362,26 +358,33 @@ impl EventHandler for PersistentStorage {
                         } else {
                             response.scale_up = Some(self.scale_up_info());
                         }
-                    },
+                    }
                     AutoscaleInfoRequestType::ScaleUpOnly => {
                         response.scale_up = Some(self.scale_up_info());
-                    },
+                    }
                     AutoscaleInfoRequestType::ScaleDownOnly => {
                         response.scale_down = Some(self.scale_down_info());
-                    },
+                    }
                     AutoscaleInfoRequestType::Both => {
                         response.scale_up = Some(self.scale_up_info());
                         response.scale_down = Some(self.scale_down_info());
-                    },
+                    }
                 }
 
-                self.ctx.emit(response, self.api_server, self.config.as_to_ps_network_delay);
+                self.ctx.emit(
+                    response,
+                    self.api_server,
+                    self.config.as_to_ps_network_delay,
+                );
             }
             RemovePodRequest { pod_name } => {
                 if !self.storage_data.pods.contains_key(&pod_name) {
                     // pod has already been removed or finished running - do nothing
                     self.ctx.emit(
-                        RemovePodResponse { assigned_node: None, pod_name },
+                        RemovePodResponse {
+                            assigned_node: None,
+                            pod_name,
+                        },
                         self.api_server,
                         self.config.as_to_ps_network_delay,
                     );
@@ -404,19 +407,28 @@ impl EventHandler for PersistentStorage {
                     // scheduling queues. So we can directly send request to scheduler to update its
                     // cache as well as response to api server.
                     self.ctx.emit(
-                        RemovePodFromCache{ pod_name: pod_name.clone() },
+                        RemovePodFromCache {
+                            pod_name: pod_name.clone(),
+                        },
                         self.scheduler,
-                        self.config.ps_to_sched_network_delay
+                        self.config.ps_to_sched_network_delay,
                     );
                 }
 
                 self.ctx.emit(
-                    RemovePodResponse { assigned_node, pod_name },
+                    RemovePodResponse {
+                        assigned_node,
+                        pod_name,
+                    },
                     self.api_server,
                     self.config.as_to_ps_network_delay,
                 );
             }
-            PodRemovedFromNode { removed, removal_time, pod_name } => {
+            PodRemovedFromNode {
+                removed,
+                removal_time,
+                pod_name,
+            } => {
                 if !removed {
                     log_debug!(
                         self.ctx,
@@ -436,9 +448,9 @@ impl EventHandler for PersistentStorage {
                 // Pod is removed from a node, so tell scheduler to remove it from cache
                 // (queue or assignments) too.
                 self.ctx.emit(
-                    RemovePodFromCache{ pod_name },
+                    RemovePodFromCache { pod_name },
                     self.scheduler,
-                    self.config.ps_to_sched_network_delay
+                    self.config.ps_to_sched_network_delay,
                 );
             }
         })

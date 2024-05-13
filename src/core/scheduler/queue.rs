@@ -49,12 +49,14 @@ impl Eq for QueuedPodInfo {}
 #[derive(Clone, Debug)]
 pub struct UnschedulablePodKey {
     pub pod_name: Rc<String>,
-    pub insert_timestamp: f64, 
+    pub insert_timestamp: f64,
 }
 
 impl Ord for UnschedulablePodKey {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.insert_timestamp.total_cmp(&other.insert_timestamp).then(self.pod_name.cmp(&other.pod_name))
+        self.insert_timestamp
+            .total_cmp(&other.insert_timestamp)
+            .then(self.pod_name.cmp(&other.pod_name))
     }
 }
 
@@ -74,7 +76,10 @@ impl Eq for UnschedulablePodKey {}
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::{BTreeMap, BinaryHeap}, rc::Rc};
+    use std::{
+        collections::{BTreeMap, BinaryHeap},
+        rc::Rc,
+    };
 
     use super::{QueuedPodInfo, UnschedulablePodKey};
 
@@ -106,11 +111,17 @@ mod tests {
         assert!(queue.pop().is_none());
     }
 
-    fn insert_into_queue(queue: &mut BTreeMap<UnschedulablePodKey, QueuedPodInfo>, info: &QueuedPodInfo) {
-        queue.insert(UnschedulablePodKey{
-            pod_name: info.pod_name.clone(),
-            insert_timestamp: info.timestamp,
-        }, info.clone());
+    fn insert_into_queue(
+        queue: &mut BTreeMap<UnschedulablePodKey, QueuedPodInfo>,
+        info: &QueuedPodInfo,
+    ) {
+        queue.insert(
+            UnschedulablePodKey {
+                pod_name: info.pod_name.clone(),
+                insert_timestamp: info.timestamp,
+            },
+            info.clone(),
+        );
     }
 
     #[test]

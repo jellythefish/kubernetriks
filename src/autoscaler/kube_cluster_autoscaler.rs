@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, rc::Rc};
 
 use crate::autoscaler::interface::{
     AutoscaleAction, AutoscaleInfo, AutoscaleInfoRequestType, ClusterAutoscalerAlgorithm,
-    NodeGroup, ScaleDownInfo, ScaleUpInfo
+    NodeGroup, ScaleDownInfo, ScaleUpInfo,
 };
 use crate::config::SimulationConfig;
 use crate::core::node::Node;
@@ -14,7 +14,7 @@ use serde::Deserialize;
 pub const CLUSTER_AUTOSCALER_ORIGIN_LABEL: &'static str = "cluster autoscaler";
 
 /// Implementation of default kubernetes cluster autoscaler behavior.
-/// 
+///
 /// Scale-up: checks for any unschedulable pods, trying to fit each into one of node group template.
 /// Unschedulable pods are recognized by their PodCondition, where condition is `PodScheduled` and
 /// status is `False`. Such information about pods and nodes are received from persistent storage.
@@ -60,7 +60,11 @@ fn scale_down_utilization_threshold_default() -> f64 {
 
 impl KubeClusterAutoscaler {
     pub fn new(config: Rc<SimulationConfig>, ctx: SimulationContext) -> Self {
-        let autoscaler_config = config.cluster_autoscaler.kube_cluster_autoscaler.clone().unwrap();
+        let autoscaler_config = config
+            .cluster_autoscaler
+            .kube_cluster_autoscaler
+            .clone()
+            .unwrap();
         let mut state: BTreeMap<String, NodeGroup> = Default::default();
         for node_group in autoscaler_config.node_groups.iter() {
             assert!(!node_group.node_template.metadata.name.is_empty());
@@ -157,10 +161,7 @@ impl KubeClusterAutoscaler {
             utilization = ram_utilization;
         }
 
-        return utilization
-            < self
-                .config
-                .scale_down_utilization_threshold;
+        return utilization < self.config.scale_down_utilization_threshold;
     }
 
     /// Returns `true` if every pod on node with index `current_node_idx` in vector `nodes` can be
@@ -211,7 +212,7 @@ impl KubeClusterAutoscaler {
                 self.ctx,
                 "All node groups are scaled to their maximum node count"
             );
-            return vec![]
+            return vec![];
         }
 
         let mut not_scaled_up = 0;
@@ -310,9 +311,9 @@ impl ClusterAutoscalerAlgorithm for KubeClusterAutoscaler {
 
     fn autoscale(&mut self, info: AutoscaleInfo) -> Vec<AutoscaleAction> {
         if !info.scale_up.is_none() {
-            return self.scale_up(info.scale_up.unwrap())
+            return self.scale_up(info.scale_up.unwrap());
         } else if !info.scale_down.is_none() {
-            return self.scale_down(info.scale_down.unwrap())
+            return self.scale_down(info.scale_down.unwrap());
         }
         vec![]
     }

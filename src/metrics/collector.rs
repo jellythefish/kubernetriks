@@ -22,7 +22,8 @@ impl std::fmt::Debug for Estimator {
             .field("min", &self.min)
             .field("max", &self.max)
             .field("mean", &self.mean)
-            .field("population_variance", &self.population_variance).finish()
+            .field("population_variance", &self.population_variance)
+            .finish()
     }
 }
 
@@ -56,10 +57,10 @@ impl EstimatorWrapper {
 
 impl PartialEq for EstimatorWrapper {
     fn eq(&self, other: &Self) -> bool {
-        self.min() == other.min() &&
-        self.max() == other.max() &&
-        self.mean() == other.mean() &&
-        self.population_variance() == other.population_variance()
+        self.min() == other.min()
+            && self.max() == other.max()
+            && self.mean() == other.mean()
+            && self.population_variance() == other.population_variance()
     }
 }
 

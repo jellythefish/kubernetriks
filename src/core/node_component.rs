@@ -10,7 +10,7 @@ use dslab_core::{cast, Event, EventHandler, SimulationContext};
 use crate::core::common::SimComponentId;
 use crate::core::events::{
     BindPodToNodeRequest, NodeRemovedFromCluster, PodFinishedRunning, PodRemovedFromNode,
-    PodStartedRunning, RemoveNodeRequest, RemovePodRequest
+    PodStartedRunning, RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
@@ -151,13 +151,13 @@ impl EventHandler for NodeComponent {
                 self.running_pods.remove(&pod_name).unwrap();
 
                 self.ctx.emit_now(
-                    PodFinishedRunning{
+                    PodFinishedRunning {
                         pod_name,
                         node_name,
                         finish_time,
-                        finish_result,    
+                        finish_result,
                     },
-                    self.runtime.as_ref().unwrap().api_server
+                    self.runtime.as_ref().unwrap().api_server,
                 );
             }
             RemoveNodeRequest { node_name } => {
@@ -194,7 +194,7 @@ impl EventHandler for NodeComponent {
                     let event_id = self.running_pods.remove(&pod_name).unwrap();
                     self.ctx.cancel_event(event_id);
                     self.ctx.emit(
-                        PodRemovedFromNode{
+                        PodRemovedFromNode {
                             removed: true,
                             removal_time: event.time,
                             pod_name,
@@ -213,7 +213,7 @@ impl EventHandler for NodeComponent {
                     // pod is already canceled due to node removal - consider it as removed at time
                     // of node removal.
                     self.ctx.emit(
-                        PodRemovedFromNode{
+                        PodRemovedFromNode {
                             removed: true,
                             removal_time: self.removal_time,
                             pod_name,
@@ -231,7 +231,7 @@ impl EventHandler for NodeComponent {
                 // otherwise, pod finished running earlier than pod removed request at node component
                 // consider it as not removed
                 self.ctx.emit(
-                    PodRemovedFromNode{
+                    PodRemovedFromNode {
                         removed: false,
                         removal_time: 0.0,
                         pod_name,

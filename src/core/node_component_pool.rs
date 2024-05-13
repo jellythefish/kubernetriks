@@ -72,6 +72,10 @@ impl NodeComponentPool {
     pub fn reclaim_component(&mut self, node_component: Rc<RefCell<NodeComponent>>) {
         node_component.borrow_mut().runtime = None;
         node_component.borrow_mut().removed = false;
+        node_component.borrow_mut().removal_time = 0.0;
+        node_component.borrow_mut().canceled_pods.clear();
+        node_component.borrow_mut().running_pods.clear();
+
         self.pool.push_back(node_component);
     }
 }

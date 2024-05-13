@@ -7,7 +7,7 @@ use dslab_kubernetriks::simulator::{KubernetriksSimulation, RunUntilAllPodsAreFi
 use dslab_kubernetriks::test_util::helpers::default_test_simulation_config;
 use dslab_kubernetriks::trace::generic::{
     ClusterEvent, ClusterEventType, GenericClusterTrace, GenericWorkloadTrace, WorkloadEvent,
-    WorkloadEventType
+    WorkloadEventType,
 };
 
 fn generate_cluster_trace(sim: &mut KubernetriksSimulation) -> GenericClusterTrace {
@@ -15,7 +15,7 @@ fn generate_cluster_trace(sim: &mut KubernetriksSimulation) -> GenericClusterTra
 
     let mut created_nodes: BTreeMap<String, Node> = Default::default();
 
-    let mut trace = GenericClusterTrace{events: Vec::new()};
+    let mut trace = GenericClusterTrace { events: Vec::new() };
     for _ in 0..events {
         if (sim.sim.rand() * 10.0).ceil() % 3.0 == 0.0 && created_nodes.len() > 0 {
             // delete node
@@ -24,24 +24,21 @@ fn generate_cluster_trace(sim: &mut KubernetriksSimulation) -> GenericClusterTra
 
             trace.events.push(ClusterEvent {
                 timestamp: node.1.metadata.creation_timestamp + sim.sim.rand() * 10000.0,
-                event_type: ClusterEventType::RemoveNode {
-                    node_name: node.0
-                }
+                event_type: ClusterEventType::RemoveNode { node_name: node.0 },
             })
         } else {
             // create node
             let mut node = Node::new(
                 sim.sim.random_string(5),
                 (sim.sim.rand() * 10000.0).ceil() as u32,
-                (sim.sim.rand() * 100000000000.0) as u64);
+                (sim.sim.rand() * 100000000000.0) as u64,
+            );
             node.metadata.creation_timestamp = sim.sim.rand() * 1000.0;
             created_nodes.insert(node.metadata.name.clone(), node.clone());
 
-            trace.events.push(ClusterEvent{
+            trace.events.push(ClusterEvent {
                 timestamp: node.metadata.creation_timestamp,
-                event_type: ClusterEventType::CreateNode {
-                    node
-                },
+                event_type: ClusterEventType::CreateNode { node },
             })
         }
     }
@@ -51,17 +48,17 @@ fn generate_cluster_trace(sim: &mut KubernetriksSimulation) -> GenericClusterTra
 fn generate_workload_trace(sim: &mut KubernetriksSimulation) -> GenericWorkloadTrace {
     let events = (sim.sim.rand() * 10000.0).ceil() as usize;
 
-    let mut trace = GenericWorkloadTrace{events: Vec::new()};
+    let mut trace = GenericWorkloadTrace { events: Vec::new() };
     for _ in 0..events {
-        trace.events.push(WorkloadEvent{
+        trace.events.push(WorkloadEvent {
             timestamp: sim.sim.rand() * 100000.0,
             event_type: WorkloadEventType::CreatePod {
                 pod: Pod::new(
                     sim.sim.random_string(5),
                     (sim.sim.rand() * 1000.0).ceil() as u32,
                     (sim.sim.rand() * 10000000000.0) as u64,
-                    sim.sim.rand() * 1000.0
-                )
+                    sim.sim.rand() * 1000.0,
+                ),
             },
         })
     }
@@ -93,9 +90,23 @@ pub fn test_simulation_determinism() {
     for _ in 0..10 {
         let current = run_simulation();
 
-        assert_eq!(first_metric_collector.borrow().pods_succeeded, current.borrow().pods_succeeded);
-        assert_eq!(first_metric_collector.borrow().pod_queue_time_stats, current.borrow().pod_queue_time_stats);
-        assert_eq!(first_metric_collector.borrow().pod_scheduling_algorithm_latency_stats, current.borrow().pod_scheduling_algorithm_latency_stats);
-        assert_eq!(first_metric_collector.borrow().pod_duration_stats, current.borrow().pod_duration_stats);
+        assert_eq!(
+            first_metric_collector.borrow().pods_succeeded,
+            current.borrow().pods_succeeded
+        );
+        assert_eq!(
+            first_metric_collector.borrow().pod_queue_time_stats,
+            current.borrow().pod_queue_time_stats
+        );
+        assert_eq!(
+            first_metric_collector
+                .borrow()
+                .pod_scheduling_algorithm_latency_stats,
+            current.borrow().pod_scheduling_algorithm_latency_stats
+        );
+        assert_eq!(
+            first_metric_collector.borrow().pod_duration_stats,
+            current.borrow().pod_duration_stats
+        );
     }
 }

@@ -23,7 +23,7 @@ use crate::autoscaler::kube_cluster_autoscaler::KubeClusterAutoscalerConfig;
 /// This is general proxy for any cluster autoscaler algorithm.
 /// Every `scan_interval` seconds it sends request to persistent storage for receiving cluster
 /// autoscaler info, then passes it to autoscaling algorithm method `autoscale`.
-/// 
+///
 /// Autoscaler receives information from persistent storage with some propagation delay, so the
 /// state is not perfectly synced.
 /// Processing actions it gets from `autoscale` method, autoscaler emits such events as
@@ -113,7 +113,7 @@ impl ClusterAutoscaler {
         self.last_cycle_time = event_time;
         self.ctx.emit(
             ClusterAutoscalerRequest {
-                request_type: self.autoscaling_algorithm.info_request_type()
+                request_type: self.autoscaling_algorithm.info_request_type(),
             },
             self.api_server,
             self.config.as_to_ca_network_delay,
@@ -151,12 +151,10 @@ impl ClusterAutoscaler {
     fn take_actions(&mut self, actions: &Vec<AutoscaleAction>) {
         for action in actions {
             match action {
-                AutoscaleAction::ScaleUp(node) => {
-                    self.scale_up_request(&node)
-                },
+                AutoscaleAction::ScaleUp(node) => self.scale_up_request(&node),
                 AutoscaleAction::ScaleDown(node_name) => {
                     self.scale_down_request(node_name);
-                },
+                }
             }
         }
     }
@@ -172,12 +170,10 @@ impl EventHandler for ClusterAutoscaler {
                 scale_up,
                 scale_down,
             } => {
-                let actions = self.autoscaling_algorithm.autoscale(
-                    AutoscaleInfo{
-                        scale_up,
-                        scale_down,
-                    }
-                );
+                let actions = self.autoscaling_algorithm.autoscale(AutoscaleInfo {
+                    scale_up,
+                    scale_down,
+                });
 
                 self.take_actions(&actions);
 

@@ -28,7 +28,7 @@ pub struct ScaleUpInfo {
     pub unscheduled_pods: Vec<Pod>,
 }
 
-/// Information about objects received from persistent storage 
+/// Information about objects received from persistent storage
 #[derive(Serialize, Clone)]
 pub struct ScaleDownInfo {
     /// Current state of all nodes in the cluster
@@ -52,7 +52,7 @@ pub enum AutoscaleInfoRequestType {
     Auto,
     ScaleUpOnly,
     ScaleDownOnly,
-    Both
+    Both,
 }
 
 pub trait ClusterAutoscalerAlgorithm {

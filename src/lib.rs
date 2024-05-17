@@ -5,3 +5,4 @@ pub mod metrics;
 pub mod simulator;
 pub mod test_util;
 pub mod trace;
+pub mod simulation_callbacks;

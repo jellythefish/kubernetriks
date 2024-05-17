@@ -92,4 +92,4 @@ Option
 - [x] Для long running сервисов сделать Option<running_duration>, где None - long running
 - [ ] Добавить контекст в сам симулятор для того, чтобы логировать время через log_info!
 - [ ] Убрать обертку для EstimatorWrapper
-- [ ] Написать SimulationCallback для Long running service + Batch tasks
+- [x] Написать SimulationCallback для Long running service + Batch tasks

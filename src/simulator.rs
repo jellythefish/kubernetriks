@@ -28,12 +28,12 @@ use crate::core::scheduler::kube_scheduler::{default_kube_scheduler_config, Kube
 use crate::core::scheduler::scheduler::Scheduler;
 
 use crate::metrics::collector::MetricsCollector;
-use crate::metrics::printer::print_metrics;
 
+use crate::simulation_callbacks::SimulationCallbacks;
 use crate::trace::interface::Trace;
 
 pub struct KubernetriksSimulation {
-    config: Rc<SimulationConfig>,
+    pub config: Rc<SimulationConfig>,
     pub sim: Simulation,
 
     pub api_server: Rc<RefCell<KubeApiServer>>,
@@ -44,68 +44,6 @@ pub struct KubernetriksSimulation {
     pub horizontal_pod_autoscaler: Option<Rc<RefCell<HorizontalPodAutoscaler>>>,
 
     pub metrics_collector: Rc<RefCell<MetricsCollector>>,
-}
-
-pub trait SimulationCallbacks {
-    /// Runs before starting a simulation run.
-    fn on_simulation_start(&mut self, _sim: &mut KubernetriksSimulation) {}
-
-    /// Runs on each step of a simulation run, returns false if the simulation must be stopped.
-    fn on_step(&mut self, _sim: &mut KubernetriksSimulation) -> bool {
-        true
-    }
-
-    /// Runs upon the completion of a simulation run, returns results of this run.
-    fn on_simulation_finish(&mut self, _sim: &mut KubernetriksSimulation) {}
-}
-
-pub struct RunUntilAllPodsAreFinishedCallbacks {}
-
-impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
-    fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
-        if sim.sim.time() % 1000.0 == 0.0 {
-            let terminated_pods = sim
-                .metrics_collector
-                .borrow()
-                .metrics
-                .internal
-                .terminated_pods;
-            let total_pods_in_trace = sim.metrics_collector.borrow().metrics.total_pods_in_trace;
-            info!(
-                "Processed {} out of {} pods",
-                terminated_pods, total_pods_in_trace
-            );
-
-            return terminated_pods < total_pods_in_trace;
-        }
-        true
-    }
-
-    fn on_simulation_finish(&mut self, sim: &mut KubernetriksSimulation) {
-        if !sim.config.metrics_printer.is_none() {
-            print_metrics(
-                sim.metrics_collector.clone(),
-                sim.config.metrics_printer.as_ref().unwrap(),
-            );
-        };
-
-        let terminated_pods = sim
-            .metrics_collector
-            .borrow()
-            .metrics
-            .internal
-            .terminated_pods;
-
-        let pods_succeeded = sim.metrics_collector.borrow().metrics.pods_succeeded;
-        let pods_unschedulable = sim.metrics_collector.borrow().metrics.pods_unschedulable;
-        let pods_failed = sim.metrics_collector.borrow().metrics.pods_failed;
-        let pods_removed = sim.metrics_collector.borrow().metrics.pods_removed;
-
-        assert_eq!(
-            terminated_pods,
-            pods_succeeded + pods_unschedulable + pods_failed + pods_removed
-        );
-    }
 }
 
 /// Calculates number of simultaneously existing nodes in trace by counting node creations and

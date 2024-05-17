@@ -62,6 +62,8 @@ pub struct ClusterAutoscalerConfig {
     pub autoscaler_type: String,
     #[serde(default = "scan_interval_default")]
     pub scan_interval: f64,
+    /// Max size of autoscaler cluster consisting of nodes from all node groups.
+    pub max_node_count: u64,
     pub node_groups: Vec<NodeGroup>,
     /// One of implementation of cluster autoscaler
     pub kube_cluster_autoscaler: Option<KubeClusterAutoscalerConfig>,
@@ -73,6 +75,7 @@ impl Default for ClusterAutoscalerConfig {
             enabled: enabled_default(),
             autoscaler_type: autoscaler_type_default(),
             scan_interval: scan_interval_default(),
+            max_node_count: Default::default(),
             node_groups: Default::default(),
             kube_cluster_autoscaler: None,
         }
@@ -140,7 +143,7 @@ impl ClusterAutoscaler {
     }
 
     pub fn max_nodes(&self) -> usize {
-        self.autoscaling_algorithm.max_nodes(&self.node_groups)
+        self.config.cluster_autoscaler.max_node_count as usize
     }
 
     pub fn start(&mut self) {
@@ -245,6 +248,7 @@ impl EventHandler for ClusterAutoscaler {
                         scale_down,
                     },
                     &mut self.node_groups,
+                    self.config.cluster_autoscaler.max_node_count,
                 );
 
                 self.take_actions(&actions);

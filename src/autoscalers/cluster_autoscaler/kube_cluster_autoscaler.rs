@@ -57,10 +57,23 @@ impl KubeClusterAutoscaler {
         Self { ctx, config }
     }
 
-    pub fn over_quota_for_all_groups(&self, node_groups: &mut BTreeMap<String, NodeGroup>) -> bool {
+    /// Check whether current node count quota exceeded with respect to `max_node_count` and each
+    /// node group max count if it is set. 
+    pub fn node_count_over_quota(
+        &self,
+        node_groups: &mut BTreeMap<String, NodeGroup>,
+        current_node_count: u64,
+        max_node_count: u64,
+    ) -> bool {
+        if current_node_count >= max_node_count {
+            return true
+        }
+
         for group in node_groups.values() {
-            if group.current_count < group.max_count {
-                return false;
+            if group.max_count.is_none()
+                || group.max_count.is_some() && group.current_count < group.max_count.unwrap()
+            {
+                return false
             }
         }
         true
@@ -78,7 +91,9 @@ impl KubeClusterAutoscaler {
         node_groups: &mut BTreeMap<String, NodeGroup>,
     ) -> Option<Node> {
         for (_, node_group) in node_groups.iter_mut() {
-            if node_group.current_count >= node_group.max_count {
+            if node_group.max_count.is_some()
+                && node_group.current_count >= node_group.max_count.unwrap()
+            {
                 continue;
             }
             if Self::node_fits_pod(pod, &node_group.node_template) {
@@ -165,18 +180,29 @@ impl KubeClusterAutoscaler {
         true
     }
 
+    fn current_node_count(&self, node_groups: &mut BTreeMap<String, NodeGroup>) -> u64 {
+        let mut current_node_count = 0;
+        for group in node_groups.values() {
+            current_node_count += group.current_count;
+        }
+        current_node_count
+    }
+
     fn scale_up(
         &mut self,
         info: ScaleUpInfo,
         node_groups: &mut BTreeMap<String, NodeGroup>,
+        max_node_count: u64,
     ) -> Vec<AutoscaleAction> {
         let mut allocated_nodes: Vec<Node> = vec![];
 
+        let mut current_node_count = self.current_node_count(node_groups);
+
         // Quick check for quota not to do useless node group search.
-        if self.over_quota_for_all_groups(node_groups) {
+        if self.node_count_over_quota(node_groups, current_node_count, max_node_count) {
             log_debug!(
                 self.ctx,
-                "All node groups are scaled to their maximum node count"
+                "All node groups are scaled to their maximum node count or total max node count reached."
             );
             return vec![];
         }
@@ -186,8 +212,15 @@ impl KubeClusterAutoscaler {
         for pod in info.unscheduled_pods.into_iter() {
             if Self::try_fit_in_allocated_nodes(&mut allocated_nodes, &pod) {
                 continue;
-            } else if let Some(node) = self.try_find_fitting_template(&pod, node_groups) {
+            }
+            if current_node_count >= max_node_count {
+                not_scaled_up += 1;
+                continue;
+            } 
+
+            if let Some(node) = self.try_find_fitting_template(&pod, node_groups) {
                 allocated_nodes.push(node);
+                current_node_count += 1;
             } else {
                 not_scaled_up += 1;
             }
@@ -282,20 +315,13 @@ impl ClusterAutoscalerAlgorithm for KubeClusterAutoscaler {
         &mut self,
         info: AutoscaleInfo,
         node_groups: &mut BTreeMap<String, NodeGroup>,
+        max_node_count: u64,
     ) -> Vec<AutoscaleAction> {
         if !info.scale_up.is_none() {
-            return self.scale_up(info.scale_up.unwrap(), node_groups);
+            return self.scale_up(info.scale_up.unwrap(), node_groups, max_node_count);
         } else if !info.scale_down.is_none() {
             return self.scale_down(info.scale_down.unwrap(), node_groups);
         }
         vec![]
-    }
-
-    fn max_nodes(&self, node_groups: &BTreeMap<String, NodeGroup>) -> usize {
-        let mut total_max_nodes = 0;
-        for node_group in node_groups.values() {
-            total_max_nodes += node_group.max_count;
-        }
-        total_max_nodes as usize
     }
 }

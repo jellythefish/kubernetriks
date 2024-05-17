@@ -7,7 +7,8 @@ use crate::core::{node::Node, pod::Pod};
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct NodeGroup {
     /// Max number of nodes that can exist simultaneously for the node group.
-    pub max_count: u64,
+    /// If none - then unlimited and bounded only to max node count for cluster autoscaler.
+    pub max_count: Option<u64>,
     #[serde(default)]
     pub current_count: u64,
     /// For monotonically incrementing counter used in unique scaled up node names.
@@ -62,7 +63,6 @@ pub trait ClusterAutoscalerAlgorithm {
         &mut self,
         info: AutoscaleInfo,
         node_groups: &mut BTreeMap<String, NodeGroup>,
+        max_node_count: u64,
     ) -> Vec<AutoscaleAction>;
-
-    fn max_nodes(&self, node_groups: &BTreeMap<String, NodeGroup>) -> usize;
 }

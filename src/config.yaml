@@ -14,6 +14,7 @@ horizontal_pod_autoscaler:
 cluster_autoscaler:
   enabled: true
   type: kube_cluster_autoscaler
+  max_node_count: 200
   node_groups:
   - max_count: 50
     node_template:
@@ -23,8 +24,7 @@ cluster_autoscaler:
         capacity:
           cpu: 128000
           ram: 274877906944
-  - max_count: 100
-    node_template:
+  - node_template:
       metadata:
         name: autoscaler_64cpu_128gb_node
       status:

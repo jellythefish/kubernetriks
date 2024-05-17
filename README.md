@@ -87,7 +87,7 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 ```
 // fn autoscale(&mut self, info: AutoscaleInfo, node_groups: &mut NodeGroups) -> Vec<AutoscaleAction>;
 ```
-- [ ] Сделать в ClusterAutoscaler-e общий max_node_count, а node count по каждой группе оставить
+- [x] Сделать в ClusterAutoscaler-e общий max_node_count, а node count по каждой группе оставить
 Option
 - [x] Для long running сервисов сделать Option<running_duration>, где None - long running
 - [ ] Добавить контекст в сам симулятор для того, чтобы логировать время через log_info!

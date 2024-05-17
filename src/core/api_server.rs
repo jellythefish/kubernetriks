@@ -8,14 +8,15 @@ use std::rc::Rc;
 
 use dslab_core::{Event, EventHandler, SimulationContext};
 
+use crate::autoscalers::horizontal_pod_autoscaler::interface::PodGroupInfo;
 use crate::cast_box;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
     AssignPodToNodeRequest, AssignPodToNodeResponse, BindPodToNodeRequest,
     ClusterAutoscalerRequest, ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse,
-    CreatePodRequest, NodeAddedToCluster, NodeRemovedFromCluster, PodFinishedRunning,
-    PodNotScheduled, PodRemovedFromNode, PodStartedRunning, RemoveNodeRequest, RemoveNodeResponse,
-    RemovePodRequest, RemovePodResponse,
+    CreatePodGroupRequest, CreatePodRequest, NodeAddedToCluster, NodeRemovedFromCluster,
+    PodFinishedRunning, PodNotScheduled, PodRemovedFromNode, PodStartedRunning, RegisterPodGroup,
+    RemoveNodeRequest, RemoveNodeResponse, RemovePodRequest, RemovePodResponse,
 };
 use crate::core::node::Node;
 use crate::core::node_component::NodeComponent;
@@ -26,7 +27,8 @@ use crate::config::SimulationConfig;
 
 pub struct KubeApiServer {
     persistent_storage: SimComponentId,
-    auto_scaler: Option<SimComponentId>,
+    cluster_autoscaler: Option<SimComponentId>,
+    horizontal_pod_autoscaler: Option<SimComponentId>,
 
     pub ctx: SimulationContext,
     config: Rc<SimulationConfig>,
@@ -44,14 +46,16 @@ pub struct KubeApiServer {
 impl KubeApiServer {
     pub fn new(
         persistent_storage_id: SimComponentId,
-        auto_scaler_id: Option<SimComponentId>,
+        cluster_autoscaler_id: Option<SimComponentId>,
+        horizontal_pod_autoscaler_id: Option<SimComponentId>,
         ctx: SimulationContext,
         config: Rc<SimulationConfig>,
         metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         Self {
             persistent_storage: persistent_storage_id,
-            auto_scaler: auto_scaler_id,
+            cluster_autoscaler: cluster_autoscaler_id,
+            horizontal_pod_autoscaler: horizontal_pod_autoscaler_id,
             ctx,
             config,
             node_pool: Default::default(),
@@ -72,6 +76,13 @@ impl KubeApiServer {
                 node_name
             );
         }
+    }
+
+    pub fn all_created_nodes(&self) -> Vec<Rc<RefCell<NodeComponent>>> {
+        self.created_nodes
+            .values()
+            .map(|node_ref| node_ref.clone())
+            .collect()
     }
 
     pub fn get_node_component(&self, node_name: &str) -> Option<Rc<RefCell<NodeComponent>>> {
@@ -173,16 +184,20 @@ impl EventHandler for KubeApiServer {
             }
             AssignPodToNodeResponse {
                 pod_name,
-                pod_duration,
+                pod_group,
                 node_name,
+                pod_duration,
+                resources_usage_model_config,
             } => {
                 // Info about assignment is persisted - make bind request to node component
                 let node_component = self.created_nodes.get(&node_name).unwrap();
                 self.ctx.emit(
                     BindPodToNodeRequest {
                         pod_name,
-                        pod_duration,
+                        pod_group,
                         node_name,
+                        pod_duration,
+                        resources_usage_model_config,
                     },
                     node_component.borrow().id(),
                     self.config.as_to_node_network_delay,
@@ -222,8 +237,12 @@ impl EventHandler for KubeApiServer {
                 finish_time,
                 finish_result,
             } => {
-                self.metrics_collector.borrow_mut().internal.terminated_pods += 1;
-                self.metrics_collector.borrow_mut().pods_succeeded += 1;
+                self.metrics_collector
+                    .borrow_mut()
+                    .metrics
+                    .internal
+                    .terminated_pods += 1;
+                self.metrics_collector.borrow_mut().metrics.pods_succeeded += 1;
                 // Redirect to persistent storage
                 self.ctx.emit(
                     PodFinishedRunning {
@@ -291,7 +310,7 @@ impl EventHandler for KubeApiServer {
                         scale_up,
                         scale_down,
                     },
-                    self.auto_scaler.unwrap(),
+                    self.cluster_autoscaler.unwrap(),
                     self.config.as_to_ca_network_delay,
                 );
             }
@@ -332,8 +351,12 @@ impl EventHandler for KubeApiServer {
 
                 if removed {
                     // removed with our request or node removal - consider it terminated
-                    self.metrics_collector.borrow_mut().internal.terminated_pods += 1;
-                    self.metrics_collector.borrow_mut().pods_removed += 1;
+                    self.metrics_collector
+                        .borrow_mut()
+                        .metrics
+                        .internal
+                        .terminated_pods += 1;
+                    self.metrics_collector.borrow_mut().metrics.pods_removed += 1;
                 }
 
                 // Redirect to persistent storage
@@ -345,6 +368,46 @@ impl EventHandler for KubeApiServer {
                     },
                     self.persistent_storage,
                     self.config.as_to_ps_network_delay,
+                );
+            }
+            CreatePodGroupRequest { pod_group } => {
+                assert!(
+                    pod_group.pod_template.spec.running_duration.is_none(),
+                    "Pod groups with specified duration are not supported. Only long running services."
+                );
+
+                let mut info = PodGroupInfo {
+                    created_pods: Default::default(),
+                    total_created: 0,
+                    pod_group,
+                };
+
+                for idx in 0..info.pod_group.initial_pod_count {
+                    // TODO: generalize code as it's the same as in HPA
+                    let mut pod = info.pod_group.pod_template.clone();
+                    let pod_name = format!("{}_{}", info.pod_group.name, idx);
+                    pod.metadata.name = pod_name.clone();
+                    pod.metadata
+                        .labels
+                        .insert("pod_group".to_string(), info.pod_group.name.clone());
+                    pod.spec.resources.usage_model_config =
+                        Some(info.pod_group.resources_usage_model_config.clone());
+                    self.ctx.emit(
+                        CreatePodRequest { pod },
+                        self.persistent_storage,
+                        self.config.as_to_ps_network_delay,
+                    );
+
+                    info.created_pods.insert(pod_name);
+                    info.total_created += 1;
+                }
+
+                self.ctx.emit(
+                    RegisterPodGroup {
+                        pod_group_info: info,
+                    },
+                    self.horizontal_pod_autoscaler.unwrap(),
+                    self.config.as_to_hpa_network_delay,
                 );
             }
         })

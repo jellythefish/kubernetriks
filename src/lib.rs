@@ -1,4 +1,4 @@
-pub mod autoscaler;
+pub mod autoscalers;
 pub mod config;
 pub mod core;
 pub mod metrics;

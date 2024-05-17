@@ -28,7 +28,7 @@ pub fn print_metrics_as_pretty_table(
     collector: Rc<RefCell<MetricsCollector>>,
     output_file: &std::path::PathBuf,
 ) {
-    let metrics = collector.borrow();
+    let metrics = &collector.borrow().metrics;
     let mut metrics_file = File::create(output_file).unwrap();
 
     let mut aggregated_table = Table::new();
@@ -43,6 +43,11 @@ pub fn print_metrics_as_pretty_table(
     aggregated_table.add_row(row![
         "Total scaled down nodes",
         metrics.total_scaled_down_nodes
+    ]);
+    aggregated_table.add_row(row!["Total scaled up pods", metrics.total_scaled_up_pods]);
+    aggregated_table.add_row(row![
+        "Total scaled down pods",
+        metrics.total_scaled_down_pods
     ]);
 
     let mut stats_table = Table::new();
@@ -91,6 +96,8 @@ struct Counters {
     pods_removed: u64,
     total_scaled_up_nodes: u64,
     total_scaled_down_nodes: u64,
+    total_scaled_up_pods: u64,
+    total_scaled_down_pods: u64,
 }
 
 #[derive(Serialize)]
@@ -112,7 +119,7 @@ pub fn print_metrics_as_json(
     collector: Rc<RefCell<MetricsCollector>>,
     output_file: &std::path::PathBuf,
 ) {
-    let metrics = collector.borrow();
+    let metrics = &collector.borrow().metrics;
     let mut metrics_file = File::create(output_file).unwrap();
 
     let metrics = MetricsJSON {
@@ -125,6 +132,8 @@ pub fn print_metrics_as_json(
             pods_removed: metrics.pods_removed,
             total_scaled_up_nodes: metrics.total_scaled_up_nodes,
             total_scaled_down_nodes: metrics.total_scaled_down_nodes,
+            total_scaled_up_pods: metrics.total_scaled_up_pods,
+            total_scaled_down_pods: metrics.total_scaled_down_pods,
         },
         timings: Timings {
             pod_duration: TimingsStats {

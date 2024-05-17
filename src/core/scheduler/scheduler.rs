@@ -305,9 +305,11 @@ impl Scheduler {
 
             self.metrics_collector
                 .borrow_mut()
+                .metrics
                 .increment_pod_scheduling_algorithm_latency(pod_schedule_time);
             self.metrics_collector
                 .borrow_mut()
+                .metrics
                 .increment_pod_queue_time(pod_queue_time);
         }
 
@@ -492,7 +494,7 @@ mod tests {
     #[test]
     fn test_no_nodes_no_schedule() {
         let scheduler = create_scheduler();
-        let pod = Pod::new("pod_1".to_string(), 4000, 16000, 5.0);
+        let pod = Pod::new("pod_1".to_string(), 4000, 16000, Some(5.0));
         assert_eq!(
             scheduler.schedule_one(&pod).err().unwrap(),
             ScheduleError::NoNodesInCluster
@@ -502,7 +504,7 @@ mod tests {
     #[test]
     fn test_pod_has_requested_zero_resources() {
         let mut scheduler = create_scheduler();
-        let pod = Pod::new("pod_1".to_string(), 0, 0, 5.0);
+        let pod = Pod::new("pod_1".to_string(), 0, 0, Some(5.0));
         let node = Node::new("node1".to_string(), 3000, 8589934592);
         register_nodes(&mut scheduler, vec![node]);
         assert_eq!(
@@ -514,7 +516,7 @@ mod tests {
     #[test]
     fn test_no_sufficient_nodes_for_scheduling() {
         let mut scheduler = create_scheduler();
-        let pod = Pod::new("pod_1".to_string(), 6000, 12884901888, 5.0);
+        let pod = Pod::new("pod_1".to_string(), 6000, 12884901888, Some(5.0));
         let node = Node::new("node1".to_string(), 3000, 8589934592);
         register_nodes(&mut scheduler, vec![node]);
         assert_eq!(
@@ -528,7 +530,7 @@ mod tests {
         let _ = env_logger::try_init();
 
         let mut scheduler = create_scheduler();
-        let pod = Pod::new("pod_1".to_string(), 6000, 12884901888, 5.0);
+        let pod = Pod::new("pod_1".to_string(), 6000, 12884901888, Some(5.0));
         let node1 = Node::new("node1".to_string(), 8000, 14589934592);
         let node2 = Node::new("node2".to_string(), 7000, 20589934592);
         let node3 = Node::new("node3".to_string(), 6000, 100589934592);
@@ -548,10 +550,10 @@ mod tests {
     fn test_several_pod_scheduling() {
         let mut scheduler = create_scheduler();
         let node_name = "node1";
-        let pod1 = Pod::new("pod_1".to_string(), 4000, 8589934592, 5.0);
-        let pod2 = Pod::new("pod_2".to_string(), 2000, 4294967296, 5.0);
-        let pod3 = Pod::new("pod_3".to_string(), 8000, 8589934592, 5.0);
-        let pod4 = Pod::new("pod_4".to_string(), 10000, 8589934592, 5.0);
+        let pod1 = Pod::new("pod_1".to_string(), 4000, 8589934592, Some(5.0));
+        let pod2 = Pod::new("pod_2".to_string(), 2000, 4294967296, Some(5.0));
+        let pod3 = Pod::new("pod_3".to_string(), 8000, 8589934592, Some(5.0));
+        let pod4 = Pod::new("pod_4".to_string(), 10000, 8589934592, Some(5.0));
         let node1 = Node::new(node_name.to_string(), 16000, 100589934592);
         register_nodes(&mut scheduler, vec![node1.clone()]);
         register_pods(

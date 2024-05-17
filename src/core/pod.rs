@@ -2,21 +2,23 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::core::common::{ObjectMeta, RuntimeResources};
+use crate::core::common::{ObjectMeta, RuntimeResources, RuntimeResourcesUsageModelConfig};
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct Resources {
     pub limits: RuntimeResources,
     pub requests: RuntimeResources,
+    /// Cpu and ram usage model configuration
+    pub usage_model_config: Option<RuntimeResourcesUsageModelConfig>,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
 pub struct PodSpec {
-    // Simplified: instead of vector of containers - one container with resources and duration
+    /// Simplified: instead of vector of containers - one container with resources and duration
     pub resources: Resources,
-    // Custom field to simulate container workload duration
-    // -1.0 is used for infinite duration to simulate long-running services
-    pub running_duration: f64, // in seconds
+    /// Custom field to simulate container workload duration.
+    /// None is used for infinite duration to simulate long-running services.
+    pub running_duration: Option<f64>, // in seconds
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
@@ -66,7 +68,7 @@ pub struct Pod {
 }
 
 impl Pod {
-    pub fn new(name: String, cpu: u32, ram: u64, running_duration: f64) -> Self {
+    pub fn new(name: String, cpu: u32, ram: u64, running_duration: Option<f64>) -> Self {
         Self {
             metadata: ObjectMeta {
                 name: name,
@@ -77,6 +79,7 @@ impl Pod {
                 resources: Resources {
                     limits: RuntimeResources { cpu, ram },
                     requests: RuntimeResources { cpu, ram },
+                    usage_model_config: None,
                 },
                 running_duration,
             },

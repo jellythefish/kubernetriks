@@ -7,7 +7,7 @@ use std::rc::Rc;
 use dslab_core::event::EventId;
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
-use crate::core::common::SimComponentId;
+use crate::core::common::{RuntimeResourcesUsageModelConfig, SimComponentId};
 use crate::core::events::{
     BindPodToNodeRequest, NodeRemovedFromCluster, PodFinishedRunning, PodRemovedFromNode,
     PodStartedRunning, RemoveNodeRequest, RemovePodRequest,
@@ -15,9 +15,19 @@ use crate::core::events::{
 use crate::core::node::Node;
 use crate::core::pod::PodConditionType;
 
-use crate::config::SimulationConfig;
+use crate::core::resource_usage::helpers::resource_usage_model_from_config;
+use crate::core::resource_usage::interface::ResourceUsageModel;
 
+use crate::config::SimulationConfig;
 use crate::metrics::collector::MetricsCollector;
+
+pub struct RunningPodInfo {
+    pub event_id: Option<EventId>,
+    /// Name of pod group a pod belongs to. None if a pod is not in group.
+    pub pod_group: Option<String>,
+    pub cpu_usage_model: Option<Box<dyn ResourceUsageModel>>,
+    pub ram_usage_model: Option<Box<dyn ResourceUsageModel>>,
+}
 
 pub struct NodeComponent {
     ctx: SimulationContext,
@@ -26,7 +36,7 @@ pub struct NodeComponent {
     pub runtime: Option<NodeRuntime>,
 
     /// Map from pod name to its finishing event `PodFinishedRunning` id which is sent to self.
-    pub running_pods: HashMap<String, EventId>,
+    pub running_pods: HashMap<String, RunningPodInfo>,
     /// Set of canceled running nodes which did not finish due to node removal.
     pub canceled_pods: HashSet<String>,
 
@@ -75,34 +85,66 @@ impl NodeComponent {
     /// This method cancels events `PodFinishedRunning` of a current node which were submitted to
     /// the simulation queue and which delay is >= current cancellation time.
     fn cancel_all_running_pods(&mut self) {
-        for (pod_name, event_id) in self.running_pods.iter() {
+        for (pod_name, info) in self.running_pods.iter() {
             self.canceled_pods.insert(pod_name.to_string());
-            self.ctx.cancel_event(*event_id);
+            if let Some(event_id) = info.event_id {
+                self.ctx.cancel_event(event_id);
+            }
         }
 
         self.running_pods.clear();
     }
 
-    pub fn simulate_pod_runtime(&mut self, event_time: f64, pod_name: String, pod_duration: f64) {
-        let delay = pod_duration
-            + self
-                .runtime
-                .as_ref()
-                .unwrap()
-                .config
-                .as_to_node_network_delay;
+    pub fn simulate_pod_runtime(
+        &mut self,
+        event_time: f64,
+        pod_name: String,
+        pod_group: Option<String>,
+        pod_duration: Option<f64>,
+        usage_config: RuntimeResourcesUsageModelConfig,
+    ) {
+        let mut event_id: Option<EventId> = None;
 
-        let event_id = self.ctx.emit_self(
-            PodFinishedRunning {
-                pod_name: pod_name.clone(),
-                node_name: self.runtime.as_ref().unwrap().node.metadata.name.clone(),
-                finish_time: event_time + pod_duration,
-                finish_result: PodConditionType::PodSucceeded,
-            },
-            delay,
-        );
+        if pod_duration.is_some() {
+            let duration = pod_duration.unwrap();
+            // not long running service, schedule its finish in pod duration
+            let delay = duration
+                + self
+                    .runtime
+                    .as_ref()
+                    .unwrap()
+                    .config
+                    .as_to_node_network_delay;
 
-        self.running_pods.insert(pod_name, event_id);
+            event_id = Some(self.ctx.emit_self(
+                PodFinishedRunning {
+                    pod_name: pod_name.clone(),
+                    node_name: self.runtime.as_ref().unwrap().node.metadata.name.clone(),
+                    finish_time: event_time + duration,
+                    finish_result: PodConditionType::PodSucceeded,
+                },
+                delay,
+            ));
+        }
+
+        let mut cpu_usage_model = None;
+        let mut ram_usage_model = None;
+
+        if let Some(cpu_config) = usage_config.cpu_config {
+            cpu_usage_model = Some(resource_usage_model_from_config(cpu_config, event_time));
+        }
+        if let Some(ram_config) = usage_config.ram_config {
+            ram_usage_model = Some(resource_usage_model_from_config(ram_config, event_time));
+        }
+
+        let running_pod_info = RunningPodInfo {
+            event_id,
+            cpu_usage_model,
+            ram_usage_model,
+            pod_group,
+        };
+
+        self.running_pods.insert(pod_name, running_pod_info);
     }
 }
 
@@ -111,8 +153,10 @@ impl EventHandler for NodeComponent {
         cast!(match event.data {
             BindPodToNodeRequest {
                 pod_name,
-                pod_duration,
+                pod_group,
                 node_name,
+                pod_duration,
+                resources_usage_model_config,
             } => {
                 assert!(
                     !self.removed,
@@ -127,7 +171,14 @@ impl EventHandler for NodeComponent {
                     self.node_name(),
                     node_name
                 );
-                self.simulate_pod_runtime(event.time, pod_name.clone(), pod_duration);
+
+                self.simulate_pod_runtime(
+                    event.time,
+                    pod_name.clone(),
+                    pod_group,
+                    pod_duration,
+                    resources_usage_model_config,
+                );
 
                 self.ctx.emit(
                     PodStartedRunning {
@@ -191,8 +242,10 @@ impl EventHandler for NodeComponent {
             RemovePodRequest { pod_name } => {
                 if self.running_pods.contains_key(&pod_name) {
                     // pod is still running - cancel it and send response to api server about removal
-                    let event_id = self.running_pods.remove(&pod_name).unwrap();
-                    self.ctx.cancel_event(event_id);
+                    let info = self.running_pods.remove(&pod_name).unwrap();
+                    if let Some(event_id) = info.event_id {
+                        self.ctx.cancel_event(event_id);
+                    }
                     self.ctx.emit(
                         PodRemovedFromNode {
                             removed: true,

@@ -4,9 +4,10 @@ use std::mem::swap;
 
 use serde::Deserialize;
 
+use crate::autoscalers::horizontal_pod_autoscaler::interface::PodGroup;
 use crate::core::common::SimulationEvent;
 use crate::core::events::{
-    CreateNodeRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
+    CreateNodeRequest, CreatePodGroupRequest, CreatePodRequest, RemoveNodeRequest, RemovePodRequest,
 };
 use crate::core::node::Node;
 use crate::core::pod::Pod;
@@ -29,8 +30,10 @@ pub struct WorkloadEvent {
 
 #[derive(Debug, Deserialize, PartialEq)]
 pub enum WorkloadEventType {
+    // TODO: simplify with round brackets: CreatePod(Pod)
     CreatePod { pod: Pod },
     RemovePod { pod_name: String },
+    CreatePodGroup { pod_group: PodGroup },
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -65,6 +68,10 @@ impl Trace for GenericWorkloadTrace {
                 }
                 WorkloadEventType::RemovePod { pod_name } => converted_events
                     .push((event.timestamp, Box::new(RemovePodRequest { pod_name }))),
+                WorkloadEventType::CreatePodGroup { pod_group } => converted_events.push((
+                    event.timestamp,
+                    Box::new(CreatePodGroupRequest { pod_group }),
+                )),
             }
         }
         // sort by timestamp in increasing order
@@ -244,8 +251,9 @@ mod tests {
                                         cpu: 8000,
                                         ram: 17179869184,
                                     },
+                                    usage_model_config: None,
                                 },
-                                running_duration: 21.0,
+                                running_duration: Some(21.0),
                             },
                             status: Default::default(),
                         },

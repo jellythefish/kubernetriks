@@ -7,6 +7,9 @@ metrics_printer:
   format: !PrettyTable
   output_file: /home/btkz/master/diploma/kubernetriks/metrics.txt
 
+horizontal_pod_autoscaler:
+  enabled: true
+
 cluster_autoscaler:
   enabled: true
   kube_cluster_autoscaler:

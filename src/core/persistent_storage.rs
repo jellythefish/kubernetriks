@@ -8,10 +8,12 @@ use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, Event, EventHandler, SimulationContext};
 
-use crate::autoscaler::interface::{AutoscaleInfoRequestType, ScaleDownInfo, ScaleUpInfo};
-use crate::autoscaler::kube_cluster_autoscaler::CLUSTER_AUTOSCALER_ORIGIN_LABEL;
+use crate::autoscalers::cluster_autoscaler::interface::{
+    AutoscaleInfoRequestType, ScaleDownInfo, ScaleUpInfo,
+};
+use crate::autoscalers::cluster_autoscaler::kube_cluster_autoscaler::CLUSTER_AUTOSCALER_ORIGIN_LABEL;
 
-use crate::core::common::{ObjectsInfo, SimComponentId};
+use crate::core::common::{ObjectsInfo, RuntimeResourcesUsageModelConfig, SimComponentId};
 use crate::core::events::{
     AddNodeToCache, AssignPodToNodeRequest, AssignPodToNodeResponse, ClusterAutoscalerRequest,
     ClusterAutoscalerResponse, CreateNodeRequest, CreateNodeResponse, CreatePodRequest,
@@ -21,10 +23,10 @@ use crate::core::events::{
 };
 use crate::core::node::{Node, NodeConditionType};
 use crate::core::pod::{Pod, PodConditionType};
-
-use crate::metrics::collector::MetricsCollector;
+use crate::core::resource_usage::helpers::default_resource_usage_config;
 
 use crate::config::SimulationConfig;
+use crate::metrics::collector::MetricsCollector;
 
 pub struct PersistentStorage {
     api_server: SimComponentId,
@@ -214,12 +216,29 @@ impl EventHandler for PersistentStorage {
                     self.storage_data.nodes[&node_name].status.conditions
                 );
 
-                self.metrics_collector.borrow_mut().internal.processed_nodes += 1;
+                self.metrics_collector
+                    .borrow_mut()
+                    .metrics
+                    .internal
+                    .processed_nodes += 1;
             }
             CreatePodRequest { mut pod } => {
                 // Considering creation time as the time pod added to the persistent storage,
                 // because it is just an entry in hash map.
                 pod.update_condition("True".to_string(), PodConditionType::PodCreated, event.time);
+
+                if pod.spec.resources.usage_model_config.is_none() {
+                    pod.spec.resources.usage_model_config =
+                        Some(RuntimeResourcesUsageModelConfig {
+                            cpu_config: Some(default_resource_usage_config(
+                                pod.spec.resources.requests.cpu as f64,
+                            )),
+                            ram_config: Some(default_resource_usage_config(
+                                pod.spec.resources.requests.ram as f64,
+                            )),
+                        });
+                }
+
                 self.add_pod(pod.clone());
                 // Send info about newly created pod to scheduler.
                 self.ctx.emit(
@@ -254,8 +273,15 @@ impl EventHandler for PersistentStorage {
                 self.ctx.emit(
                     AssignPodToNodeResponse {
                         pod_name,
-                        pod_duration: pod.spec.running_duration,
+                        pod_group: pod.metadata.labels.get("pod_group").cloned(),
                         node_name,
+                        pod_duration: pod.spec.running_duration,
+                        resources_usage_model_config: pod
+                            .spec
+                            .resources
+                            .usage_model_config
+                            .clone()
+                            .unwrap(),
                     },
                     self.api_server,
                     self.config.as_to_ps_network_delay,
@@ -298,7 +324,8 @@ impl EventHandler for PersistentStorage {
 
                     self.metrics_collector
                         .borrow_mut()
-                        .increment_pod_duration(pod.spec.running_duration);
+                        .metrics
+                        .increment_pod_duration(pod.spec.running_duration.unwrap());
                     self.succeeded_pods.insert(pod_name, pod);
                 }
 

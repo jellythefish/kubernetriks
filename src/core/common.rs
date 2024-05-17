@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::core::{node::Node, pod::Pod};
 
+use crate::core::resource_usage::interface::ResourceUsageModelConfig;
+
 // Identifier of any component of kubernetes as a simulation component.
 // Generated from sim.create_context.
 pub type SimComponentId = Id;
@@ -46,6 +48,12 @@ pub struct ObjectMeta {
 pub struct RuntimeResources {
     pub cpu: u32, // in millicores
     pub ram: u64, // in bytes
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone)]
+pub struct RuntimeResourcesUsageModelConfig {
+    pub cpu_config: Option<ResourceUsageModelConfig>,
+    pub ram_config: Option<ResourceUsageModelConfig>,
 }
 
 #[derive(Default)]

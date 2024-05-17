@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, rc::Rc};
 
-use crate::autoscaler::interface::{
+use crate::autoscalers::cluster_autoscaler::interface::{
     AutoscaleAction, AutoscaleInfo, AutoscaleInfoRequestType, ClusterAutoscalerAlgorithm,
     NodeGroup, ScaleDownInfo, ScaleUpInfo,
 };

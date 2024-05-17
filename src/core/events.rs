@@ -2,13 +2,19 @@
 //! are `SimulationEvent`s defined in `common.rs`.
 
 extern crate self as dslab_kubernetriks;
+
 use dslab_kubernetriks_derive::IsSimulationEvent;
 
 use serde::Serialize;
 
-use crate::autoscaler::interface::{AutoscaleInfoRequestType, ScaleDownInfo, ScaleUpInfo};
+use crate::autoscalers::cluster_autoscaler::interface::{
+    AutoscaleInfoRequestType, ScaleDownInfo, ScaleUpInfo,
+};
+use crate::autoscalers::horizontal_pod_autoscaler::interface::{PodGroup, PodGroupInfo};
 use crate::core::node::Node;
 use crate::core::pod::{Pod, PodConditionType};
+
+use crate::core::common::RuntimeResourcesUsageModelConfig;
 
 /// Event from client to api server with request to create node. Api server redirects this request
 /// firstly to persistent storage and on response creates a node.
@@ -24,14 +30,14 @@ pub struct CreateNodeResponse {
     pub node_name: String,
 }
 
-/// Event from api server to persistent storage to tell that node is created and added to the cluster.
+/// Event from api server to persistent storage to inform that node is created and added to the cluster.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct NodeAddedToCluster {
     pub add_time: f64,
     pub node_name: String,
 }
 
-/// Event from client or cluster autoscaler to api server to tell that node should be removed from
+/// Event from client or cluster autoscaler to api server to inform that node should be removed from
 /// a cluster due to general reasons such as scaling down or maintenance. Api server redirects this
 /// event to persistent storage
 /// Does not reflect node failures.
@@ -47,14 +53,14 @@ pub struct RemoveNodeResponse {
     pub node_name: String,
 }
 
-/// Event from api server to persistent storage to tell that node is removed from the cluster.
+/// Event from api server to persistent storage to inform that node is removed from the cluster.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct NodeRemovedFromCluster {
     pub removal_time: f64,
     pub node_name: String,
 }
 
-/// Event from persistent storage to scheduler to tell that node is removed from cluster and scheduler
+/// Event from persistent storage to scheduler to inform that node is removed from cluster and scheduler
 /// should update its cache.
 /// All pods that run on that node would be rescheduled.
 #[derive(Serialize, Clone, IsSimulationEvent)]
@@ -88,7 +94,7 @@ pub struct RemovePodResponse {
     pub pod_name: String,
 }
 
-/// Event from api server to persistent storage to tell that pod is removed from the node.
+/// Event from api server to persistent storage to inform that pod is removed from the node.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodRemovedFromNode {
     /// Flag that is true if pod was removed from node via node removal or pod remove request
@@ -98,26 +104,26 @@ pub struct PodRemovedFromNode {
     pub pod_name: String,
 }
 
-/// Event from persistent storage to scheduler to tell that pod is removed from persistent storage
+/// Event from persistent storage to scheduler to inform that pod is removed from persistent storage
 /// and probably node. So pod should be removed from scheduler cache from queues or from assignments.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RemovePodFromCache {
     pub pod_name: String,
 }
 
-// Event from persistent storage to scheduler to tell that new pod is created and ready for scheduling.
+// Event from persistent storage to scheduler to inform that new pod is created and ready for scheduling.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodScheduleRequest {
     pub pod: Pod,
 }
 
-// Event from persistent storage to scheduler to tell that new node is created and ready for scheduling.
+// Event from persistent storage to scheduler to inform that new node is created and ready for scheduling.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct AddNodeToCache {
     pub node: Node,
 }
 
-// Event to tell that new pod should be bind to a node.
+// Event to inform that new pod should be bind to a node.
 // Might be from scheduler to api server, from api server to persistent storage.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct AssignPodToNodeRequest {
@@ -126,17 +132,19 @@ pub struct AssignPodToNodeRequest {
     pub node_name: String,
 }
 
-/// Event from persistent storage to api server to tell that new pod assignment is persisted and that
+/// Event from persistent storage to api server to inform that new pod assignment is persisted and that
 /// it can be bind to a node.
-/// Also used as event from api server to scheduler to tell about assignment error in `assigned` flag.
+/// Also used as event from api server to scheduler to inform about assignment error in `assigned` flag.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct AssignPodToNodeResponse {
     pub pod_name: String,
-    pub pod_duration: f64,
+    pub pod_group: Option<String>,
     pub node_name: String,
+    pub pod_duration: Option<f64>,
+    pub resources_usage_model_config: RuntimeResourcesUsageModelConfig,
 }
 
-/// Event from scheduler -> api server -> persistent storage to tell that pod cannot be scheduled
+/// Event from scheduler -> api server -> persistent storage to inform that pod cannot be scheduled
 /// temporary.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodNotScheduled {
@@ -144,23 +152,25 @@ pub struct PodNotScheduled {
     pub pod_name: String,
 }
 
-// Event from api server to node cluster to tell that new pod can be started (bind).
+// Event from api server to node cluster to inform that new pod can be started (bind).
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct BindPodToNodeRequest {
     pub pod_name: String,
-    pub pod_duration: f64,
+    pub pod_group: Option<String>,
     pub node_name: String,
+    pub pod_duration: Option<f64>,
+    pub resources_usage_model_config: RuntimeResourcesUsageModelConfig,
 }
 
-// Event from to node cluster to api server to tell that new pod has started.
+// Event from to node cluster to api server to inform that new pod has started.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct BindPodToNodeResponse {
     pub pod_name: String,
-    pub pod_duration: f64,
+    pub pod_duration: Option<f64>,
     pub node_name: String,
 }
 
-// Event from node cluster to api server and from api server to persistent storage to tell that
+// Event from node cluster to api server and from api server to persistent storage to inform that
 // pod started running on a node.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodStartedRunning {
@@ -168,13 +178,27 @@ pub struct PodStartedRunning {
     pub start_time: f64,
 }
 
-// Event from node component->api server->persistent storage to tell that pod is finished.
+// Event from node component->api server->persistent storage to inform that pod is finished.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct PodFinishedRunning {
     pub pod_name: String,
     pub node_name: String,
     pub finish_time: f64,
     pub finish_result: PodConditionType, // either PodSucceeded or PodFailed
+}
+
+/// Event from node client->api server to inform that new group of long running
+/// pods with infinite duration is created.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct CreatePodGroupRequest {
+    pub pod_group: PodGroup,
+}
+
+/// Event from api server to horizontal pod autoscaler to inform that new pod group is created and
+/// HPA should take them into consideration.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RegisterPodGroup {
+    pub pod_group_info: PodGroupInfo,
 }
 
 /// Event from scheduler to itself to run pod scheduling cycle.
@@ -184,6 +208,14 @@ pub struct RunSchedulingCycle {}
 /// Event from cluster autoscaler to itself to simulate working interval.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RunClusterAutoscalerCycle {}
+
+/// Event from horizontal pod autoscaler to itself to simulate working interval.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RunHorizontalPodAutoscalerCycle {}
+
+/// Event from metrics collector to itself to collect pod metrics in working interval.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RunPodMetricsCollectionCycle {}
 
 /// Event from cluster autoscaler->api server->persistent storage to find out information
 /// which cluster autoscaler needs (described in `AutoscaleInfoRequestType` enum)

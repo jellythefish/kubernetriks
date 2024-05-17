@@ -104,7 +104,12 @@ impl AlibabaWorkloadTraceV2017 {
             let converted_ram = (ram * base as f64) as u64; // in bytes
             let running_duration = (end_timestamp - start_timestamp) as f64;
 
-            let pod = Pod::new(pod_name, converted_cpu, converted_ram, running_duration);
+            let pod = Pod::new(
+                pod_name,
+                converted_cpu,
+                converted_ram,
+                Some(running_duration),
+            );
             pods.push((start_timestamp as f64, pod));
         }
 

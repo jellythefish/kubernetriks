@@ -6,4 +6,5 @@ pub mod node_component;
 pub mod node_component_pool;
 pub mod persistent_storage;
 pub mod pod;
+pub mod resource_usage;
 pub mod scheduler;

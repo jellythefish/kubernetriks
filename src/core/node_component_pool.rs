@@ -22,11 +22,20 @@ use crate::metrics::collector::MetricsCollector;
 
 use crate::config::SimulationConfig;
 
-#[derive(Default)]
 pub struct NodeComponentPool {
     pool: VecDeque<Rc<RefCell<NodeComponent>>>,
 
     metrics_collector: Rc<RefCell<MetricsCollector>>,
+}
+
+impl Default for NodeComponentPool {
+    fn default() -> Self {
+        Self {
+            pool: Default::default(),
+            // TODO: remove if not needed?
+            metrics_collector: Rc::new(RefCell::new(MetricsCollector::new())),
+        }
+    }
 }
 
 impl NodeComponentPool {

@@ -2,7 +2,8 @@
 
 use serde::Deserialize;
 
-use crate::autoscaler::cluster_autoscaler::ClusterAutoscalerConfig;
+use crate::autoscalers::cluster_autoscaler::cluster_autoscaler::ClusterAutoscalerConfig;
+use crate::autoscalers::horizontal_pod_autoscaler::horizontal_pod_autoscaler::HorizontalPodAutoscalerConfig;
 
 use crate::core::node::Node;
 
@@ -17,16 +18,20 @@ pub struct SimulationConfig {
     pub logs_filepath: Option<String>,
     #[serde(default)]
     pub cluster_autoscaler: ClusterAutoscalerConfig,
+    #[serde(default)]
+    pub horizontal_pod_autoscaler: HorizontalPodAutoscalerConfig,
     pub metrics_printer: Option<MetricsPrinterConfig>,
     pub default_cluster: Option<Vec<NodeGroup>>,
     pub scheduling_cycle_interval: f64, // in seconds
-    // Simulated network delays, as = api server, ps = persistent storage, ca = cluster autoscaler.
+    // Simulated network delays, as = api server, ps = persistent storage, ca = cluster autoscaler,
+    // hpa = horizontal pod autoscaler.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.
     pub as_to_ps_network_delay: f64,
     pub ps_to_sched_network_delay: f64,
     pub sched_to_as_network_delay: f64,
     pub as_to_node_network_delay: f64,
     pub as_to_ca_network_delay: f64,
+    pub as_to_hpa_network_delay: f64,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, PartialEq)]

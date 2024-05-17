@@ -7,8 +7,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use dslab_core::simulation::Simulation;
 
-use crate::autoscaler::cluster_autoscaler::ClusterAutoscaler;
-use crate::autoscaler::kube_cluster_autoscaler::KubeClusterAutoscaler;
+use crate::autoscalers::cluster_autoscaler::cluster_autoscaler::ClusterAutoscaler;
+use crate::autoscalers::cluster_autoscaler::kube_cluster_autoscaler::KubeClusterAutoscaler;
+use crate::autoscalers::horizontal_pod_autoscaler::horizontal_pod_autoscaler::HorizontalPodAutoscaler;
+use crate::autoscalers::horizontal_pod_autoscaler::kube_horizontal_pod_autoscaler::KubeHorizontalPodAutoscaler;
+
 use crate::config::SimulationConfig;
 
 use crate::core::api_server::KubeApiServer;
@@ -36,6 +39,7 @@ pub struct KubernetriksSimulation {
     pub scheduler: Rc<RefCell<Scheduler>>,
 
     pub cluster_autoscaler: Option<Rc<RefCell<ClusterAutoscaler>>>,
+    pub horizontal_pod_autoscaler: Option<Rc<RefCell<HorizontalPodAutoscaler>>>,
 
     pub metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
@@ -58,8 +62,13 @@ pub struct RunUntilAllPodsAreFinishedCallbacks {}
 impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if sim.sim.time() % 1000.0 == 0.0 {
-            let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
-            let total_pods_in_trace = sim.metrics_collector.borrow().total_pods_in_trace;
+            let terminated_pods = sim
+                .metrics_collector
+                .borrow()
+                .metrics
+                .internal
+                .terminated_pods;
+            let total_pods_in_trace = sim.metrics_collector.borrow().metrics.total_pods_in_trace;
             info!(
                 "Processed {} out of {} pods",
                 terminated_pods, total_pods_in_trace
@@ -78,12 +87,17 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedCallbacks {
             );
         };
 
-        let terminated_pods = sim.metrics_collector.borrow().internal.terminated_pods;
+        let terminated_pods = sim
+            .metrics_collector
+            .borrow()
+            .metrics
+            .internal
+            .terminated_pods;
 
-        let pods_succeeded = sim.metrics_collector.borrow().pods_succeeded;
-        let pods_unschedulable = sim.metrics_collector.borrow().pods_unschedulable;
-        let pods_failed = sim.metrics_collector.borrow().pods_failed;
-        let pods_removed = sim.metrics_collector.borrow().pods_removed;
+        let pods_succeeded = sim.metrics_collector.borrow().metrics.pods_succeeded;
+        let pods_unschedulable = sim.metrics_collector.borrow().metrics.pods_unschedulable;
+        let pods_failed = sim.metrics_collector.borrow().metrics.pods_failed;
+        let pods_removed = sim.metrics_collector.borrow().metrics.pods_removed;
 
         assert_eq!(
             terminated_pods,
@@ -119,16 +133,18 @@ impl KubernetriksSimulation {
 
         let mut sim = Simulation::new(config.seed);
 
-        let metrics_collector = Rc::new(RefCell::new(MetricsCollector::new()));
-
         // Register simulator components
         let api_server_component_name = "kube_api_server";
         let persistent_storage_component_name = "persistent_storage";
         let scheduler_component_name = "scheduler";
+        let metrics_collector_component_name = "metrics_collector";
 
         let kube_api_server_context = sim.create_context(api_server_component_name);
         let persistent_storage_context = sim.create_context(persistent_storage_component_name);
         let scheduler_context = sim.create_context(scheduler_component_name);
+
+        let metrics_collector = Rc::new(RefCell::new(MetricsCollector::new()));
+        sim.add_handler(metrics_collector_component_name, metrics_collector.clone());
 
         let mut cluster_autoscaler = None;
         let mut cluster_autoscaler_id = None;
@@ -155,14 +171,51 @@ impl KubernetriksSimulation {
             ));
         }
 
+        let mut horizontal_pod_autoscaler = None;
+        let mut horizontal_pod_autoscaler_id = None;
+
+        if config.horizontal_pod_autoscaler.enabled {
+            let horizontal_pod_autoscaler_component_name = "horizontal_pod_autoscaler";
+            let kube_horizontal_pod_autoscaler_component_name = "kube_horizontal_pod_autoscaler";
+            let horizontal_pod_autoscaler_ctx =
+                sim.create_context(horizontal_pod_autoscaler_component_name);
+            let kube_horizontal_pod_autoscaler_ctx =
+                sim.create_context(kube_horizontal_pod_autoscaler_component_name);
+            horizontal_pod_autoscaler = Some(Rc::new(RefCell::new(HorizontalPodAutoscaler::new(
+                kube_api_server_context.id(),
+                Box::new(KubeHorizontalPodAutoscaler::new(
+                    config.clone(),
+                    kube_horizontal_pod_autoscaler_ctx,
+                )),
+                horizontal_pod_autoscaler_ctx,
+                config.clone(),
+                metrics_collector.clone(),
+            ))));
+            horizontal_pod_autoscaler_id = Some(sim.add_handler(
+                horizontal_pod_autoscaler_component_name,
+                horizontal_pod_autoscaler.as_ref().unwrap().clone(),
+            ));
+        }
+
         let api_server = Rc::new(RefCell::new(KubeApiServer::new(
             persistent_storage_context.id(),
             cluster_autoscaler_id,
+            horizontal_pod_autoscaler_id,
             kube_api_server_context,
             config.clone(),
             metrics_collector.clone(),
         )));
         let api_server_id = sim.add_handler(api_server_component_name, api_server.clone());
+
+        metrics_collector
+            .borrow_mut()
+            .set_context(sim.create_context(metrics_collector_component_name));
+        metrics_collector
+            .borrow_mut()
+            .set_api_server_component(api_server.clone());
+        metrics_collector
+            .borrow_mut()
+            .start_pod_metrics_collection();
 
         let default_scheduler_impl = Box::new(KubeScheduler {
             config: default_kube_scheduler_config(),
@@ -197,6 +250,7 @@ impl KubernetriksSimulation {
             scheduler,
             metrics_collector,
             cluster_autoscaler,
+            horizontal_pod_autoscaler,
         }
     }
 
@@ -241,14 +295,20 @@ impl KubernetriksSimulation {
         for (ts, event) in cluster_trace_events.into_iter() {
             // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
             if let Some(_) = event.downcast_ref::<CreateNodeRequest>() {
-                self.metrics_collector.borrow_mut().total_nodes_in_trace += 1;
+                self.metrics_collector
+                    .borrow_mut()
+                    .metrics
+                    .total_nodes_in_trace += 1;
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
         for (ts, event) in workload_trace.convert_to_simulator_events().into_iter() {
             // TODO: make general trace preprocessors with preprocess callbacks and info stored as field in Simulation
             if let Some(_) = event.downcast_ref::<CreatePodRequest>() {
-                self.metrics_collector.borrow_mut().total_pods_in_trace += 1;
+                self.metrics_collector
+                    .borrow_mut()
+                    .metrics
+                    .total_pods_in_trace += 1;
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
         }
@@ -263,6 +323,15 @@ impl KubernetriksSimulation {
                 .start();
         } else {
             info!("Cluster autoscaler is disabled");
+        }
+        if self.config.horizontal_pod_autoscaler.enabled {
+            self.horizontal_pod_autoscaler
+                .as_mut()
+                .unwrap()
+                .borrow_mut()
+                .start();
+        } else {
+            info!("Horizontal pod autoscaler is disabled");
         }
     }
 
@@ -384,6 +453,11 @@ impl KubernetriksSimulation {
     /// Returns `true` if there could be more pending events and `false` otherwise.
     pub fn step_for_duration(&mut self, duration: f64) -> bool {
         self.sim.step_for_duration(duration)
+    }
+
+    /// Returns `true` if there could be more pending events and `false` otherwise.
+    pub fn step_until_time(&mut self, until_time: f64) -> bool {
+        self.sim.step_until_time(until_time)
     }
 }
 

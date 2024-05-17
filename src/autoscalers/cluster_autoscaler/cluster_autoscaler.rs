@@ -7,7 +7,7 @@ use dslab_core::{cast, log_debug, log_info, Event, EventHandler, SimulationConte
 
 use serde::Deserialize;
 
-use crate::autoscaler::interface::AutoscaleInfo;
+use crate::autoscalers::cluster_autoscaler::interface::AutoscaleInfo;
 use crate::config::SimulationConfig;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
@@ -17,8 +17,10 @@ use crate::core::events::{
 use crate::core::node::Node;
 use crate::metrics::collector::MetricsCollector;
 
-use crate::autoscaler::interface::{AutoscaleAction, ClusterAutoscalerAlgorithm};
-use crate::autoscaler::kube_cluster_autoscaler::KubeClusterAutoscalerConfig;
+use crate::autoscalers::cluster_autoscaler::interface::{
+    AutoscaleAction, ClusterAutoscalerAlgorithm,
+};
+use crate::autoscalers::cluster_autoscaler::kube_cluster_autoscaler::KubeClusterAutoscalerConfig;
 
 /// This is general proxy for any cluster autoscaler algorithm.
 /// Every `scan_interval` seconds it sends request to persistent storage for receiving cluster
@@ -31,7 +33,6 @@ use crate::autoscaler::kube_cluster_autoscaler::KubeClusterAutoscalerConfig;
 /// Due to such loosely coupled API there is no guarantee that unscheduled pods will be placed
 /// directly on newly created nodes or pods that moves from deleting node will be placed to some
 /// specific node. Scheduler can decide to place them somewhere else.
-
 pub struct ClusterAutoscaler {
     api_server: SimComponentId,
 
@@ -131,7 +132,10 @@ impl ClusterAutoscaler {
             self.config.as_to_ca_network_delay,
         );
 
-        self.metrics_collector.borrow_mut().total_scaled_up_nodes += 1;
+        self.metrics_collector
+            .borrow_mut()
+            .metrics
+            .total_scaled_up_nodes += 1;
     }
 
     fn scale_down_request(&mut self, node_name: &String) {
@@ -145,7 +149,10 @@ impl ClusterAutoscaler {
             self.config.as_to_ca_network_delay,
         );
 
-        self.metrics_collector.borrow_mut().total_scaled_down_nodes += 1;
+        self.metrics_collector
+            .borrow_mut()
+            .metrics
+            .total_scaled_down_nodes += 1;
     }
 
     fn take_actions(&mut self, actions: &Vec<AutoscaleAction>) {

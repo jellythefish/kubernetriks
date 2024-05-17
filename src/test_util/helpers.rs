@@ -68,6 +68,7 @@ pub fn default_test_simulation_config(with_suffix: Option<&str>) -> SimulationCo
     sched_to_as_network_delay: 0.020
     as_to_node_network_delay: 0.150
     as_to_ca_network_delay: 0.30
+    as_to_hpa_network_delay: 0.40
     "#
     .to_string();
 

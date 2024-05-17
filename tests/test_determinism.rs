@@ -57,7 +57,7 @@ fn generate_workload_trace(sim: &mut KubernetriksSimulation) -> GenericWorkloadT
                     sim.sim.random_string(5),
                     (sim.sim.rand() * 1000.0).ceil() as u32,
                     (sim.sim.rand() * 10000000000.0) as u64,
-                    sim.sim.rand() * 1000.0,
+                    Some(sim.sim.rand() * 1000.0),
                 ),
             },
         })
@@ -91,22 +91,26 @@ pub fn test_simulation_determinism() {
         let current = run_simulation();
 
         assert_eq!(
-            first_metric_collector.borrow().pods_succeeded,
-            current.borrow().pods_succeeded
+            first_metric_collector.borrow().metrics.pods_succeeded,
+            current.borrow().metrics.pods_succeeded
         );
         assert_eq!(
-            first_metric_collector.borrow().pod_queue_time_stats,
-            current.borrow().pod_queue_time_stats
+            first_metric_collector.borrow().metrics.pod_queue_time_stats,
+            current.borrow().metrics.pod_queue_time_stats
         );
         assert_eq!(
             first_metric_collector
                 .borrow()
+                .metrics
                 .pod_scheduling_algorithm_latency_stats,
-            current.borrow().pod_scheduling_algorithm_latency_stats
+            current
+                .borrow()
+                .metrics
+                .pod_scheduling_algorithm_latency_stats
         );
         assert_eq!(
-            first_metric_collector.borrow().pod_duration_stats,
-            current.borrow().pod_duration_stats
+            first_metric_collector.borrow().metrics.pod_duration_stats,
+            current.borrow().metrics.pod_duration_stats
         );
     }
 }

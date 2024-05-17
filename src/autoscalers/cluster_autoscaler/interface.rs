@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use serde::{Deserialize, Serialize};
 
@@ -58,7 +58,11 @@ pub enum AutoscaleInfoRequestType {
 pub trait ClusterAutoscalerAlgorithm {
     fn info_request_type(&self) -> AutoscaleInfoRequestType;
 
-    fn autoscale(&mut self, info: AutoscaleInfo) -> Vec<AutoscaleAction>;
+    fn autoscale(
+        &mut self,
+        info: AutoscaleInfo,
+        node_groups: &mut BTreeMap<String, NodeGroup>,
+    ) -> Vec<AutoscaleAction>;
 
-    fn max_nodes(&self) -> usize;
+    fn max_nodes(&self, node_groups: &BTreeMap<String, NodeGroup>) -> usize;
 }

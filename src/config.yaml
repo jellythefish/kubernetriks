@@ -9,27 +9,28 @@ metrics_printer:
 
 horizontal_pod_autoscaler:
   enabled: true
+  type: kube_horizontal_pod_autoscaler
 
 cluster_autoscaler:
   enabled: true
-  kube_cluster_autoscaler:
-    node_groups:
-      - max_count: 50
-        node_template:
-          metadata:
-            name: autoscaler_128cpu_256gb_node
-          status:
-            capacity:
-              cpu: 128000
-              ram: 274877906944
-      - max_count: 100
-        node_template:
-          metadata:
-            name: autoscaler_64cpu_128gb_node
-          status:
-            capacity:
-              cpu: 64000
-              ram: 137438953472
+  type: kube_cluster_autoscaler
+  node_groups:
+  - max_count: 50
+    node_template:
+      metadata:
+        name: autoscaler_128cpu_256gb_node
+      status:
+        capacity:
+          cpu: 128000
+          ram: 274877906944
+  - max_count: 100
+    node_template:
+      metadata:
+        name: autoscaler_64cpu_128gb_node
+      status:
+        capacity:
+          cpu: 64000
+          ram: 137438953472
 
 trace_config:
   # generic_trace:
@@ -72,3 +73,4 @@ ps_to_sched_network_delay: 0.089
 sched_to_as_network_delay: 0.023
 as_to_node_network_delay: 0.152
 as_to_ca_network_delay: 0.67
+as_to_hpa_network_delay: 0.50

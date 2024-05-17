@@ -1,10 +1,7 @@
 use std::cmp::{max, min};
-use std::rc::Rc;
 
 use dslab_core::{log_debug, SimulationContext};
 use serde::Deserialize;
-
-use crate::config::SimulationConfig;
 
 use crate::autoscalers::horizontal_pod_autoscaler::interface::{
     AutoscaleAction, HorizontalPodAutoscalerAlgorithm, PodGroupInfo,
@@ -48,15 +45,8 @@ fn target_threshold_tolerance_default() -> f64 {
 }
 
 impl KubeHorizontalPodAutoscaler {
-    pub fn new(config: Rc<SimulationConfig>, ctx: SimulationContext) -> Self {
-        Self {
-            ctx: ctx,
-            config: config
-                .horizontal_pod_autoscaler
-                .kube_horizontal_pod_autoscaler_config
-                .clone()
-                .unwrap(),
-        }
+    pub fn new(config: KubeHorizontalPodAutoscalerConfig, ctx: SimulationContext) -> Self {
+        Self { ctx, config }
     }
 
     /// Returns desired number of pods calculated by default kubernetes' hpa formula with respect to

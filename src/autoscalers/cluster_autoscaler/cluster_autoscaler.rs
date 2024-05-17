@@ -1,13 +1,13 @@
 //! Implements cluster autoscaler based on node resources utilization.
 
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use dslab_core::{cast, log_debug, log_info, Event, EventHandler, SimulationContext};
 
 use serde::Deserialize;
 
-use crate::autoscalers::cluster_autoscaler::interface::AutoscaleInfo;
 use crate::config::SimulationConfig;
 use crate::core::common::SimComponentId;
 use crate::core::events::{
@@ -17,10 +17,13 @@ use crate::core::events::{
 use crate::core::node::Node;
 use crate::metrics::collector::MetricsCollector;
 
+use crate::autoscalers::cluster_autoscaler::interface::NodeGroup;
 use crate::autoscalers::cluster_autoscaler::interface::{
-    AutoscaleAction, ClusterAutoscalerAlgorithm,
+    AutoscaleAction, AutoscaleInfo, ClusterAutoscalerAlgorithm,
 };
-use crate::autoscalers::cluster_autoscaler::kube_cluster_autoscaler::KubeClusterAutoscalerConfig;
+use crate::autoscalers::cluster_autoscaler::kube_cluster_autoscaler::{
+    KubeClusterAutoscaler, KubeClusterAutoscalerConfig, CLUSTER_AUTOSCALER_ORIGIN_LABEL,
+};
 
 /// This is general proxy for any cluster autoscaler algorithm.
 /// Every `scan_interval` seconds it sends request to persistent storage for receiving cluster
@@ -40,6 +43,8 @@ pub struct ClusterAutoscaler {
     /// receive information about unscheduled pods and nodes.
     last_cycle_time: f64,
 
+    /// Represents how much nodes were scaled up for each node group.
+    node_groups: BTreeMap<String, NodeGroup>,
     autoscaling_algorithm: Box<dyn ClusterAutoscalerAlgorithm>,
 
     ctx: SimulationContext,
@@ -48,12 +53,16 @@ pub struct ClusterAutoscaler {
     metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct ClusterAutoscalerConfig {
     #[serde(default = "enabled_default")]
     pub enabled: bool,
+    /// Name of implementation type for cluster autoscaler. Used in `resolve_cluster_autoscaler_impl`.
+    #[serde(default = "autoscaler_type_default")]
+    pub autoscaler_type: String,
     #[serde(default = "scan_interval_default")]
     pub scan_interval: f64,
+    pub node_groups: Vec<NodeGroup>,
     /// One of implementation of cluster autoscaler
     pub kube_cluster_autoscaler: Option<KubeClusterAutoscalerConfig>,
 }
@@ -62,7 +71,9 @@ impl Default for ClusterAutoscalerConfig {
     fn default() -> Self {
         Self {
             enabled: enabled_default(),
+            autoscaler_type: autoscaler_type_default(),
             scan_interval: scan_interval_default(),
+            node_groups: Default::default(),
             kube_cluster_autoscaler: None,
         }
     }
@@ -70,6 +81,9 @@ impl Default for ClusterAutoscalerConfig {
 
 fn enabled_default() -> bool {
     false // disabled by default
+}
+fn autoscaler_type_default() -> String {
+    "kube_cluster_autoscaler".to_string()
 }
 fn scan_interval_default() -> f64 {
     10.0 // 10 seconds
@@ -83,9 +97,41 @@ impl ClusterAutoscaler {
         config: Rc<SimulationConfig>,
         metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
+        assert!(
+            config.cluster_autoscaler.node_groups.len() > 0,
+            "node groups cannot be empty for CA"
+        );
+        let mut node_groups: BTreeMap<String, NodeGroup> = Default::default();
+        for node_group in config.cluster_autoscaler.node_groups.iter() {
+            assert!(!node_group.node_template.metadata.name.is_empty());
+            let mut node_template = node_group.node_template.clone();
+            node_template.status.allocatable = node_template.status.capacity.clone();
+            node_template.metadata.labels.insert(
+                "origin".to_string(),
+                CLUSTER_AUTOSCALER_ORIGIN_LABEL.to_string(),
+            );
+            node_template.metadata.labels.insert(
+                "node_group".to_string(),
+                node_group.node_template.metadata.name.clone(),
+            );
+            let group = NodeGroup {
+                max_count: node_group.max_count,
+                current_count: 0,
+                total_allocated: 0,
+                node_template,
+            };
+            assert!(
+                node_groups
+                    .insert(node_group.node_template.metadata.name.clone(), group)
+                    .is_none(),
+                "unique node group name should be used"
+            );
+        }
+
         Self {
             api_server,
             last_cycle_time: 0.0,
+            node_groups,
             autoscaling_algorithm,
             ctx,
             config,
@@ -94,7 +140,7 @@ impl ClusterAutoscaler {
     }
 
     pub fn max_nodes(&self) -> usize {
-        self.autoscaling_algorithm.max_nodes()
+        self.autoscaling_algorithm.max_nodes(&self.node_groups)
     }
 
     pub fn start(&mut self) {
@@ -167,6 +213,22 @@ impl ClusterAutoscaler {
     }
 }
 
+pub fn resolve_cluster_autoscaler_impl(
+    autoscaler_config: ClusterAutoscalerConfig,
+    ctx: SimulationContext,
+) -> Box<dyn ClusterAutoscalerAlgorithm> {
+    match &autoscaler_config.autoscaler_type as &str {
+        "kube_cluster_autoscaler" => {
+            let config = match autoscaler_config.kube_cluster_autoscaler {
+                Some(conf) => conf,
+                None => KubeClusterAutoscalerConfig::default(),
+            };
+            Box::new(KubeClusterAutoscaler::new(config, ctx))
+        }
+        _ => panic!("Unsupported cluster autoscaler implementation"),
+    }
+}
+
 impl EventHandler for ClusterAutoscaler {
     fn on(&mut self, event: Event) {
         cast!(match event.data {
@@ -177,10 +239,13 @@ impl EventHandler for ClusterAutoscaler {
                 scale_up,
                 scale_down,
             } => {
-                let actions = self.autoscaling_algorithm.autoscale(AutoscaleInfo {
-                    scale_up,
-                    scale_down,
-                });
+                let actions = self.autoscaling_algorithm.autoscale(
+                    AutoscaleInfo {
+                        scale_up,
+                        scale_down,
+                    },
+                    &mut self.node_groups,
+                );
 
                 self.take_actions(&actions);
 

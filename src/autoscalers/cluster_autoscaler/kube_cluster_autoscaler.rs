@@ -1,10 +1,9 @@
-use std::{collections::BTreeMap, rc::Rc};
+use std::collections::BTreeMap;
 
 use crate::autoscalers::cluster_autoscaler::interface::{
     AutoscaleAction, AutoscaleInfo, AutoscaleInfoRequestType, ClusterAutoscalerAlgorithm,
     NodeGroup, ScaleDownInfo, ScaleUpInfo,
 };
-use crate::config::SimulationConfig;
 use crate::core::node::Node;
 use crate::core::pod::Pod;
 
@@ -27,9 +26,6 @@ pub const CLUSTER_AUTOSCALER_ORIGIN_LABEL: &'static str = "cluster autoscaler";
 ///   3) Node belongs to autoscaler cluster (`origin=cluster autoscaler` kv-pair in node labels).
 ///
 pub struct KubeClusterAutoscaler {
-    /// Represents how much nodes were scaled up for each node group.
-    state: BTreeMap<String, NodeGroup>,
-
     ctx: SimulationContext,
     config: KubeClusterAutoscalerConfig,
 }
@@ -42,14 +38,12 @@ pub struct KubeClusterAutoscalerConfig {
     pub scale_down_utilization_threshold: f64,
     // TODO: #[serde(default = "node_provisioning_time_default")]
     // pub node_provisioning_time: f64,
-    pub node_groups: Vec<NodeGroup>,
 }
 
 impl Default for KubeClusterAutoscalerConfig {
     fn default() -> Self {
         Self {
             scale_down_utilization_threshold: scale_down_utilization_threshold_default(),
-            node_groups: Default::default(),
         }
     }
 }
@@ -59,48 +53,12 @@ fn scale_down_utilization_threshold_default() -> f64 {
 }
 
 impl KubeClusterAutoscaler {
-    pub fn new(config: Rc<SimulationConfig>, ctx: SimulationContext) -> Self {
-        let autoscaler_config = config
-            .cluster_autoscaler
-            .kube_cluster_autoscaler
-            .clone()
-            .unwrap();
-        let mut state: BTreeMap<String, NodeGroup> = Default::default();
-        for node_group in autoscaler_config.node_groups.iter() {
-            assert!(!node_group.node_template.metadata.name.is_empty());
-            let mut node_template = node_group.node_template.clone();
-            node_template.status.allocatable = node_template.status.capacity.clone();
-            node_template.metadata.labels.insert(
-                "origin".to_string(),
-                CLUSTER_AUTOSCALER_ORIGIN_LABEL.to_string(),
-            );
-            node_template.metadata.labels.insert(
-                "node_group".to_string(),
-                node_group.node_template.metadata.name.clone(),
-            );
-            let group = NodeGroup {
-                max_count: node_group.max_count,
-                current_count: 0,
-                total_allocated: 0,
-                node_template,
-            };
-            assert!(
-                state
-                    .insert(node_group.node_template.metadata.name.clone(), group)
-                    .is_none(),
-                "unique node group name should be used"
-            );
-        }
-
-        Self {
-            state,
-            ctx,
-            config: autoscaler_config,
-        }
+    pub fn new(config: KubeClusterAutoscalerConfig, ctx: SimulationContext) -> Self {
+        Self { ctx, config }
     }
 
-    pub fn over_quota_for_all_groups(&self) -> bool {
-        for group in self.state.values() {
+    pub fn over_quota_for_all_groups(&self, node_groups: &mut BTreeMap<String, NodeGroup>) -> bool {
+        for group in node_groups.values() {
             if group.current_count < group.max_count {
                 return false;
             }
@@ -114,8 +72,12 @@ impl KubeClusterAutoscaler {
     }
 
     /// Searches through node group templates to find fitting one and returns a node of this template.
-    fn try_find_fitting_template(&mut self, pod: &Pod) -> Option<Node> {
-        for (_, node_group) in self.state.iter_mut() {
+    fn try_find_fitting_template(
+        &mut self,
+        pod: &Pod,
+        node_groups: &mut BTreeMap<String, NodeGroup>,
+    ) -> Option<Node> {
+        for (_, node_group) in node_groups.iter_mut() {
             if node_group.current_count >= node_group.max_count {
                 continue;
             }
@@ -203,11 +165,15 @@ impl KubeClusterAutoscaler {
         true
     }
 
-    fn scale_up(&mut self, info: ScaleUpInfo) -> Vec<AutoscaleAction> {
+    fn scale_up(
+        &mut self,
+        info: ScaleUpInfo,
+        node_groups: &mut BTreeMap<String, NodeGroup>,
+    ) -> Vec<AutoscaleAction> {
         let mut allocated_nodes: Vec<Node> = vec![];
 
         // Quick check for quota not to do useless node group search.
-        if self.over_quota_for_all_groups() {
+        if self.over_quota_for_all_groups(node_groups) {
             log_debug!(
                 self.ctx,
                 "All node groups are scaled to their maximum node count"
@@ -220,7 +186,7 @@ impl KubeClusterAutoscaler {
         for pod in info.unscheduled_pods.into_iter() {
             if Self::try_fit_in_allocated_nodes(&mut allocated_nodes, &pod) {
                 continue;
-            } else if let Some(node) = self.try_find_fitting_template(&pod) {
+            } else if let Some(node) = self.try_find_fitting_template(&pod, node_groups) {
                 allocated_nodes.push(node);
             } else {
                 not_scaled_up += 1;
@@ -245,7 +211,11 @@ impl KubeClusterAutoscaler {
         scale_up_actions
     }
 
-    fn scale_down(&mut self, mut info: ScaleDownInfo) -> Vec<AutoscaleAction> {
+    fn scale_down(
+        &mut self,
+        mut info: ScaleDownInfo,
+        node_groups: &mut BTreeMap<String, NodeGroup>,
+    ) -> Vec<AutoscaleAction> {
         let mut node_indices_to_remove: Vec<usize> = Default::default();
         node_indices_to_remove.reserve(info.nodes.len());
 
@@ -291,8 +261,7 @@ impl KubeClusterAutoscaler {
         for idx in node_indices_to_remove.into_iter() {
             let node = &info.nodes[idx];
 
-            let node_group_state = self
-                .state
+            let node_group_state = node_groups
                 .get_mut(node.metadata.labels.get("node_group").unwrap())
                 .unwrap();
             node_group_state.current_count -= 1;
@@ -309,18 +278,22 @@ impl ClusterAutoscalerAlgorithm for KubeClusterAutoscaler {
         AutoscaleInfoRequestType::Auto
     }
 
-    fn autoscale(&mut self, info: AutoscaleInfo) -> Vec<AutoscaleAction> {
+    fn autoscale(
+        &mut self,
+        info: AutoscaleInfo,
+        node_groups: &mut BTreeMap<String, NodeGroup>,
+    ) -> Vec<AutoscaleAction> {
         if !info.scale_up.is_none() {
-            return self.scale_up(info.scale_up.unwrap());
+            return self.scale_up(info.scale_up.unwrap(), node_groups);
         } else if !info.scale_down.is_none() {
-            return self.scale_down(info.scale_down.unwrap());
+            return self.scale_down(info.scale_down.unwrap(), node_groups);
         }
         vec![]
     }
 
-    fn max_nodes(&self) -> usize {
+    fn max_nodes(&self, node_groups: &BTreeMap<String, NodeGroup>) -> usize {
         let mut total_max_nodes = 0;
-        for node_group in self.state.values() {
+        for node_group in node_groups.values() {
             total_max_nodes += node_group.max_count;
         }
         total_max_nodes as usize

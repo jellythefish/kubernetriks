@@ -83,13 +83,13 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Подумать над тем, как сделать приоритеты в перемещении подов из unschedulable queue в hashmap (BTreeMap?)
 - [x] Убрать недетерминированность с помощью замены HashMap на BTreeMap
 - [ ] Моделирование отказов?
-- [ ] Добавить в ClusterAutoscalerAlgorithm ссылку на стейт в autoscale, а сам стейт хранить в ClusterAutoscaler
+- [x] Добавить в ClusterAutoscalerAlgorithm ссылку на стейт в autoscale, а сам стейт хранить в ClusterAutoscaler
 ```
 // fn autoscale(&mut self, info: AutoscaleInfo, node_groups: &mut NodeGroups) -> Vec<AutoscaleAction>;
 ```
 - [ ] Сделать в ClusterAutoscaler-e общий max_node_count, а node count по каждой группе оставить
 Option
-- [ ] Для long running сервисов сделать Option<running_duration>, где None - long running
+- [x] Для long running сервисов сделать Option<running_duration>, где None - long running
 - [ ] Добавить контекст в сам симулятор для того, чтобы логировать время через log_info!
 - [ ] Убрать обертку для EstimatorWrapper
 - [ ] Написать SimulationCallback для Long running service + Batch tasks

@@ -7,10 +7,12 @@ use std::{cell::RefCell, rc::Rc};
 
 use dslab_core::simulation::Simulation;
 
-use crate::autoscalers::cluster_autoscaler::cluster_autoscaler::ClusterAutoscaler;
-use crate::autoscalers::cluster_autoscaler::kube_cluster_autoscaler::KubeClusterAutoscaler;
-use crate::autoscalers::horizontal_pod_autoscaler::horizontal_pod_autoscaler::HorizontalPodAutoscaler;
-use crate::autoscalers::horizontal_pod_autoscaler::kube_horizontal_pod_autoscaler::KubeHorizontalPodAutoscaler;
+use crate::autoscalers::cluster_autoscaler::cluster_autoscaler::{
+    resolve_cluster_autoscaler_impl, ClusterAutoscaler,
+};
+use crate::autoscalers::horizontal_pod_autoscaler::horizontal_pod_autoscaler::{
+    resolve_horizontal_pod_autoscaler_impl, HorizontalPodAutoscaler,
+};
 
 use crate::config::SimulationConfig;
 
@@ -157,10 +159,10 @@ impl KubernetriksSimulation {
                 sim.create_context(kube_cluster_auto_scaler_component_name);
             cluster_autoscaler = Some(Rc::new(RefCell::new(ClusterAutoscaler::new(
                 kube_api_server_context.id(),
-                Box::new(KubeClusterAutoscaler::new(
-                    config.clone(),
+                resolve_cluster_autoscaler_impl(
+                    config.cluster_autoscaler.clone(),
                     kube_cluster_autoscaler_ctx,
-                )),
+                ),
                 cluster_autoscaler_ctx,
                 config.clone(),
                 metrics_collector.clone(),
@@ -183,10 +185,10 @@ impl KubernetriksSimulation {
                 sim.create_context(kube_horizontal_pod_autoscaler_component_name);
             horizontal_pod_autoscaler = Some(Rc::new(RefCell::new(HorizontalPodAutoscaler::new(
                 kube_api_server_context.id(),
-                Box::new(KubeHorizontalPodAutoscaler::new(
-                    config.clone(),
+                resolve_horizontal_pod_autoscaler_impl(
+                    config.horizontal_pod_autoscaler.clone(),
                     kube_horizontal_pod_autoscaler_ctx,
-                )),
+                ),
                 horizontal_pod_autoscaler_ctx,
                 config.clone(),
                 metrics_collector.clone(),

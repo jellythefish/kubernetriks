@@ -20,6 +20,8 @@ use crate::autoscalers::horizontal_pod_autoscaler::{
     kube_horizontal_pod_autoscaler::KubeHorizontalPodAutoscalerConfig,
 };
 
+use crate::autoscalers::horizontal_pod_autoscaler::kube_horizontal_pod_autoscaler::KubeHorizontalPodAutoscaler;
+
 pub struct HorizontalPodAutoscaler {
     api_server: SimComponentId,
 
@@ -33,10 +35,13 @@ pub struct HorizontalPodAutoscaler {
     metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 pub struct HorizontalPodAutoscalerConfig {
     #[serde(default = "enabled_default")]
     pub enabled: bool,
+    /// Name of implementation type for horizontal pod autoscaler. Used in `resolve_horizontal_pod_autoscaler_impl`.
+    #[serde(default = "autoscaler_type_default")]
+    pub autoscaler_type: String,
     #[serde(default = "scan_interval_default")]
     pub scan_interval: f64,
     /// One of implementation of horizontal pod autoscaler
@@ -46,6 +51,9 @@ pub struct HorizontalPodAutoscalerConfig {
 fn enabled_default() -> bool {
     false // disabled by default
 }
+fn autoscaler_type_default() -> String {
+    "kube_horizontal_pod_autoscaler".to_string()
+}
 fn scan_interval_default() -> f64 {
     60.0 // 60 seconds
 }
@@ -54,6 +62,7 @@ impl Default for HorizontalPodAutoscalerConfig {
     fn default() -> Self {
         Self {
             enabled: enabled_default(),
+            autoscaler_type: autoscaler_type_default(),
             scan_interval: scan_interval_default(),
             kube_horizontal_pod_autoscaler_config: None,
         }
@@ -149,6 +158,22 @@ impl HorizontalPodAutoscaler {
             RunHorizontalPodAutoscalerCycle {},
             self.config.horizontal_pod_autoscaler.scan_interval,
         );
+    }
+}
+
+pub fn resolve_horizontal_pod_autoscaler_impl(
+    autoscaler_config: HorizontalPodAutoscalerConfig,
+    ctx: SimulationContext,
+) -> Box<dyn HorizontalPodAutoscalerAlgorithm> {
+    match &autoscaler_config.autoscaler_type as &str {
+        "kube_horizontal_pod_autoscaler" => {
+            let config = match autoscaler_config.kube_horizontal_pod_autoscaler_config {
+                Some(conf) => conf,
+                None => KubeHorizontalPodAutoscalerConfig::default(),
+            };
+            Box::new(KubeHorizontalPodAutoscaler::new(config, ctx))
+        }
+        _ => panic!("Unsupported horizontal pod autoscaler implementation"),
     }
 }
 

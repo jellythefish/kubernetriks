@@ -224,10 +224,7 @@ impl KubernetriksSimulation {
 
         self.api_server
             .borrow_mut()
-            .set_node_pool(NodeComponentPool::new(
-                max_nodes,
-                &mut self.sim,
-            ));
+            .set_node_pool(NodeComponentPool::new(max_nodes, &mut self.sim));
 
         self.initialize_default_cluster();
 
@@ -285,9 +282,7 @@ impl KubernetriksSimulation {
         // add to persistent storage
         self.persistent_storage.borrow_mut().add_node(node.clone());
         // add to api server
-        let node_component = Rc::new(RefCell::new(NodeComponent::new(
-            node_context,
-        )));
+        let node_component = Rc::new(RefCell::new(NodeComponent::new(node_context)));
         node_component.borrow_mut().runtime = Some(NodeRuntime {
             api_server: self.api_server.borrow().ctx.id(),
             node: node.clone(),

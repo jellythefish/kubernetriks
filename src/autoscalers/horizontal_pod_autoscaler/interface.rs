@@ -1,4 +1,4 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +51,7 @@ pub enum AutoscaleAction {
 pub trait HorizontalPodAutoscalerAlgorithm {
     fn autoscale(
         &mut self,
-        metrics: HashMap<String, (f64, f64)>,
-        pod_groups: &mut HashMap<String, PodGroupInfo>,
+        pod_group_metrics: (f64, f64),
+        pod_group_info: &mut PodGroupInfo,
     ) -> Vec<AutoscaleAction>;
 }

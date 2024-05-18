@@ -86,7 +86,7 @@ Option
 - [x] Для long running сервисов сделать Option<running_duration>, где None - long running
 - [x] Написать SimulationCallback для Long running service + Batch tasks
 - [ ] Взять точку отсчета времени для resource usage для каждого пода от начала создания его Pod Group.
-- [ ] Вынести цикл итерации по под группам в horizontal_pod_autoscaler
+- [x] Вынести цикл итерации по под группам в horizontal_pod_autoscaler
 
 - [ ] Поэксперементировать с конвертацией alibaba trace в generic для ускорения загрузки и парсинга трейса с диска
 - [ ] Подумать над тем, как реализовать schedule_one (под опцией в конфиге), вызываемый на каждое событие от persistent_storage - PodFinishedRunning/AddNodeToCacheRequest/PodScheduleRequest

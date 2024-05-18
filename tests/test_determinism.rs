@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 use dslab_kubernetriks::config::SimulationConfig;
 use dslab_kubernetriks::core::{node::Node, pod::Pod};
 use dslab_kubernetriks::metrics::collector::MetricsCollector;
-use dslab_kubernetriks::simulator::KubernetriksSimulation;
 use dslab_kubernetriks::simulation_callbacks::RunUntilAllPodsAreFinishedCallbacks;
+use dslab_kubernetriks::simulator::KubernetriksSimulation;
 use dslab_kubernetriks::test_util::helpers::default_test_simulation_config;
 use dslab_kubernetriks::trace::generic::{
     ClusterEvent, ClusterEventType, GenericClusterTrace, GenericWorkloadTrace, WorkloadEvent,

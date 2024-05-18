@@ -34,10 +34,7 @@ impl Default for NodeComponentPool {
 }
 
 impl NodeComponentPool {
-    pub fn new(
-        node_number: usize,
-        sim: &mut Simulation,
-    ) -> Self {
+    pub fn new(node_number: usize, sim: &mut Simulation) -> Self {
         let mut pool = VecDeque::with_capacity(node_number as usize);
         for i in 0..node_number {
             let context_name = format!("pool_node_context_{}", i);
@@ -47,9 +44,7 @@ impl NodeComponentPool {
             sim.add_handler(context_name, node_component.clone());
             pool.push_back(node_component)
         }
-        Self {
-            pool,
-        }
+        Self { pool }
     }
 
     pub fn allocate_component(
@@ -96,10 +91,7 @@ mod tests {
     fn test_node_pool_init() {
         let mut sim = Simulation::new(123);
         let pool_size: usize = 10;
-        let node_pool = NodeComponentPool::new(
-            pool_size,
-            &mut sim,
-        );
+        let node_pool = NodeComponentPool::new(pool_size, &mut sim);
 
         assert_eq!(node_pool.pool.len(), pool_size);
         for (idx, node_component) in node_pool.pool.iter().enumerate() {
@@ -114,10 +106,7 @@ mod tests {
     fn test_node_pool_allocate_too_much_throws() {
         let mut sim = Simulation::new(123);
         let pool_size: usize = 3;
-        let mut node_pool = NodeComponentPool::new(
-            pool_size,
-            &mut sim,
-        );
+        let mut node_pool = NodeComponentPool::new(pool_size, &mut sim);
 
         for _ in 0..pool_size + 1 {
             node_pool.allocate_component(
@@ -132,10 +121,7 @@ mod tests {
     fn test_node_pool_allocation_and_reclamation() {
         let mut sim = Simulation::new(123);
         let pool_size: usize = 1;
-        let mut node_pool = NodeComponentPool::new(
-            pool_size,
-            &mut sim,
-        );
+        let mut node_pool = NodeComponentPool::new(pool_size, &mut sim);
 
         assert_eq!(node_pool.pool.len(), pool_size);
         assert!(node_pool.pool[0].borrow().runtime.is_none());

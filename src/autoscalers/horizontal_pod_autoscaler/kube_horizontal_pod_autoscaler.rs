@@ -215,18 +215,11 @@ impl KubeHorizontalPodAutoscaler {
 impl HorizontalPodAutoscalerAlgorithm for KubeHorizontalPodAutoscaler {
     fn autoscale(
         &mut self,
-        metrics: std::collections::HashMap<String, (f64, f64)>,
-        pod_groups: &mut std::collections::HashMap<String, PodGroupInfo>,
+        pod_group_metrics: (f64, f64),
+        pod_group_info: &mut PodGroupInfo,
     ) -> Vec<AutoscaleAction> {
-        let mut actions: Vec<AutoscaleAction> = Default::default();
-
-        for (group_name, (cpu_mean_util, ram_mean_util)) in metrics.iter() {
-            let pod_group = pod_groups.get_mut(group_name).unwrap();
-            let desired_number_of_pods =
-                self.desired_number_of_pods(pod_group, *cpu_mean_util, *ram_mean_util);
-            actions.extend(self.make_actions_for_group(pod_group, desired_number_of_pods))
-        }
-
-        actions
+        let desired_number_of_pods =
+            self.desired_number_of_pods(pod_group_info, pod_group_metrics.0, pod_group_metrics.1);
+        self.make_actions_for_group(pod_group_info, desired_number_of_pods)
     }
 }

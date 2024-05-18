@@ -82,7 +82,10 @@ pub struct RunUntilAllPodsAreFinishedAndLongRunningPodsExceedDeadlineCallbacks {
 
 impl RunUntilAllPodsAreFinishedAndLongRunningPodsExceedDeadlineCallbacks {
     pub fn new(deadline_time: f64) -> Self {
-        Self { deadline_time, all_short_pods_terminated: false }
+        Self {
+            deadline_time,
+            all_short_pods_terminated: false,
+        }
     }
 }
 
@@ -90,7 +93,7 @@ impl SimulationCallbacks for RunUntilAllPodsAreFinishedAndLongRunningPodsExceedD
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
         if self.all_short_pods_terminated {
             // all short pods are finished, check if we reached deadline
-            return sim.sim.time() < self.deadline_time
+            return sim.sim.time() < self.deadline_time;
         }
         if sim.sim.time() % 1000.0 == 0.0 {
             self.all_short_pods_terminated = check_all_short_pods_terminated(sim);

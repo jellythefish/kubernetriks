@@ -58,7 +58,7 @@ impl KubeClusterAutoscaler {
     }
 
     /// Check whether current node count quota exceeded with respect to `max_node_count` and each
-    /// node group max count if it is set. 
+    /// node group max count if it is set.
     pub fn node_count_over_quota(
         &self,
         node_groups: &mut BTreeMap<String, NodeGroup>,
@@ -66,14 +66,14 @@ impl KubeClusterAutoscaler {
         max_node_count: u64,
     ) -> bool {
         if current_node_count >= max_node_count {
-            return true
+            return true;
         }
 
         for group in node_groups.values() {
             if group.max_count.is_none()
                 || group.max_count.is_some() && group.current_count < group.max_count.unwrap()
             {
-                return false
+                return false;
             }
         }
         true
@@ -216,7 +216,7 @@ impl KubeClusterAutoscaler {
             if current_node_count >= max_node_count {
                 not_scaled_up += 1;
                 continue;
-            } 
+            }
 
             if let Some(node) = self.try_find_fitting_template(&pod, node_groups) {
                 allocated_nodes.push(node);

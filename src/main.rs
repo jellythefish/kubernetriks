@@ -9,8 +9,8 @@ use clap::Parser;
 use log::info;
 
 use dslab_kubernetriks::config::SimulationConfig;
-use dslab_kubernetriks::simulator::KubernetriksSimulation;
 use dslab_kubernetriks::simulation_callbacks::RunUntilAllPodsAreFinishedCallbacks;
+use dslab_kubernetriks::simulator::KubernetriksSimulation;
 
 use dslab_kubernetriks::trace::alibaba_cluster_trace_v2017::workload::AlibabaWorkloadTraceV2017;
 use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};

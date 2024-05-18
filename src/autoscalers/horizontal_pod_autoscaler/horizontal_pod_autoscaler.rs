@@ -148,9 +148,16 @@ impl HorizontalPodAutoscaler {
             .metrics_collector
             .borrow()
             .pod_metrics_mean_utilization();
-        let actions = self
-            .autoscaling_algorithm
-            .autoscale(metrics, &mut self.pod_groups);
+
+        let mut actions: Vec<AutoscaleAction> = Default::default();
+
+        for (group_name, (cpu_mean_util, ram_mean_util)) in metrics.iter() {
+            let pod_group_info = self.pod_groups.get_mut(group_name).unwrap();
+            actions.extend(
+                self.autoscaling_algorithm
+                    .autoscale((*cpu_mean_util, *ram_mean_util), pod_group_info),
+            );
+        }
 
         self.take_actions(&actions);
 

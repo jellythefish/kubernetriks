@@ -185,6 +185,10 @@ impl KubeHorizontalPodAutoscaler {
                     .metadata
                     .labels
                     .insert("pod_group".to_string(), pod_group.pod_group.name.clone());
+                new_pod.metadata.labels.insert(
+                    "pod_group_creation_time".to_string(),
+                    pod_group.creation_time.to_string(),
+                );
                 new_pod.spec.resources.usage_model_config =
                     Some(pod_group.pod_group.resources_usage_model_config.clone());
 

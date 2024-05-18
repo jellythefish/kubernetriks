@@ -139,6 +139,7 @@ pub struct AssignPodToNodeRequest {
 pub struct AssignPodToNodeResponse {
     pub pod_name: String,
     pub pod_group: Option<String>,
+    pub pod_group_creation_time: Option<String>,
     pub node_name: String,
     pub pod_duration: Option<f64>,
     pub resources_usage_model_config: RuntimeResourcesUsageModelConfig,
@@ -157,6 +158,7 @@ pub struct PodNotScheduled {
 pub struct BindPodToNodeRequest {
     pub pod_name: String,
     pub pod_group: Option<String>,
+    pub pod_group_creation_time: Option<String>,
     pub node_name: String,
     pub pod_duration: Option<f64>,
     pub resources_usage_model_config: RuntimeResourcesUsageModelConfig,
@@ -198,7 +200,7 @@ pub struct CreatePodGroupRequest {
 /// HPA should take them into consideration.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RegisterPodGroup {
-    pub pod_group_info: PodGroupInfo,
+    pub info: PodGroupInfo,
 }
 
 /// Event from scheduler to itself to run pod scheduling cycle.

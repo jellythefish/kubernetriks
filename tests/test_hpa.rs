@@ -106,31 +106,31 @@ fn test_pod_group_created_and_scaled_by_cpu_utilization() {
 
     // at 540: load = 2, pods = 14, utilization = 2 / 14 = 0.1428, desired = ceil(14 * 0.1428 / 0.6) = 4
 
-    kube_sim.step_until_time(541.0);
+    kube_sim.step_until_time(600.5);
     assert_eq!(4, pod_group_len(&kube_sim));
     // after hpa step at 540: load = 2, pods = 4, utilization = 2 / 4 = 0.5, desired = ceil(4 * 0.5 / 0.6) = 4
 
-    kube_sim.step_until_time(650.0);
+    kube_sim.step_until_time(759.5);
     assert_eq!(4, pod_group_len(&kube_sim));
-    // stabilized at 4 until load increase at time > 700.0
+    // stabilized at 4 until load increase at time > 759.5
 
     // and again load = 8 - cycled
 
     // at 720: load = 8, pods = 4, utilization = 8 / 4 = 2 = 1.0, desired = ceil(4 * 1.0 / 0.6) = 7
 
-    kube_sim.step_until_time(721.0);
-    assert_eq!(7, pod_group_len(&kube_sim));
-    // after hpa step at 720: load = 8, pods = 7, utilization = 8 / 7 = 1.14 = 1.0, desired = ceil(7 * 1.0 / 0.6) = 12
-
     kube_sim.step_until_time(781.0);
-    assert_eq!(12, pod_group_len(&kube_sim));
-    // after hpa step at 780: load = 8, pods = 12, utilization = 8 / 12 = 0.66667, desired = ceil(12 * 0.66667 / 0.6) = 14
+    assert_eq!(7, pod_group_len(&kube_sim));
+    // after hpa step at 780: load = 8, pods = 7, utilization = 8 / 7 = 1.14 = 1.0, desired = ceil(7 * 1.0 / 0.6) = 12
 
     kube_sim.step_until_time(841.0);
-    assert_eq!(14, pod_group_len(&kube_sim));
-    // after hpa step at 840: load = 8, pods = 14, utilization = 8 / 14 = 0.5714 (/ 0.6 ~ 0.95 - within tolerance 0.1)
+    assert_eq!(12, pod_group_len(&kube_sim));
+    // after hpa step at 840: load = 8, pods = 12, utilization = 8 / 12 = 0.66667, desired = ceil(12 * 0.66667 / 0.6) = 14
 
-    kube_sim.step_until_time(1100.0);
+    kube_sim.step_until_time(901.0);
+    assert_eq!(14, pod_group_len(&kube_sim));
+    // after hpa step at 900: load = 8, pods = 14, utilization = 8 / 14 = 0.5714 (/ 0.6 ~ 0.95 - within tolerance 0.1)
+
+    kube_sim.step_until_time(1200.0);
     assert_eq!(14, pod_group_len(&kube_sim));
     // stabilized
 }

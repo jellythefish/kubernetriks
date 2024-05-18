@@ -95,6 +95,7 @@ impl NodeComponent {
         event_time: f64,
         pod_name: String,
         pod_group: Option<String>,
+        pod_group_creation_time: Option<String>,
         pod_duration: Option<f64>,
         usage_config: RuntimeResourcesUsageModelConfig,
     ) {
@@ -126,10 +127,16 @@ impl NodeComponent {
         let mut ram_usage_model = None;
 
         if let Some(cpu_config) = usage_config.cpu_config {
-            cpu_usage_model = Some(resource_usage_model_from_config(cpu_config, event_time));
+            cpu_usage_model = Some(resource_usage_model_from_config(
+                cpu_config,
+                pod_group_creation_time.clone(),
+            ));
         }
         if let Some(ram_config) = usage_config.ram_config {
-            ram_usage_model = Some(resource_usage_model_from_config(ram_config, event_time));
+            ram_usage_model = Some(resource_usage_model_from_config(
+                ram_config,
+                pod_group_creation_time,
+            ));
         }
 
         let running_pod_info = RunningPodInfo {
@@ -149,6 +156,7 @@ impl EventHandler for NodeComponent {
             BindPodToNodeRequest {
                 pod_name,
                 pod_group,
+                pod_group_creation_time,
                 node_name,
                 pod_duration,
                 resources_usage_model_config,
@@ -171,6 +179,7 @@ impl EventHandler for NodeComponent {
                     event.time,
                     pod_name.clone(),
                     pod_group,
+                    pod_group_creation_time,
                     pod_duration,
                     resources_usage_model_config,
                 );

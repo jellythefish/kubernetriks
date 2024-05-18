@@ -10,10 +10,9 @@ pub struct UsageUnit {
     pub total_load: f64,
 }
 
-/// The point of reference for all usage sequences with their durations is 0.0 of simulation time.
-/// Such point was chosen for convenient synchronization of all pods usages.
-/// For example if pod was created at 100.0, but have usage sequence durations: 10sec, 40sec, 50sec
-/// then it's current usage element is third one.
+/// The point of reference for all usage sequences with their durations is time of pod group
+/// creation at . For example, if pod group was created at 50.0 and pod was created at 100.0, but have
+/// usage sequence durations: 10sec, 40sec, 50sec, then it's current usage unit is third one.
 pub struct PodGroupResourceUsageModel {
     last_unit_start_time: f64,
     last_poll_time: f64,
@@ -22,17 +21,13 @@ pub struct PodGroupResourceUsageModel {
 }
 
 impl PodGroupResourceUsageModel {
-    pub fn new(current_time: f64, usage_sequence: Vec<UsageUnit>) -> Self {
-        let mut model = Self {
-            last_unit_start_time: 0.0,
-            last_poll_time: 0.0,
+    pub fn new(time_from_pod_group_creation: f64, usage_sequence: Vec<UsageUnit>) -> Self {
+        Self {
+            last_unit_start_time: time_from_pod_group_creation,
+            last_poll_time: time_from_pod_group_creation,
             usage_sequence,
             current_idx_in_sequence: 0,
-        };
-
-        model.step_usage_until_current_time(current_time);
-
-        model
+        }
     }
 
     /// Make model from configuration string.
@@ -56,9 +51,9 @@ impl PodGroupResourceUsageModel {
     /// assert_eq!(0.25, model.current_usage(6500.0, Some(40)));
     /// ```
     ///
-    pub fn from_str(config: &str, current_time: f64) -> Self {
+    pub fn from_str(config: &str, time_from_pod_group_creation: f64) -> Self {
         let usage_sequence = serde_yaml::from_str::<Vec<UsageUnit>>(&config).unwrap();
-        PodGroupResourceUsageModel::new(current_time, usage_sequence)
+        PodGroupResourceUsageModel::new(time_from_pod_group_creation, usage_sequence)
     }
 
     /// Calculates utilization based on the load number at certain point of `time` and `pod count`.
@@ -140,8 +135,7 @@ mod tests {
         assert_eq!(0.2, model.current_usage(250.0, Some(50)));
     }
 
-    #[test]
-    fn test_complex_resource_usage_model() {
+    fn test_with_shift(shift: f64) {
         let config = "
         - duration: 1000.0
           total_load: 10.0
@@ -152,17 +146,31 @@ mod tests {
         - duration: 500.0
           total_load: 1.0
         ";
-        let mut model = PodGroupResourceUsageModel::from_str(config, 0.0);
+        let mut model = PodGroupResourceUsageModel::from_str(config, shift);
 
-        assert_eq!(1.0, model.current_usage(0.0, Some(10)));
-        assert_eq!(1.0, model.current_usage(1000.0, Some(10)));
-        assert_eq!(0.25, model.current_usage(1000.0, Some(1600)));
-        assert_eq!(0.8, model.current_usage(1000.1, Some(500)));
-        assert_eq!(0.5, model.current_usage(1010.0, Some(40)));
-        assert_eq!(1.0, model.current_usage(1010.0, Some(20)));
-        assert_eq!(0.5, model.current_usage(8550.0, Some(20)));
-        assert_eq!(0.25, model.current_usage(9560.0, Some(80)));
-        assert_eq!(0.1, model.current_usage(9759.0, Some(200)));
-        assert_eq!(0.05, model.current_usage(54376.0, Some(20)));
+        assert_eq!(1.0, model.current_usage(0.0 + shift, Some(10)));
+        assert_eq!(1.0, model.current_usage(1000.0 + shift, Some(10)));
+        assert_eq!(0.25, model.current_usage(1000.0 + shift, Some(1600)));
+        assert_eq!(0.8, model.current_usage(1000.1 + shift, Some(500)));
+        assert_eq!(0.5, model.current_usage(1010.0 + shift, Some(40)));
+        assert_eq!(1.0, model.current_usage(1010.0 + shift, Some(20)));
+        assert_eq!(0.5, model.current_usage(8550.0 + shift, Some(20)));
+        assert_eq!(0.25, model.current_usage(9560.0 + shift, Some(80)));
+        assert_eq!(0.1, model.current_usage(9759.0 + shift, Some(200)));
+        assert_eq!(0.05, model.current_usage(54376.0 + shift, Some(20)));
+    }
+
+    #[test]
+    fn test_complex_resource_usage_model() {
+        test_with_shift(0.0);
+    }
+
+    #[test]
+    fn test_resource_usage_point_of_time_reference_from_pod_group_creation() {
+        test_with_shift(1.0);
+        test_with_shift(500.0);
+        test_with_shift(1000.0);
+        test_with_shift(1010.0);
+        test_with_shift(1499.0);
     }
 }

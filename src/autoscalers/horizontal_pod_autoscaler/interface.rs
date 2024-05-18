@@ -35,6 +35,8 @@ pub struct PodGroup {
 /// Represents a state of the pod group in autoscaler.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub struct PodGroupInfo {
+    /// Time of pod group creation at api server side.
+    pub creation_time: f64,
     /// Set of pod names which are currently active for pod group.
     pub created_pods: BTreeSet<String>,
     /// For monotonically incrementing counter used in unique scaled up pod names.

@@ -14,13 +14,13 @@ pub fn default_resource_usage_config(usage: f64) -> ResourceUsageModelConfig {
 
 pub fn resource_usage_model_from_config(
     config: ResourceUsageModelConfig,
-    start_time: f64,
+    pod_group_creation_time: Option<String>,
 ) -> Box<dyn ResourceUsageModel> {
     match &config.model_name as &str {
         "constant" => Box::new(ConstantResourceUsageModel::from_str(&config.config)),
         "pod_group" => Box::new(PodGroupResourceUsageModel::from_str(
             &config.config,
-            start_time,
+            pod_group_creation_time.unwrap().parse::<f64>().unwrap(),
         )),
         _ => panic!("Unsupported resource usage model: {:?}", config.model_name),
     }

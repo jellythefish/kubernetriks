@@ -185,6 +185,7 @@ impl EventHandler for KubeApiServer {
             AssignPodToNodeResponse {
                 pod_name,
                 pod_group,
+                pod_group_creation_time,
                 node_name,
                 pod_duration,
                 resources_usage_model_config,
@@ -195,6 +196,7 @@ impl EventHandler for KubeApiServer {
                     BindPodToNodeRequest {
                         pod_name,
                         pod_group,
+                        pod_group_creation_time,
                         node_name,
                         pod_duration,
                         resources_usage_model_config,
@@ -377,6 +379,7 @@ impl EventHandler for KubeApiServer {
                 );
 
                 let mut info = PodGroupInfo {
+                    creation_time: event.time,
                     created_pods: Default::default(),
                     total_created: 0,
                     pod_group,
@@ -390,8 +393,13 @@ impl EventHandler for KubeApiServer {
                     pod.metadata
                         .labels
                         .insert("pod_group".to_string(), info.pod_group.name.clone());
+                    pod.metadata.labels.insert(
+                        "pod_group_creation_time".to_string(),
+                        event.time.to_string(),
+                    );
                     pod.spec.resources.usage_model_config =
                         Some(info.pod_group.resources_usage_model_config.clone());
+
                     self.ctx.emit(
                         CreatePodRequest { pod },
                         self.persistent_storage,
@@ -403,9 +411,7 @@ impl EventHandler for KubeApiServer {
                 }
 
                 self.ctx.emit(
-                    RegisterPodGroup {
-                        pod_group_info: info,
-                    },
+                    RegisterPodGroup { info },
                     self.horizontal_pod_autoscaler.unwrap(),
                     self.config.as_to_hpa_network_delay,
                 );

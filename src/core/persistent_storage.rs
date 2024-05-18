@@ -274,6 +274,11 @@ impl EventHandler for PersistentStorage {
                     AssignPodToNodeResponse {
                         pod_name,
                         pod_group: pod.metadata.labels.get("pod_group").cloned(),
+                        pod_group_creation_time: pod
+                            .metadata
+                            .labels
+                            .get("pod_group_creation_time")
+                            .cloned(),
                         node_name,
                         pod_duration: pod.spec.running_duration,
                         resources_usage_model_config: pod

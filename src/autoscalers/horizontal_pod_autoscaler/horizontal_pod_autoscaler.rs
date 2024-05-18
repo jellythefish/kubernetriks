@@ -190,9 +190,8 @@ impl EventHandler for HorizontalPodAutoscaler {
             RunHorizontalPodAutoscalerCycle {} => {
                 self.run_horizontal_pod_autoscaler_cycle();
             }
-            RegisterPodGroup { pod_group_info } => {
-                self.pod_groups
-                    .insert(pod_group_info.pod_group.name.clone(), pod_group_info);
+            RegisterPodGroup { info } => {
+                self.pod_groups.insert(info.pod_group.name.clone(), info);
             }
         })
     }

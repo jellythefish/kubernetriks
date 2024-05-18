@@ -227,7 +227,6 @@ impl KubernetriksSimulation {
             .set_node_pool(NodeComponentPool::new(
                 max_nodes,
                 &mut self.sim,
-                self.metrics_collector.clone(),
             ));
 
         self.initialize_default_cluster();
@@ -288,7 +287,6 @@ impl KubernetriksSimulation {
         // add to api server
         let node_component = Rc::new(RefCell::new(NodeComponent::new(
             node_context,
-            self.metrics_collector.clone(),
         )));
         node_component.borrow_mut().runtime = Some(NodeRuntime {
             api_server: self.api_server.borrow().ctx.id(),

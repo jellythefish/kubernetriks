@@ -18,22 +18,17 @@ use dslab_core::Simulation;
 use crate::core::common::SimComponentId;
 use crate::core::node::Node;
 use crate::core::node_component::{NodeComponent, NodeRuntime};
-use crate::metrics::collector::MetricsCollector;
 
 use crate::config::SimulationConfig;
 
 pub struct NodeComponentPool {
     pool: VecDeque<Rc<RefCell<NodeComponent>>>,
-
-    metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
 impl Default for NodeComponentPool {
     fn default() -> Self {
         Self {
             pool: Default::default(),
-            // TODO: remove if not needed?
-            metrics_collector: Rc::new(RefCell::new(MetricsCollector::new())),
         }
     }
 }
@@ -42,21 +37,18 @@ impl NodeComponentPool {
     pub fn new(
         node_number: usize,
         sim: &mut Simulation,
-        metrics_collector: Rc<RefCell<MetricsCollector>>,
     ) -> Self {
         let mut pool = VecDeque::with_capacity(node_number as usize);
         for i in 0..node_number {
             let context_name = format!("pool_node_context_{}", i);
             let node_component = Rc::new(RefCell::new(NodeComponent::new(
                 sim.create_context(&context_name),
-                metrics_collector.clone(),
             )));
             sim.add_handler(context_name, node_component.clone());
             pool.push_back(node_component)
         }
         Self {
             pool,
-            metrics_collector,
         }
     }
 
@@ -91,15 +83,12 @@ impl NodeComponentPool {
 
 #[cfg(test)]
 mod tests {
-    use std::cell::RefCell;
     use std::rc::Rc;
 
     use dslab_core::Simulation;
 
     use crate::core::node::Node;
     use crate::core::node_component_pool::NodeComponentPool;
-
-    use crate::metrics::collector::MetricsCollector;
 
     use crate::test_util::helpers::default_test_simulation_config;
 
@@ -110,7 +99,6 @@ mod tests {
         let node_pool = NodeComponentPool::new(
             pool_size,
             &mut sim,
-            Rc::new(RefCell::new(MetricsCollector::new())),
         );
 
         assert_eq!(node_pool.pool.len(), pool_size);
@@ -129,7 +117,6 @@ mod tests {
         let mut node_pool = NodeComponentPool::new(
             pool_size,
             &mut sim,
-            Rc::new(RefCell::new(MetricsCollector::new())),
         );
 
         for _ in 0..pool_size + 1 {
@@ -148,7 +135,6 @@ mod tests {
         let mut node_pool = NodeComponentPool::new(
             pool_size,
             &mut sim,
-            Rc::new(RefCell::new(MetricsCollector::new())),
         );
 
         assert_eq!(node_pool.pool.len(), pool_size);

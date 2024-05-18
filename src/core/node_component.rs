@@ -1,6 +1,5 @@
 //! Node component simulates a real node running pods.
 
-use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -19,7 +18,6 @@ use crate::core::resource_usage::helpers::resource_usage_model_from_config;
 use crate::core::resource_usage::interface::ResourceUsageModel;
 
 use crate::config::SimulationConfig;
-use crate::metrics::collector::MetricsCollector;
 
 pub struct RunningPodInfo {
     pub event_id: Option<EventId>,
@@ -43,8 +41,6 @@ pub struct NodeComponent {
     /// Flag to check that node is being removed so cannot accept any pod occasionally.
     pub removed: bool,
     pub removal_time: f64,
-
-    metrics_collector: Rc<RefCell<MetricsCollector>>,
 }
 
 pub struct NodeRuntime {
@@ -54,7 +50,7 @@ pub struct NodeRuntime {
 }
 
 impl NodeComponent {
-    pub fn new(ctx: SimulationContext, metrics_collector: Rc<RefCell<MetricsCollector>>) -> Self {
+    pub fn new(ctx: SimulationContext) -> Self {
         Self {
             ctx,
             runtime: None,
@@ -62,7 +58,6 @@ impl NodeComponent {
             canceled_pods: Default::default(),
             removed: false,
             removal_time: 0.0,
-            metrics_collector,
         }
     }
 

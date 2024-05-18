@@ -3,11 +3,8 @@ use std::rc::Rc;
 use dslab_kubernetriks::{
     autoscalers::horizontal_pod_autoscaler::kube_horizontal_pod_autoscaler::KubeHorizontalPodAutoscalerConfig,
     simulator::KubernetriksSimulation,
-    test_util::helpers::{default_test_simulation_config, init_logger},
-    trace::{
-        alibaba_cluster_trace_v2017::workload,
-        generic::{GenericClusterTrace, GenericWorkloadTrace},
-    },
+    test_util::helpers::default_test_simulation_config,
+    trace::generic::{GenericClusterTrace, GenericWorkloadTrace},
 };
 
 fn get_cluster_trace() -> GenericClusterTrace {

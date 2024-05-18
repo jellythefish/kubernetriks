@@ -53,7 +53,6 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Переделать интерфейс PodSchedulingAlgorithm чтобы не возвращал ссылки с лайфтаймами (`return Result<String, SchedulerError>`)
 - [x] Добавить коллбэки для остановки симулятора (SimulationCallback traits): step for duration + check lambda to stop simulation
 - [x] Убрать опцию node_pool_capacity (она позже будет заменена опцией max_autoscaler_cluster_size). А вместо этой опции вычислять размер пула из трейса следующим образом: проходится в цикле по событиям, если событие - создание ноды, то +1 к счетчику, если событие - удаление/падение ноды, то обновление максимума нод, затем вычитание -1 из счетчика. Размер нод пула будет равным этому максимуму + некоторая дельта.
-- [ ] Подумать над тем, как реализовать schedule_one (под опцией в конфиге), вызываемый на каждое событие от persistent_storage - PodFinishedRunning/AddNodeToCacheRequest/PodScheduleRequest
 
 - [x] Печатать в simulation callbacks статистику или прогресс каждые n шагов, состояние кластера и тд
 - [x] Переименовать get_max_simultaneously_existing_nodes_in_trace в понятное название, дать комментарий, что она делает
@@ -61,18 +60,14 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Отсортировать события в симуляторе в функции convert_to_simulator_events
 - [x] Симулировать время работы планирования пода в зависимости от размера нод, которые мы перебираем. Время планирования на одну ноду пока считать константнтым.
 - [x] Принимать &HashMap вместо Vec<&Node> в schedule one функции интерфейса
-- [ ] Поэксперементировать с конвертацией alibaba trace в generic для ускорения загрузки и парсинга трейса с диска
 
 - [x] Сделать машиночитаемый формат сериализации метрик (json, etc)
 - [x] Сделать отдельную очередь для бэкоффов для пода
 - [x] Переименовать processed_pods в pods_terminated
 - [x] При обновлении condition у pod/node выставлять last_transition_time равный времени происшествия события на непосредственной компоненте.
 - [x] По метрикам: добавить pods_failed, тогда total_pods_in_trace = succeeded + pods unschedulable + pods_failed, переименовать pod_schedule_time_stats в scheduling_algorithm_latency_stats, добавить метрику pod_scheduling_duration_stats = pod_queue_time + scheduling_algorithm_latency
-- [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов
-- [ ] ? Сделать ограничение количества подов на ноде, которое по умолчанию - не ограничено
 - [x] Вычислять размер пула с учетом размеров нод груп в автоскейлере
 
-- [ ] Вычислять метрики: время работы ноды x кол-во cpu - процессорное время + получаем суммарное время со всех нод. Также для памяти - cpu seconds/memory seconds
 - [x] Улучшить интерфейс cluster autoscaler-a: + сделать из ClusterAutoscalerResponse enum?
 ```
 // interface: trait ScaleUpAlgorithm 
@@ -82,7 +77,6 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 ```
 - [x] Подумать над тем, как сделать приоритеты в перемещении подов из unschedulable queue в hashmap (BTreeMap?)
 - [x] Убрать недетерминированность с помощью замены HashMap на BTreeMap
-- [ ] Моделирование отказов?
 - [x] Добавить в ClusterAutoscalerAlgorithm ссылку на стейт в autoscale, а сам стейт хранить в ClusterAutoscaler
 ```
 // fn autoscale(&mut self, info: AutoscaleInfo, node_groups: &mut NodeGroups) -> Vec<AutoscaleAction>;
@@ -90,6 +84,17 @@ trace -> workload_trace.yaml/cluster_trace.yaml
 - [x] Сделать в ClusterAutoscaler-e общий max_node_count, а node count по каждой группе оставить
 Option
 - [x] Для long running сервисов сделать Option<running_duration>, где None - long running
-- [ ] Добавить контекст в сам симулятор для того, чтобы логировать время через log_info!
-- [ ] Убрать обертку для EstimatorWrapper
 - [x] Написать SimulationCallback для Long running service + Batch tasks
+- [ ] Взять точку отсчета времени для resource usage для каждого пода от начала создания его Pod Group.
+- [ ] Вынести цикл итерации по под группам в horizontal_pod_autoscaler
+
+- [ ] Поэксперементировать с конвертацией alibaba trace в generic для ускорения загрузки и парсинга трейса с диска
+- [ ] Подумать над тем, как реализовать schedule_one (под опцией в конфиге), вызываемый на каждое событие от persistent_storage - PodFinishedRunning/AddNodeToCacheRequest/PodScheduleRequest
+- [ ] Добавить контекст в сам симулятор для того, чтобы логировать время через log_info!
+- [ ] Моделирование отказов?
+- [ ] ? Сделать ограничение количества подов на ноде, которое по умолчанию - не ограничено
+- [ ] Убрать обертку для EstimatorWrapper
+- [ ] Вычислять метрики: время работы ноды x кол-во cpu - процессорное время + получаем суммарное время со всех нод. Также для памяти - cpu seconds/memory seconds
+- [ ] В результате препроцессинга трейсов выяснить, поместятся ли все поды на ноды из трейсов
+- [ ] !Лучше реализовать Push модель сбора метрик по подам с каждой ноды, чтобы имитировать задержку отправки метрик более явно, нежели чем через задержку запроса в api server в pull модели.
+- [ ] Реализовать трейт для резолвера имплементаций планировщика, автоскейлеров, чтобы пользователи могли предоставлять свой резолвинг без изменения кода в самой библиотеке.

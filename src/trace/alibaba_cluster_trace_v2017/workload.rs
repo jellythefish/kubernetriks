@@ -200,19 +200,20 @@ mod tests {
         BatchInstance, BatchTask,
     };
 
-    // #[test]
-    // fn try_read_the_trace() {
-    //     let instance = PathBuf::from(
-    //         "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv",
-    //     );
-    //     let task = PathBuf::from(
-    //         "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv",
-    //     );
+    #[test]
+    #[ignore = "too slow read from disk"]
+    fn try_read_the_trace() {
+        let instance = PathBuf::from(
+            "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv",
+        );
+        let task = PathBuf::from(
+            "/home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv",
+        );
 
-    //     let mut trace = AlibabaWorkloadTraceV2017::new(instance, task);
-    //     let events = trace.convert_to_simulator_events();
-    //     println!("event count: {:?}", events.len());
-    // }
+        let mut trace = AlibabaWorkloadTraceV2017::new(instance, task);
+        let events = trace.convert_to_simulator_events();
+        println!("event count: {:?}", events.len());
+    }
 
     #[test]
     fn test_parsing_ok() {

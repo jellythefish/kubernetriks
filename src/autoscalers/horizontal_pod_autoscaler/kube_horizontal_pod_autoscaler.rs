@@ -15,7 +15,7 @@ use crate::autoscalers::horizontal_pod_autoscaler::interface::{
 /// Then, CreatePodRequest or RemovePodRequest are issued to api server.
 ///
 /// Pod Group may contains target thresholds for cpu metric and ram metric at the same time.
-/// If so, KubeHorizontalPodAutoscaler evaluates deseiredReplicas for each metric and takes the
+/// If so, KubeHorizontalPodAutoscaler evaluates desiredReplicas for each metric and takes the
 /// maximum scale recommended for each metric and sets the pod count to that size (provided that
 /// this isn't larger than the overall maximum pod count configured in pod group).
 ///

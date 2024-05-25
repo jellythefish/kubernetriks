@@ -36,3 +36,21 @@ impl ResourceUsageModel for ConstantResourceUsageModel {
         self.usage
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::core::resource_usage::interface::ResourceUsageModel;
+    use crate::core::resource_usage::constant::ConstantResourceUsageModel;
+
+    #[test]
+    fn test_any_time_constant_usage() {
+        let config = "usage: 27.0";
+        let mut model = ConstantResourceUsageModel::from_str(config);
+
+        assert_eq!(27.0, model.current_usage(0.0, None));
+        assert_eq!(27.0, model.current_usage(500.0, None));
+        assert_eq!(27.0, model.current_usage(500.0, None));
+        assert_eq!(27.0, model.current_usage(1000.0, None));
+        assert_eq!(27.0, model.current_usage(1001.0, None));
+    }
+}

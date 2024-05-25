@@ -12,6 +12,7 @@ use dslab_kubernetriks::config::SimulationConfig;
 use dslab_kubernetriks::simulation_callbacks::RunUntilAllPodsAreFinishedCallbacks;
 use dslab_kubernetriks::simulator::KubernetriksSimulation;
 
+use dslab_kubernetriks::trace::alibaba_cluster_trace_v2017::cluster::AlibabaClusterTraceV2017;
 use dslab_kubernetriks::trace::alibaba_cluster_trace_v2017::workload::AlibabaWorkloadTraceV2017;
 use dslab_kubernetriks::trace::generic::{GenericClusterTrace, GenericWorkloadTrace};
 use dslab_kubernetriks::trace::interface::Trace;
@@ -59,50 +60,34 @@ fn main() {
     let trace_config = config.trace_config.as_ref().unwrap();
 
     assert!(
-        !trace_config.alibaba_cluster_trace_v2017.is_none() ^ !trace_config.generic_trace.is_none(),
+        trace_config.alibaba_cluster_trace_v2017.is_some() ^ trace_config.generic_trace.is_some(),
         "only one of trace config must be set"
     );
-    if !trace_config.alibaba_cluster_trace_v2017.is_none() {
-        info!("Reading alibaba cluster trace v2017 workload trace...");
-        // dummy cluster trace
-        cluster_trace = Box::new(GenericClusterTrace { events: vec![] });
-        let batch_instance_path = PathBuf::from(
-            &trace_config
-                .alibaba_cluster_trace_v2017
-                .as_ref()
-                .unwrap()
-                .batch_instance_trace_path,
-        );
-        let batch_task_path = PathBuf::from(
-            &trace_config
-                .alibaba_cluster_trace_v2017
-                .as_ref()
-                .unwrap()
-                .batch_task_trace_path,
-        );
+    if trace_config.alibaba_cluster_trace_v2017.is_some() {
+        info!("Reading alibaba trace v2017 workload trace...");
+        let config = trace_config.alibaba_cluster_trace_v2017.as_ref().unwrap();
+
+        if config.machine_events_trace_path.is_some() {
+            info!("Reading alibaba trace v2017 cluster trace...");
+            cluster_trace = Box::new(AlibabaClusterTraceV2017::new(PathBuf::from(
+                &config.machine_events_trace_path.as_ref().unwrap(),
+            )))
+        } else {
+            cluster_trace = Box::new(GenericClusterTrace { events: vec![] });
+        }
 
         workload_trace = Box::new(AlibabaWorkloadTraceV2017::new(
-            batch_instance_path,
-            batch_task_path,
+            PathBuf::from(&config.batch_instance_trace_path),
+            PathBuf::from(&config.batch_task_trace_path),
         ));
     } else {
-        info!("Reading generic cluster and workload traces");
-        let cluster_trace_yaml = std::fs::read_to_string(
-            &trace_config
-                .generic_trace
-                .as_ref()
-                .unwrap()
-                .cluster_trace_path,
-        )
-        .expect("could not read trace file");
-        let workload_trace_yaml = std::fs::read_to_string(
-            &trace_config
-                .generic_trace
-                .as_ref()
-                .unwrap()
-                .workload_trace_path,
-        )
-        .expect("could not read trace file");
+        info!("Reading generic cluster and workload traces...");
+        let config = trace_config.generic_trace.as_ref().unwrap();
+
+        let cluster_trace_yaml =
+            std::fs::read_to_string(&config.cluster_trace_path).expect("could not read trace file");
+        let workload_trace_yaml = std::fs::read_to_string(&config.workload_trace_path)
+            .expect("could not read trace file");
 
         cluster_trace =
             Box::new(serde_yaml::from_str::<GenericClusterTrace>(&cluster_trace_yaml).unwrap());

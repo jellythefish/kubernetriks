@@ -39,8 +39,8 @@ impl ResourceUsageModel for ConstantResourceUsageModel {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::resource_usage::interface::ResourceUsageModel;
     use crate::core::resource_usage::constant::ConstantResourceUsageModel;
+    use crate::core::resource_usage::interface::ResourceUsageModel;
 
     #[test]
     fn test_any_time_constant_usage() {

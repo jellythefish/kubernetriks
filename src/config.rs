@@ -38,6 +38,8 @@ pub struct SimulationConfig {
 pub struct AlibabaWorkloadTraceV2017Paths {
     pub batch_instance_trace_path: String,
     pub batch_task_trace_path: String,
+    /// Optional trace for alibaba cluster nodes
+    pub machine_events_trace_path: Option<String>,
 }
 
 #[derive(Clone, Default, Debug, Deserialize, PartialEq)]

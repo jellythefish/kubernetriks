@@ -6,6 +6,7 @@ use std::{
 
 use serde::Deserialize;
 
+use crate::trace::alibaba_cluster_trace_v2017::common::{CPU_BASE, DENORMALIZATION_BASE};
 use crate::{
     core::{common::SimulationEvent, events::CreatePodRequest, pod::Pod},
     trace::interface::Trace,
@@ -95,13 +96,11 @@ impl AlibabaWorkloadTraceV2017 {
             let cpu = batch_task
                 .number_of_cpus_requested_per_instance_in_the_task
                 .unwrap();
-            let converted_cpu = (cpu * 1000) as u32; // in millicores
+            let converted_cpu = (cpu * CPU_BASE) as u32; // in millicores
             let ram = batch_task
                 .normalized_memory_requested_per_instance_in_the_task
                 .unwrap();
-            // taking absolute of 128 GB for value 1.0 of normalized
-            let base: u64 = 128 * 1024 * 1024 * 1024;
-            let converted_ram = (ram * base as f64) as u64; // in bytes
+            let converted_ram = (ram * DENORMALIZATION_BASE as f64) as u64; // in bytes
             let running_duration = (end_timestamp - start_timestamp) as f64;
 
             let pod = Pod::new(

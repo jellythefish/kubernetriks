@@ -40,6 +40,7 @@ trace_config:
   alibaba_cluster_trace_v2017:
     batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
     batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
+    machine_events_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/server_event.csv
 
 default_cluster:
 - node_template:

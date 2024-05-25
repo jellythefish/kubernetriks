@@ -124,14 +124,14 @@ mod tests {
     };
 
     #[test]
-    fn test_deserialize_empty_trace_from_json() {
-        let trace_json = r#"
+    fn test_deserialize_empty_trace_from_yaml() {
+        let trace_yaml = r#"
         events: []
         "#;
 
-        let cluster_deserialized: GenericClusterTrace = serde_yaml::from_str(&trace_json).unwrap();
+        let cluster_deserialized: GenericClusterTrace = serde_yaml::from_str(&trace_yaml).unwrap();
         let workload_deserialized: GenericWorkloadTrace =
-            serde_yaml::from_str(&trace_json).unwrap();
+            serde_yaml::from_str(&trace_yaml).unwrap();
 
         let cluster_trace = GenericClusterTrace { events: vec![] };
         let workload_trace = GenericWorkloadTrace { events: vec![] };

@@ -46,7 +46,7 @@ impl FilterPlugin for Fit {
 
 // Least requested resources plugin is a score plugin. Its score means that after subtracting pod's
 // requested resources from node's allocatable resources, the node with the highest
-// percentage difference (relatively to capacity) is prioritized for scheduling.
+// percentage (relatively to current allocatable) is prioritized for scheduling.
 //
 // Weights for cpu and memory are equal by default.
 pub struct LeastAllocatedResources {}

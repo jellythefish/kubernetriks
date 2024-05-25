@@ -1,12 +1,16 @@
 //! Implements centralized storage for metrics. Any component may access this component to
 //! report metrics about pods, nodes, etc.
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, fs::File, rc::Rc};
 
 use average::{concatenate, Estimate, Max, Mean, Min, Variance};
+use csv::Writer;
 use dslab_core::{cast, Event, EventHandler, SimulationContext};
 
-use crate::core::{api_server::KubeApiServer, events::RunPodMetricsCollectionCycle};
+use crate::core::{
+    api_server::KubeApiServer,
+    events::{RecordGaugeMetricsCycle, RunPodMetricsCollectionCycle},
+};
 
 concatenate!(
     Estimator,
@@ -80,7 +84,7 @@ pub struct InternalMetrics {
     pub terminated_pods: u64,
 }
 
-pub struct SimulationMetrics {
+pub struct AccumulatedMetrics {
     /// The number of created nodes in trace. Calculated before simulation starts.
     pub total_nodes_in_trace: u64,
     /// The number of created pods in trace. Calculated before simulation starts.
@@ -125,7 +129,7 @@ pub struct SimulationMetrics {
     pub pod_utilization_metrics: HashMap<String, (EstimatorWrapper, EstimatorWrapper)>,
 }
 
-impl SimulationMetrics {
+impl AccumulatedMetrics {
     pub fn new() -> Self {
         Self {
             total_nodes_in_trace: 0,
@@ -162,6 +166,31 @@ impl SimulationMetrics {
     }
 }
 
+/// Metrics which represents state at certain point of simulation time.
+pub struct GaugeMetrics {
+    pub current_nodes: u64,
+    pub current_pods: u64,
+    pub pods_in_scheduling_queues: u64,
+    pub node_average_cpu_utilization: f64,
+    pub node_average_ram_utilization: f64,
+    pub cluster_total_cpu_utilization: f64,
+    pub cluster_total_ram_utilization: f64,
+}
+
+impl GaugeMetrics {
+    pub fn new() -> Self {
+        Self {
+            current_nodes: 0,
+            current_pods: 0,
+            pods_in_scheduling_queues: 0,
+            node_average_cpu_utilization: 0.0,
+            node_average_ram_utilization: 0.0,
+            cluster_total_cpu_utilization: 0.0,
+            cluster_total_ram_utilization: 0.0,
+        }
+    }
+}
+
 pub struct MetricsCollector {
     // `api_server_component` and `ctx` are options to resolve cyclic dependencies and to set them later in
     // setter methods.
@@ -170,7 +199,13 @@ pub struct MetricsCollector {
 
     pub ctx: Option<SimulationContext>,
 
-    pub metrics: SimulationMetrics,
+    pub accumulated_metrics: AccumulatedMetrics,
+    pub gauge_metrics: GaugeMetrics,
+
+    /// Writer of metrics to file in csv format, including header.
+    pub gauge_metrics_writer: Writer<File>,
+    /// Record interval for writing gauge metrics.
+    record_interval: f64,
 
     /// Collection interval only for pod utilization metrics pulling
     collection_interval: f64,
@@ -178,10 +213,27 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     pub fn new() -> Self {
+        let mut gauge_metrics_writer = Writer::from_path("gauge_metrics.csv").unwrap();
+        gauge_metrics_writer
+            .write_record(&[
+                "timestamp",
+                "current_nodes",
+                "current_pods",
+                "pods_in_scheduling_queues",
+                "node_average_cpu_utilization",
+                "node_average_ram_utilization",
+                "cluster_total_cpu_utilization",
+                "cluster_total_ram_utilization",
+            ])
+            .unwrap();
+
         Self {
             ctx: None,
             api_server_component: None,
-            metrics: SimulationMetrics::new(),
+            accumulated_metrics: AccumulatedMetrics::new(),
+            gauge_metrics: GaugeMetrics::new(),
+            gauge_metrics_writer,
+            record_interval: 5.0,
             collection_interval: 60.0, // TODO: make configurable?
         }
     }
@@ -194,6 +246,13 @@ impl MetricsCollector {
         self.ctx = Some(ctx);
     }
 
+    pub fn start_gauge_metrics_recording(&self) {
+        self.ctx
+            .as_ref()
+            .unwrap()
+            .emit_self_now(RecordGaugeMetricsCycle {});
+    }
+
     pub fn start_pod_metrics_collection(&self) {
         self.ctx
             .as_ref()
@@ -203,7 +262,7 @@ impl MetricsCollector {
 
     fn collect_pod_metrics(&mut self, event_time: f64) {
         // clear pod metrics as we have only last state for them
-        self.metrics.pod_utilization_metrics.clear();
+        self.accumulated_metrics.pod_utilization_metrics.clear();
         let all_nodes = self
             .api_server_component
             .as_ref()
@@ -253,12 +312,12 @@ impl MetricsCollector {
                         .unwrap();
 
                     if self
-                        .metrics
+                        .accumulated_metrics
                         .pod_utilization_metrics
                         .contains_key(&pod_group_name)
                     {
                         let utils = self
-                            .metrics
+                            .accumulated_metrics
                             .pod_utilization_metrics
                             .get_mut(&pod_group_name)
                             .unwrap();
@@ -268,7 +327,7 @@ impl MetricsCollector {
                         let mut utils = (EstimatorWrapper::new(), EstimatorWrapper::new());
                         utils.0.add(cpu_utilization);
                         utils.1.add(ram_utilization);
-                        self.metrics
+                        self.accumulated_metrics
                             .pod_utilization_metrics
                             .insert(pod_group_name, utils);
                     }
@@ -281,11 +340,70 @@ impl MetricsCollector {
     pub fn pod_metrics_mean_utilization(&self) -> HashMap<String, (f64, f64)> {
         let mut metrics: HashMap<String, (f64, f64)> = Default::default();
 
-        for (pod_group, (cpu_util, ram_util)) in self.metrics.pod_utilization_metrics.iter() {
+        for (pod_group, (cpu_util, ram_util)) in
+            self.accumulated_metrics.pod_utilization_metrics.iter()
+        {
             metrics.insert(pod_group.clone(), (cpu_util.mean(), ram_util.mean()));
         }
 
         metrics
+    }
+
+    pub fn collect_utilizations(&mut self) {
+        let all_nodes = self
+            .api_server_component
+            .as_ref()
+            .unwrap()
+            .borrow()
+            .all_created_nodes();
+
+        self.gauge_metrics.node_average_cpu_utilization = 0.0;
+        self.gauge_metrics.node_average_ram_utilization = 0.0;
+        let mut cluster_cpu_requests = 0u64;
+        let mut cluster_ram_requests = 0u64;
+        let mut cluster_cpu_capacity = 0u64;
+        let mut cluster_ram_capacity = 0u64;
+        let node_count = all_nodes.len();
+
+        for node in all_nodes.iter() {
+            let node_component = node.borrow();
+            let status = &node_component.runtime.as_ref().unwrap().node.status;
+            let cpu_request = status.capacity.cpu as u64 - status.allocatable.cpu as u64;
+            let ram_request = status.capacity.ram as u64 - status.allocatable.ram as u64;
+
+            self.gauge_metrics.node_average_cpu_utilization +=
+                cpu_request as f64 / status.capacity.cpu as f64;
+            self.gauge_metrics.node_average_ram_utilization +=
+                ram_request as f64 / status.capacity.ram as f64;
+            cluster_cpu_requests += cpu_request;
+            cluster_ram_requests += ram_request;
+            cluster_cpu_capacity += status.capacity.cpu as u64;
+            cluster_ram_capacity += status.capacity.ram as u64;
+        }
+
+        self.gauge_metrics.node_average_cpu_utilization /= node_count as f64;
+        self.gauge_metrics.node_average_ram_utilization /= node_count as f64;
+        self.gauge_metrics.cluster_total_cpu_utilization =
+            cluster_cpu_requests as f64 / cluster_cpu_capacity as f64;
+        self.gauge_metrics.cluster_total_ram_utilization =
+            cluster_ram_requests as f64 / cluster_ram_capacity as f64;
+    }
+
+    pub fn record_gauge_metrics(&mut self, current_time: f64) {
+        self.collect_utilizations();
+
+        self.gauge_metrics_writer
+            .write_record(&[
+                current_time.to_string(),
+                self.gauge_metrics.current_nodes.to_string(),
+                self.gauge_metrics.current_pods.to_string(),
+                self.gauge_metrics.pods_in_scheduling_queues.to_string(),
+                self.gauge_metrics.node_average_cpu_utilization.to_string(),
+                self.gauge_metrics.node_average_ram_utilization.to_string(),
+                self.gauge_metrics.cluster_total_cpu_utilization.to_string(),
+                self.gauge_metrics.cluster_total_ram_utilization.to_string(),
+            ])
+            .unwrap();
     }
 }
 
@@ -299,6 +417,14 @@ impl EventHandler for MetricsCollector {
                     .as_ref()
                     .unwrap()
                     .emit_self(RunPodMetricsCollectionCycle {}, self.collection_interval);
+            }
+            RecordGaugeMetricsCycle {} => {
+                self.record_gauge_metrics(event.time);
+
+                self.ctx
+                    .as_ref()
+                    .unwrap()
+                    .emit_self(RecordGaugeMetricsCycle {}, self.record_interval);
             }
         })
     }

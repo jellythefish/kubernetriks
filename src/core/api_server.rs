@@ -129,8 +129,13 @@ impl EventHandler for KubeApiServer {
         // Macro which is called when we are sure that event.data is a Box from arbitrary
         // Box<dyn SimulationEvent>
         cast_box!(match event.data {
-            // Redirect to persistent storage first
-            CreateNodeRequest { node } => {
+            CreateNodeRequest { mut node } => {
+                node.status.allocatable = node.status.capacity.clone();
+                self.metrics_collector
+                    .borrow_mut()
+                    .gauge_metrics
+                    .current_nodes += 1;
+                // Redirect to persistent storage first
                 self.pending_node_creation_requests
                     .insert(node.metadata.name.clone(), node.clone());
                 self.ctx.emit(
@@ -144,6 +149,10 @@ impl EventHandler for KubeApiServer {
                 self.handle_create_node(&node_name, event.time);
             }
             CreatePodRequest { pod } => {
+                self.metrics_collector
+                    .borrow_mut()
+                    .gauge_metrics
+                    .current_pods += 1;
                 // Redirects to persistent storage
                 self.ctx.emit(
                     CreatePodRequest { pod },
@@ -184,6 +193,7 @@ impl EventHandler for KubeApiServer {
             }
             AssignPodToNodeResponse {
                 pod_name,
+                pod_requests,
                 pod_group,
                 pod_group_creation_time,
                 node_name,
@@ -195,6 +205,7 @@ impl EventHandler for KubeApiServer {
                 self.ctx.emit(
                     BindPodToNodeRequest {
                         pod_name,
+                        pod_requests,
                         pod_group,
                         pod_group_creation_time,
                         node_name,
@@ -241,10 +252,17 @@ impl EventHandler for KubeApiServer {
             } => {
                 self.metrics_collector
                     .borrow_mut()
-                    .metrics
+                    .accumulated_metrics
                     .internal
                     .terminated_pods += 1;
-                self.metrics_collector.borrow_mut().metrics.pods_succeeded += 1;
+                self.metrics_collector
+                    .borrow_mut()
+                    .accumulated_metrics
+                    .pods_succeeded += 1;
+                self.metrics_collector
+                    .borrow_mut()
+                    .gauge_metrics
+                    .current_pods -= 1;
                 // Redirect to persistent storage
                 self.ctx.emit(
                     PodFinishedRunning {
@@ -280,6 +298,11 @@ impl EventHandler for KubeApiServer {
                 removal_time,
                 node_name,
             } => {
+                self.metrics_collector
+                    .borrow_mut()
+                    .gauge_metrics
+                    .current_nodes -= 1;
+
                 // Event from node component about completed removal.
                 self.handle_node_removal(&node_name);
                 self.pending_node_removal_requests.remove(&node_name);
@@ -355,10 +378,17 @@ impl EventHandler for KubeApiServer {
                     // removed with our request or node removal - consider it terminated
                     self.metrics_collector
                         .borrow_mut()
-                        .metrics
+                        .accumulated_metrics
                         .internal
                         .terminated_pods += 1;
-                    self.metrics_collector.borrow_mut().metrics.pods_removed += 1;
+                    self.metrics_collector
+                        .borrow_mut()
+                        .accumulated_metrics
+                        .pods_removed += 1;
+                    self.metrics_collector
+                        .borrow_mut()
+                        .gauge_metrics
+                        .current_pods -= 1;
                 }
 
                 // Redirect to persistent storage
@@ -409,6 +439,11 @@ impl EventHandler for KubeApiServer {
                     info.created_pods.insert(pod_name);
                     info.total_created += 1;
                 }
+
+                self.metrics_collector
+                    .borrow_mut()
+                    .gauge_metrics
+                    .current_pods += info.pod_group.initial_pod_count as u64;
 
                 self.ctx.emit(
                     RegisterPodGroup { info },

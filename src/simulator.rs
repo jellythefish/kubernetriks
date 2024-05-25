@@ -156,6 +156,9 @@ impl KubernetriksSimulation {
         metrics_collector
             .borrow_mut()
             .start_pod_metrics_collection();
+        metrics_collector
+            .borrow_mut()
+            .start_gauge_metrics_recording();
 
         let default_scheduler_impl = Box::new(KubeScheduler {
             config: default_kube_scheduler_config(),
@@ -233,7 +236,7 @@ impl KubernetriksSimulation {
             if let Some(_) = event.downcast_ref::<CreateNodeRequest>() {
                 self.metrics_collector
                     .borrow_mut()
-                    .metrics
+                    .accumulated_metrics
                     .total_nodes_in_trace += 1;
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
@@ -243,7 +246,7 @@ impl KubernetriksSimulation {
             if let Some(_) = event.downcast_ref::<CreatePodRequest>() {
                 self.metrics_collector
                     .borrow_mut()
-                    .metrics
+                    .accumulated_metrics
                     .total_pods_in_trace += 1;
             }
             client.emit(event, self.api_server.borrow().ctx.id(), ts);
@@ -333,6 +336,10 @@ impl KubernetriksSimulation {
                 self.add_node(node);
                 total_nodes += 1;
             }
+            self.metrics_collector
+                .borrow_mut()
+                .gauge_metrics
+                .current_nodes += node_count_in_group;
         }
     }
 

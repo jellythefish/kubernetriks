@@ -107,7 +107,7 @@ impl HorizontalPodAutoscaler {
 
         self.metrics_collector
             .borrow_mut()
-            .metrics
+            .accumulated_metrics
             .total_scaled_up_pods += 1;
     }
 
@@ -124,7 +124,7 @@ impl HorizontalPodAutoscaler {
 
         self.metrics_collector
             .borrow_mut()
-            .metrics
+            .accumulated_metrics
             .total_scaled_down_pods += 1;
     }
 

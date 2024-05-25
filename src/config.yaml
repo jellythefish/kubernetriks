@@ -8,11 +8,11 @@ metrics_printer:
   output_file: /home/btkz/master/diploma/kubernetriks/metrics.txt
 
 horizontal_pod_autoscaler:
-  enabled: true
+  enabled: false
   type: kube_horizontal_pod_autoscaler
 
 cluster_autoscaler:
-  enabled: true
+  enabled: false
   type: kube_cluster_autoscaler
   max_node_count: 200
   node_groups:
@@ -39,33 +39,33 @@ trace_config:
 
   alibaba_cluster_trace_v2017:
     batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
-    batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_task.csv
-    machine_events_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/server_event.csv
+    batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/modified/batch_task_fit_only.csv
+    machine_events_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/modified/server_event_add_only.csv
 
-default_cluster:
-- node_template:
-    metadata:
-      name: super_node_1024cpu_512gb
-    status:
-      capacity:
-        cpu: 1024000
-        ram: 549755813888
-- node_count: 10
-  node_template:
-    metadata:
-      name: default_128cpu_256gb_node
-    status:
-      capacity:
-        cpu: 128000
-        ram: 274877906944
-- node_count: 20
-  node_template:
-    metadata:
-      name: default_64cpu_128gb_node
-    status:
-      capacity:
-        cpu: 64000
-        ram: 137438953472
+# default_cluster:
+# - node_template:
+#     metadata:
+#       name: super_node_1024cpu_512gb
+#     status:
+#       capacity:
+#         cpu: 1024000
+#         ram: 549755813888
+# - node_count: 10
+#   node_template:
+#     metadata:
+#       name: default_128cpu_256gb_node
+#     status:
+#       capacity:
+#         cpu: 128000
+#         ram: 274877906944
+# - node_count: 20
+#   node_template:
+#     metadata:
+#       name: default_64cpu_128gb_node
+#     status:
+#       capacity:
+#         cpu: 64000
+#         ram: 137438953472
 
 scheduling_cycle_interval: 10.0
 

@@ -241,6 +241,11 @@ impl Scheduler {
             self.action_queue.len(),
             self.unschedulable_pods.len()
         );
+        self.metrics_collector
+            .borrow_mut()
+            .gauge_metrics
+            .pods_in_scheduling_queues =
+            self.action_queue.len() as u64 + self.unschedulable_pods.len() as u64;
 
         while let Some(mut next_pod) = self.action_queue.pop() {
             // Check whether pod was removed from RemovePodFromCache event
@@ -305,11 +310,11 @@ impl Scheduler {
 
             self.metrics_collector
                 .borrow_mut()
-                .metrics
+                .accumulated_metrics
                 .increment_pod_scheduling_algorithm_latency(pod_schedule_time);
             self.metrics_collector
                 .borrow_mut()
-                .metrics
+                .accumulated_metrics
                 .increment_pod_queue_time(pod_queue_time);
         }
 

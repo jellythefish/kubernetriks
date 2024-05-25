@@ -25,10 +25,14 @@ fn check_all_short_pods_terminated(sim: &mut KubernetriksSimulation) -> bool {
     let terminated_pods = sim
         .metrics_collector
         .borrow()
-        .metrics
+        .accumulated_metrics
         .internal
         .terminated_pods;
-    let total_pods_in_trace = sim.metrics_collector.borrow().metrics.total_pods_in_trace;
+    let total_pods_in_trace = sim
+        .metrics_collector
+        .borrow()
+        .accumulated_metrics
+        .total_pods_in_trace;
     info!(
         "Processed {} out of {} pods",
         terminated_pods, total_pods_in_trace
@@ -41,14 +45,30 @@ fn assert_and_print(sim: &mut KubernetriksSimulation) {
     let terminated_pods = sim
         .metrics_collector
         .borrow()
-        .metrics
+        .accumulated_metrics
         .internal
         .terminated_pods;
 
-    let pods_succeeded = sim.metrics_collector.borrow().metrics.pods_succeeded;
-    let pods_unschedulable = sim.metrics_collector.borrow().metrics.pods_unschedulable;
-    let pods_failed = sim.metrics_collector.borrow().metrics.pods_failed;
-    let pods_removed = sim.metrics_collector.borrow().metrics.pods_removed;
+    let pods_succeeded = sim
+        .metrics_collector
+        .borrow()
+        .accumulated_metrics
+        .pods_succeeded;
+    let pods_unschedulable = sim
+        .metrics_collector
+        .borrow()
+        .accumulated_metrics
+        .pods_unschedulable;
+    let pods_failed = sim
+        .metrics_collector
+        .borrow()
+        .accumulated_metrics
+        .pods_failed;
+    let pods_removed = sim
+        .metrics_collector
+        .borrow()
+        .accumulated_metrics
+        .pods_removed;
 
     assert_eq!(
         terminated_pods,

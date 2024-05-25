@@ -28,7 +28,7 @@ pub fn print_metrics_as_pretty_table(
     collector: Rc<RefCell<MetricsCollector>>,
     output_file: &std::path::PathBuf,
 ) {
-    let metrics = &collector.borrow().metrics;
+    let metrics = &collector.borrow().accumulated_metrics;
     let mut metrics_file = File::create(output_file).unwrap();
 
     let mut aggregated_table = Table::new();
@@ -119,7 +119,7 @@ pub fn print_metrics_as_json(
     collector: Rc<RefCell<MetricsCollector>>,
     output_file: &std::path::PathBuf,
 ) {
-    let metrics = &collector.borrow().metrics;
+    let metrics = &collector.borrow().accumulated_metrics;
     let mut metrics_file = File::create(output_file).unwrap();
 
     let metrics = MetricsJSON {

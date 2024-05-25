@@ -72,6 +72,9 @@ impl AlibabaWorkloadTraceV2017 {
             if start_timestamp <= 0 || end_timestamp <= 0 || start_timestamp >= end_timestamp {
                 continue;
             }
+            if !self.batch_tasks.contains_key(&instance.task_id.unwrap()) {
+                continue;
+            }
             let batch_task = self.batch_tasks.get(&instance.task_id.unwrap()).unwrap();
             if batch_task
                 .number_of_cpus_requested_per_instance_in_the_task

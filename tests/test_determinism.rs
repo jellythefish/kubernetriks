@@ -92,26 +92,35 @@ pub fn test_simulation_determinism() {
         let current = run_simulation();
 
         assert_eq!(
-            first_metric_collector.borrow().metrics.pods_succeeded,
-            current.borrow().metrics.pods_succeeded
-        );
-        assert_eq!(
-            first_metric_collector.borrow().metrics.pod_queue_time_stats,
-            current.borrow().metrics.pod_queue_time_stats
+            first_metric_collector
+                .borrow()
+                .accumulated_metrics
+                .pods_succeeded,
+            current.borrow().accumulated_metrics.pods_succeeded
         );
         assert_eq!(
             first_metric_collector
                 .borrow()
-                .metrics
+                .accumulated_metrics
+                .pod_queue_time_stats,
+            current.borrow().accumulated_metrics.pod_queue_time_stats
+        );
+        assert_eq!(
+            first_metric_collector
+                .borrow()
+                .accumulated_metrics
                 .pod_scheduling_algorithm_latency_stats,
             current
                 .borrow()
-                .metrics
+                .accumulated_metrics
                 .pod_scheduling_algorithm_latency_stats
         );
         assert_eq!(
-            first_metric_collector.borrow().metrics.pod_duration_stats,
-            current.borrow().metrics.pod_duration_stats
+            first_metric_collector
+                .borrow()
+                .accumulated_metrics
+                .pod_duration_stats,
+            current.borrow().accumulated_metrics.pod_duration_stats
         );
     }
 }

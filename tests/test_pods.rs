@@ -339,20 +339,28 @@ fn test_node_remove_while_pods_were_running() {
     let total_pods = kube_sim
         .metrics_collector
         .borrow()
-        .metrics
+        .accumulated_metrics
         .total_pods_in_trace;
     assert_eq!(2, total_pods);
 
     assert_eq!(
         0,
-        kube_sim.metrics_collector.borrow().metrics.pods_succeeded
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_succeeded
     );
 
     kube_sim.step_for_duration(2000.0);
     // node returns at 1100.0
     assert_eq!(
         2,
-        kube_sim.metrics_collector.borrow().metrics.pods_succeeded
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_succeeded
     );
 }
 
@@ -377,9 +385,13 @@ fn test_node_removed_at_the_same_time_as_assignment() {
     let total_pods = kube_sim
         .metrics_collector
         .borrow()
-        .metrics
+        .accumulated_metrics
         .total_pods_in_trace;
-    let pods_succeeded = kube_sim.metrics_collector.borrow().metrics.pods_succeeded;
+    let pods_succeeded = kube_sim
+        .metrics_collector
+        .borrow()
+        .accumulated_metrics
+        .pods_succeeded;
 
     assert_eq!(2, total_pods);
     assert_eq!(0, pods_succeeded);
@@ -406,7 +418,7 @@ fn test_pod_removals() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .internal
             .terminated_pods
     );
@@ -415,14 +427,25 @@ fn test_pod_removals() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .total_pods_in_trace
     );
     assert_eq!(
         1,
-        kube_sim.metrics_collector.borrow().metrics.pods_succeeded
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_succeeded
     );
-    assert_eq!(1, kube_sim.metrics_collector.borrow().metrics.pods_removed);
+    assert_eq!(
+        1,
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_removed
+    );
 }
 
 #[test]
@@ -464,7 +487,7 @@ fn test_pod_removal_concurrently_with_node_removal() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .internal
             .terminated_pods
     );
@@ -473,10 +496,17 @@ fn test_pod_removal_concurrently_with_node_removal() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .total_pods_in_trace
     );
-    assert_eq!(2, kube_sim.metrics_collector.borrow().metrics.pods_removed);
+    assert_eq!(
+        2,
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_removed
+    );
 }
 
 #[test]
@@ -516,7 +546,7 @@ fn test_removed_pod_frees_place_for_other_pod() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .internal
             .terminated_pods
     );
@@ -525,24 +555,42 @@ fn test_removed_pod_frees_place_for_other_pod() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .total_pods_in_trace
     );
 
     assert_eq!(
         1,
-        kube_sim.metrics_collector.borrow().metrics.pods_succeeded
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_succeeded
     );
-    assert_eq!(0, kube_sim.metrics_collector.borrow().metrics.pods_failed);
     assert_eq!(
         0,
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
+            .pods_failed
+    );
+    assert_eq!(
+        0,
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
             .pods_unschedulable
     );
-    assert_eq!(1, kube_sim.metrics_collector.borrow().metrics.pods_removed);
+    assert_eq!(
+        1,
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_removed
+    );
 }
 
 #[test]
@@ -566,7 +614,7 @@ fn test_pod_removed_after_it_was_finished() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .internal
             .terminated_pods
     );
@@ -575,11 +623,15 @@ fn test_pod_removed_after_it_was_finished() {
         kube_sim
             .metrics_collector
             .borrow()
-            .metrics
+            .accumulated_metrics
             .total_pods_in_trace
     );
     assert_eq!(
         2,
-        kube_sim.metrics_collector.borrow().metrics.pods_succeeded
+        kube_sim
+            .metrics_collector
+            .borrow()
+            .accumulated_metrics
+            .pods_succeeded
     );
 }

@@ -218,7 +218,7 @@ impl EventHandler for PersistentStorage {
 
                 self.metrics_collector
                     .borrow_mut()
-                    .metrics
+                    .accumulated_metrics
                     .internal
                     .processed_nodes += 1;
             }
@@ -273,6 +273,7 @@ impl EventHandler for PersistentStorage {
                 self.ctx.emit(
                     AssignPodToNodeResponse {
                         pod_name,
+                        pod_requests: pod.spec.resources.requests.clone(),
                         pod_group: pod.metadata.labels.get("pod_group").cloned(),
                         pod_group_creation_time: pod
                             .metadata
@@ -329,7 +330,7 @@ impl EventHandler for PersistentStorage {
 
                     self.metrics_collector
                         .borrow_mut()
-                        .metrics
+                        .accumulated_metrics
                         .increment_pod_duration(pod.spec.running_duration.unwrap());
                     self.succeeded_pods.insert(pod_name, pod);
                 }

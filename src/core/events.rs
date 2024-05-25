@@ -14,7 +14,7 @@ use crate::autoscalers::horizontal_pod_autoscaler::interface::{PodGroup, PodGrou
 use crate::core::node::Node;
 use crate::core::pod::{Pod, PodConditionType};
 
-use crate::core::common::RuntimeResourcesUsageModelConfig;
+use crate::core::common::{RuntimeResources, RuntimeResourcesUsageModelConfig};
 
 /// Event from client to api server with request to create node. Api server redirects this request
 /// firstly to persistent storage and on response creates a node.
@@ -138,6 +138,7 @@ pub struct AssignPodToNodeRequest {
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct AssignPodToNodeResponse {
     pub pod_name: String,
+    pub pod_requests: RuntimeResources,
     pub pod_group: Option<String>,
     pub pod_group_creation_time: Option<String>,
     pub node_name: String,
@@ -157,6 +158,7 @@ pub struct PodNotScheduled {
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct BindPodToNodeRequest {
     pub pod_name: String,
+    pub pod_requests: RuntimeResources,
     pub pod_group: Option<String>,
     pub pod_group_creation_time: Option<String>,
     pub node_name: String,
@@ -218,6 +220,10 @@ pub struct RunHorizontalPodAutoscalerCycle {}
 /// Event from metrics collector to itself to collect pod metrics in working interval.
 #[derive(Serialize, Clone, IsSimulationEvent)]
 pub struct RunPodMetricsCollectionCycle {}
+
+/// Event from metrics collector to itself to record gauge metrics into file.
+#[derive(Serialize, Clone, IsSimulationEvent)]
+pub struct RecordGaugeMetricsCycle {}
 
 /// Event from cluster autoscaler->api server->persistent storage to find out information
 /// which cluster autoscaler needs (described in `AutoscaleInfoRequestType` enum)

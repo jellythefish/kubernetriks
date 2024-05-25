@@ -19,10 +19,13 @@ use crate::core::resource_usage::interface::ResourceUsageModel;
 
 use crate::config::SimulationConfig;
 
+use crate::core::common::RuntimeResources;
+
 pub struct RunningPodInfo {
     pub event_id: Option<EventId>,
     /// Name of pod group a pod belongs to. None if a pod is not in group.
     pub pod_group: Option<String>,
+    pub pod_requests: RuntimeResources,
     pub cpu_usage_model: Option<Box<dyn ResourceUsageModel>>,
     pub ram_usage_model: Option<Box<dyn ResourceUsageModel>>,
 }
@@ -77,14 +80,32 @@ impl NodeComponent {
         &self.ctx.name()
     }
 
+    pub fn allocate_pod_requests(&mut self, requests: &RuntimeResources) {
+        self.runtime.as_mut().unwrap().node.status.allocatable.cpu -= requests.cpu;
+        self.runtime.as_mut().unwrap().node.status.allocatable.ram -= requests.ram;
+    }
+
+    pub fn free_pod_requests(&mut self, requests: &RuntimeResources) {
+        self.runtime.as_mut().unwrap().node.status.allocatable.cpu += requests.cpu;
+        self.runtime.as_mut().unwrap().node.status.allocatable.ram += requests.ram;
+    }
+
     /// This method cancels events `PodFinishedRunning` of a current node which were submitted to
     /// the simulation queue and which delay is >= current cancellation time.
     fn cancel_all_running_pods(&mut self) {
+        let mut freed_resources: Vec<RuntimeResources> = Default::default();
+        freed_resources.reserve(self.running_pods.len());
+
         for (pod_name, info) in self.running_pods.iter() {
+            freed_resources.push(info.pod_requests.clone());
             self.canceled_pods.insert(pod_name.to_string());
             if let Some(event_id) = info.event_id {
                 self.ctx.cancel_event(event_id);
             }
+        }
+
+        for requests in freed_resources.into_iter() {
+            self.free_pod_requests(&requests);
         }
 
         self.running_pods.clear();
@@ -94,6 +115,7 @@ impl NodeComponent {
         &mut self,
         event_time: f64,
         pod_name: String,
+        pod_requests: RuntimeResources,
         pod_group: Option<String>,
         pod_group_creation_time: Option<String>,
         pod_duration: Option<f64>,
@@ -139,11 +161,14 @@ impl NodeComponent {
             ));
         }
 
+        self.allocate_pod_requests(&pod_requests);
+
         let running_pod_info = RunningPodInfo {
             event_id,
+            pod_group,
+            pod_requests,
             cpu_usage_model,
             ram_usage_model,
-            pod_group,
         };
 
         self.running_pods.insert(pod_name, running_pod_info);
@@ -155,6 +180,7 @@ impl EventHandler for NodeComponent {
         cast!(match event.data {
             BindPodToNodeRequest {
                 pod_name,
+                pod_requests,
                 pod_group,
                 pod_group_creation_time,
                 node_name,
@@ -178,6 +204,7 @@ impl EventHandler for NodeComponent {
                 self.simulate_pod_runtime(
                     event.time,
                     pod_name.clone(),
+                    pod_requests,
                     pod_group,
                     pod_group_creation_time,
                     pod_duration,
@@ -203,7 +230,9 @@ impl EventHandler for NodeComponent {
                 finish_time,
                 finish_result,
             } => {
-                self.running_pods.remove(&pod_name).unwrap();
+                let info = self.running_pods.remove(&pod_name).unwrap();
+
+                self.free_pod_requests(&info.pod_requests);
 
                 self.ctx.emit_now(
                     PodFinishedRunning {
@@ -247,6 +276,7 @@ impl EventHandler for NodeComponent {
                 if self.running_pods.contains_key(&pod_name) {
                     // pod is still running - cancel it and send response to api server about removal
                     let info = self.running_pods.remove(&pod_name).unwrap();
+                    self.free_pod_requests(&info.pod_requests);
                     if let Some(event_id) = info.event_id {
                         self.ctx.cancel_event(event_id);
                     }

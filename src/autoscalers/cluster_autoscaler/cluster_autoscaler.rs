@@ -183,7 +183,7 @@ impl ClusterAutoscaler {
 
         self.metrics_collector
             .borrow_mut()
-            .metrics
+            .accumulated_metrics
             .total_scaled_up_nodes += 1;
     }
 
@@ -200,7 +200,7 @@ impl ClusterAutoscaler {
 
         self.metrics_collector
             .borrow_mut()
-            .metrics
+            .accumulated_metrics
             .total_scaled_down_nodes += 1;
     }
 

@@ -6,7 +6,7 @@ Framework to simulate k8s cluster, workload scheduling and autoscaling based on 
 Run:
 ```
 cargo test && cargo test -- --ignored
-cargo run -- --config-file src/config.yaml
+cargo run --release -- --config-file src/config.yaml
 ```
 
 ### TODO

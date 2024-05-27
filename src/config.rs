@@ -22,7 +22,9 @@ pub struct SimulationConfig {
     pub horizontal_pod_autoscaler: HorizontalPodAutoscalerConfig,
     pub metrics_printer: Option<MetricsPrinterConfig>,
     pub default_cluster: Option<Vec<NodeGroup>>,
+    // TODO: In SchedulerConfig struct two fields below:
     pub scheduling_cycle_interval: f64, // in seconds
+    pub enable_unscheduled_pods_conditional_move: bool,
     // Simulated network delays, as = api server, ps = persistent storage, ca = cluster autoscaler,
     // hpa = horizontal pod autoscaler.
     // All delays are in seconds with fractional part. Assuming all delays are bidirectional.

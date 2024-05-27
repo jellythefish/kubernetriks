@@ -207,7 +207,7 @@ impl Scheduler {
     /// Assuming `check` returns true if should move current pod.
     /// Inside lambda's captured state (pod/node) resources decrease on amount of resources of pods
     /// which are moved.
-    fn move_to_active_queue_if_sufficient_resources(
+    fn move_to_active_queue_if(
         &mut self,
         mut check: impl FnMut(&RuntimeResources) -> bool,
     ) {
@@ -227,6 +227,17 @@ impl Scheduler {
             ) {
                 pods_to_move.push(key.clone());
             }
+        }
+
+        self.move_pods_to_active_queue(pods_to_move);
+    }
+
+    fn move_all_to_active_queue(&mut self) {
+        let mut pods_to_move: Vec<UnschedulablePodKey> = vec![];
+        pods_to_move.reserve(self.unschedulable_pods.len());
+
+        for key in self.unschedulable_pods.keys() {
+            pods_to_move.push(key.clone());
         }
 
         self.move_pods_to_active_queue(pods_to_move);
@@ -364,7 +375,7 @@ impl Scheduler {
             }
             return false;
         };
-        self.move_to_active_queue_if_sufficient_resources(check);
+        self.move_to_active_queue_if(check);
     }
 }
 
@@ -381,17 +392,21 @@ impl EventHandler for Scheduler {
                 let mut allocatable = node.status.allocatable.clone();
                 self.add_node(node);
 
-                let check = |requested_resources: &RuntimeResources| {
-                    if requested_resources.cpu <= allocatable.cpu
-                        && requested_resources.ram <= allocatable.ram
-                    {
-                        allocatable.cpu -= requested_resources.cpu;
-                        allocatable.ram -= requested_resources.ram;
-                        return false;
-                    }
-                    return true;
-                };
-                self.move_to_active_queue_if_sufficient_resources(check);
+                if self.config.enable_unscheduled_pods_conditional_move {
+                    let check = |requested_resources: &RuntimeResources| {
+                        if requested_resources.cpu <= allocatable.cpu
+                            && requested_resources.ram <= allocatable.ram
+                        {
+                            allocatable.cpu -= requested_resources.cpu;
+                            allocatable.ram -= requested_resources.ram;
+                            return false;
+                        }
+                        return true;
+                    };
+                    self.move_to_active_queue_if(check);
+                } else {
+                    self.move_all_to_active_queue();
+                }
             }
             PodScheduleRequest { pod } => {
                 let pod_name = pod.metadata.name.clone();
@@ -417,7 +432,11 @@ impl EventHandler for Scheduler {
                     .remove(&pod_name);
                 self.release_node_resources(&pod);
 
-                self.move_to_active_due_to_pod_freed_resources(pod.spec.resources.requests.clone());
+                if self.config.enable_unscheduled_pods_conditional_move {
+                    self.move_to_active_due_to_pod_freed_resources(pod.spec.resources.requests.clone());
+                } else {
+                    self.move_all_to_active_queue();
+                }
             }
             RemoveNodeFromCache { node_name } => {
                 self.objects_cache.nodes.remove(&node_name).unwrap();
@@ -440,9 +459,13 @@ impl EventHandler for Scheduler {
                             .unwrap()
                             .remove(&pod_name);
 
-                        self.move_to_active_due_to_pod_freed_resources(
-                            pod.spec.resources.requests.clone(),
-                        );
+                        if self.config.enable_unscheduled_pods_conditional_move {
+                            self.move_to_active_due_to_pod_freed_resources(
+                                pod.spec.resources.requests.clone(),
+                            );
+                        } else {
+                            self.move_all_to_active_queue();
+                        }                   
                     }
                     // Otherwise, pod is in one of scheduling queues. So when we process popping
                     // from queue - just skip it with the help of checking existence in objects cache.

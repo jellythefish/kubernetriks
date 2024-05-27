@@ -57,25 +57,18 @@ impl AlibabaWorkloadTraceV2017 {
         let mut pods = vec![];
         pods.reserve(instances.len());
 
-        let mut used_pod_names: HashSet<String> = Default::default();
+        let mut pod_no = 0u64;
 
         for instance in instances {
             if instance.start_timestamp.is_none()
-                || instance.end_timestamp.is_none()
-                || instance.task_id.is_none()
-                || instance.job_id.is_none()
+                || instance.end_timestamp.is_none() || instance.task_id.is_none()
             {
-                continue;
-            }
-            let start_timestamp = instance.start_timestamp.unwrap();
-            // TODO: if no end timestamp - stop after 12 hours
-            let end_timestamp = instance.end_timestamp.unwrap();
-            if start_timestamp <= 0 || end_timestamp <= 0 || start_timestamp >= end_timestamp {
                 continue;
             }
             if !self.batch_tasks.contains_key(&instance.task_id.unwrap()) {
                 continue;
             }
+
             let batch_task = self.batch_tasks.get(&instance.task_id.unwrap()).unwrap();
             if batch_task
                 .number_of_cpus_requested_per_instance_in_the_task
@@ -86,21 +79,26 @@ impl AlibabaWorkloadTraceV2017 {
             {
                 continue;
             }
+
+            let start_timestamp = instance.start_timestamp.unwrap();
+            let end_timestamp = instance.end_timestamp.unwrap();
+            if start_timestamp <= 0 || end_timestamp <= 0 || start_timestamp >= end_timestamp {
+                continue;
+            }
+
             let pod_name = format!(
                 "{}_{}_{}",
                 instance.job_id.unwrap(),
                 instance.task_id.unwrap(),
-                instance.sequence_number
+                pod_no,
             );
-            if used_pod_names.contains(&pod_name) {
-                continue;
-            }
-            used_pod_names.insert(pod_name.clone());
+            pod_no += 1;
 
-            let cpu = batch_task
+            // Considering that it is in santicores in trace, 1 core = 100 santicores = 1000 millicores
+            let cpu_santicores = batch_task
                 .number_of_cpus_requested_per_instance_in_the_task
                 .unwrap();
-            let converted_cpu = (cpu * CPU_BASE) as u32; // in millicores
+            let converted_cpu = (cpu_santicores * 10) as u32;
             let ram = batch_task
                 .normalized_memory_requested_per_instance_in_the_task
                 .unwrap();
@@ -115,6 +113,8 @@ impl AlibabaWorkloadTraceV2017 {
             );
             pods.push((start_timestamp as f64, pod));
         }
+
+        println!("NUmber of pods {}", pods.len());
 
         pods
     }

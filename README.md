@@ -1,12 +1,12 @@
-# kubernetriks
-kubernetriks = k8s + matrix ("What is the Matrix? Control." (Morpheus, The Matrix, 1999))
+# Kubernetriks (k10s)
+Kubernetriks = k8s + matrix ("What is the Matrix? Control." (Morpheus, The Matrix, 1999))
 
 Framework to simulate k8s cluster, workload scheduling and autoscaling based on DSLab framework for distributed systems simulations.
 
-Run prototype:
+Run:
 ```
-cargo test
-RUST_LOG=debug cargo run -- --config-file src/config.yaml
+cargo test && cargo test -- --ignored
+cargo run -- --config-file src/config.yaml
 ```
 
 ### TODO
@@ -101,6 +101,7 @@ Option
 - [ ] Вынести все константы строковые в отдельный constants.rs
 - [ ] Добавить ассерт на количество ресурсов на узле в планировщике внешнем + проверка на самой ноде.
 - [ ] Отправлять объект Pod при Bind вместо 100500 полей, которые почти и так его уже повторяют.
+- [ ] Доработать gauge метрики для утилизации группы подов 
 
 future work:
 - усовершенствовать алгоритм kube cluster autoscaler-а - сделать алгоритмы разного выбора группы узлов

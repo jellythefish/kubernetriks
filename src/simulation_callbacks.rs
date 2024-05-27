@@ -111,6 +111,7 @@ impl RunUntilAllPodsAreFinishedAndLongRunningPodsExceedDeadlineCallbacks {
 
 impl SimulationCallbacks for RunUntilAllPodsAreFinishedAndLongRunningPodsExceedDeadlineCallbacks {
     fn on_step(&mut self, sim: &mut KubernetriksSimulation) -> bool {
+        // TODO: fix bug here which instantly terminates simulation.
         if self.all_short_pods_terminated {
             // all short pods are finished, check if we reached deadline
             return sim.sim.time() < self.deadline_time;

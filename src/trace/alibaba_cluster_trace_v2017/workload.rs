@@ -68,6 +68,7 @@ impl AlibabaWorkloadTraceV2017 {
                 continue;
             }
             let start_timestamp = instance.start_timestamp.unwrap();
+            // TODO: if no end timestamp - stop after 12 hours
             let end_timestamp = instance.end_timestamp.unwrap();
             if start_timestamp <= 0 || end_timestamp <= 0 || start_timestamp >= end_timestamp {
                 continue;

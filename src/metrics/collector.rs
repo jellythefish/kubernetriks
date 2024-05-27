@@ -213,7 +213,7 @@ pub struct MetricsCollector {
 
 impl MetricsCollector {
     pub fn new() -> Self {
-        let mut gauge_metrics_writer = Writer::from_path("gauge_metrics.csv").unwrap();
+        let mut gauge_metrics_writer = Writer::from_path("experiments/gauge_metrics.csv").unwrap();
         gauge_metrics_writer
             .write_record(&[
                 "timestamp",

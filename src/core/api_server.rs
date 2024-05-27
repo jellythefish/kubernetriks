@@ -445,11 +445,13 @@ impl EventHandler for KubeApiServer {
                     .gauge_metrics
                     .current_pods += info.pod_group.initial_pod_count as u64;
 
-                self.ctx.emit(
-                    RegisterPodGroup { info },
-                    self.horizontal_pod_autoscaler.unwrap(),
-                    self.config.as_to_hpa_network_delay,
-                );
+                if self.horizontal_pod_autoscaler.is_some() {
+                    self.ctx.emit(
+                        RegisterPodGroup { info },
+                        self.horizontal_pod_autoscaler.unwrap(),
+                        self.config.as_to_hpa_network_delay,
+                    );
+                }
             }
         })
     }

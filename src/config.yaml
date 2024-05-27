@@ -1,0 +1,78 @@
+sim_name: "kubernetriks"
+seed: 123
+
+logs_filepath: "logs/kubernetriks.log"
+
+metrics_printer:
+  format: !PrettyTable
+  output_file: /home/btkz/master/diploma/kubernetriks/metrics.txt
+
+horizontal_pod_autoscaler:
+  enabled: false
+  type: kube_horizontal_pod_autoscaler
+
+cluster_autoscaler:
+  enabled: false
+  type: kube_cluster_autoscaler
+  max_node_count: 200
+  node_groups:
+  - max_count: 50
+    node_template:
+      metadata:
+        name: autoscaler_128cpu_256gb_node
+      status:
+        capacity:
+          cpu: 128000
+          ram: 274877906944
+  - node_template:
+      metadata:
+        name: autoscaler_64cpu_128gb_node
+      status:
+        capacity:
+          cpu: 64000
+          ram: 137438953472
+
+trace_config:
+  # generic_trace:
+  #   workload_trace_path: src/data/generic_workload_trace_example.yaml
+  #   cluster_trace_path: src/data/generic_cluster_trace_example.yaml
+
+  alibaba_cluster_trace_v2017:
+    batch_instance_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/batch_instance.csv
+    batch_task_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/modified/batch_task_fit_only.csv
+    machine_events_trace_path: /home/btkz/master/diploma/traces/alibaba-cluster-trace-v2017/modified/server_event_add_only.csv
+
+# default_cluster:
+# - node_template:
+#     metadata:
+#       name: super_node_1024cpu_512gb
+#     status:
+#       capacity:
+#         cpu: 1024000
+#         ram: 549755813888
+# - node_count: 10
+#   node_template:
+#     metadata:
+#       name: default_128cpu_256gb_node
+#     status:
+#       capacity:
+#         cpu: 128000
+#         ram: 274877906944
+# - node_count: 20
+#   node_template:
+#     metadata:
+#       name: default_64cpu_128gb_node
+#     status:
+#       capacity:
+#         cpu: 64000
+#         ram: 137438953472
+
+scheduling_cycle_interval: 10.0
+enable_unscheduled_pods_conditional_move: false
+
+as_to_ps_network_delay: 0.050
+ps_to_sched_network_delay: 0.089
+sched_to_as_network_delay: 0.023
+as_to_node_network_delay: 0.152
+as_to_ca_network_delay: 0.67
+as_to_hpa_network_delay: 0.50

@@ -1,0 +1,11 @@
+[package]
+name = "dslab-kubernetriks-derive"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "2.0.57"
+quote = "1.0.35"

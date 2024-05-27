@@ -1,0 +1,10 @@
+# Rust
+debug/
+target/
+logs/
+
+.vscode/
+
+*.log
+*.txt
+*.csv
